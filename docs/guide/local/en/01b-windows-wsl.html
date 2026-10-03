@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up WSL on Windows | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="01b-windows-wsl.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>Windows</span><span>WSL 2</span><span>Ubuntu</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Set up WSL on Windows</h1>
+    <p class="lead">For Windows users who have never used WSL: this page takes you from installing WSL 2 and Ubuntu to having the Git, Python and JDK that EchoLab needs installed inside Ubuntu. When you finish, continue with <a href="02-setup.html">Setup</a>.</p>
+    <p>The Windows-side steps follow Microsoft's official documentation (links in <a href="#refs">References</a> at the end of the page). The terminal sessions inside Ubuntu were recorded on a real Ubuntu 24.04 environment.</p>
+
+    <h2>Do I need this page?</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  Q{"What is your computer?"} -- Linux or macOS --&gt; S["Skip this page"]
+  Q -- Windows --&gt; W{"Already have a working&lt;br/&gt;WSL 2 + Ubuntu?"}
+  W -- Yes --&gt; T["Start at section 4&lt;br/&gt;(install tools in Ubuntu)"]
+  W -- No / not sure --&gt; F["Read this page from the start"]
+  S --&gt; N["Next page: Setup"]
+  T --&gt; N
+  F --&gt; N
+      </pre>
+      <div class="caption">Figure 1: Linux and macOS users can skip this page and go straight to <a href="02-setup.html">Setup</a></div>
+    </div>
+    <p>Not sure whether you have installed it before? Run <code>wsl -l -v</code> in PowerShell (see <a href="#verify">Check the installation</a> below). If it lists a distribution with VERSION 2, you are already set up.</p>
+
+    <h2>What WSL is, and why EchoLab runs inside it</h2>
+    <p>WSL (Windows Subsystem for Linux) lets you use a Linux distribution (such as Ubuntu) and its command-line tools directly on Windows, without a traditional virtual machine or dual-boot setup. WSL 2 runs a real Linux kernel in a lightweight utility virtual machine.</p>
+    <p>On Windows, EchoLab should run inside WSL because:</p>
+    <ul>
+      <li><strong>It matches CI</strong>: the repository's GitHub Actions run the tests on <code>ubuntu-latest</code> with Python 3.12 and JDK 21. Inside WSL's Ubuntu, commands, paths and line endings all behave the same as in CI.</li>
+      <li><strong>This guide's commands are Linux commands</strong>: things like <code>.venv/bin/python</code>, <code>./gradlew</code> and <code>export JAVA_HOME=…</code> do not work as written in PowerShell.</li>
+      <li><strong>Work on one side only</strong>: keep the tools (Git, Python, JDK) and the code in Linux, and do not mix in Windows-side tools. For the reasons, see "run every command inside WSL" in <a href="01-prerequisites.html">Prerequisites</a>.</li>
+    </ul>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TB
+  WT["Windows Terminal&lt;br/&gt;or Ubuntu in the Start menu"]
+  VS["VS Code + WSL extension&lt;br/&gt;(optional)"]
+  EX["File Explorer&lt;br/&gt;\\wsl$"]
+  subgraph VM["WSL 2 (lightweight VM)"]
+    direction TB
+    U["Ubuntu&lt;br/&gt;git・python3・java"]
+    H["~/echolab&lt;br/&gt;Linux file system"]
+    U --&gt; H
+  end
+  C["Windows C: drive&lt;br/&gt;/mnt/c in Linux"]
+  WT -- opens a shell --&gt; U
+  VS -- remote connection --&gt; U
+  EX -- browse files --&gt; H
+  U -. crosses the boundary, slow&lt;br/&gt;do not put the repo here .-&gt; C
+      </pre>
+      <div class="caption">Figure 2: Windows Terminal and VS Code are only "front ends"; commands actually run in Ubuntu inside WSL 2, and the code lives in Ubuntu's home directory <code>~</code></div>
+    </div>
+
+    <h2>Overall steps</h2>
+    <p>Click "Next" to step through them, or "Auto-play".</p>
+    <div class="flow-anim" data-cols="11">
+      <div class="stage">
+        <div class="node" data-id="admin">Admin terminal<small>PowerShell</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="install">Install<small>wsl --install</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="reboot">Restart<small>Windows</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="user">Create user<small>Linux user name</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="apt">Install tools<small>apt install</small></div>
+        <div class="arrow" data-id="a5">→</div>
+        <div class="node" data-id="clone">Clone<small>~/echolab</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["admin"], "text": "In the Start menu, right-click PowerShell (or Windows Terminal) and choose \"Run as administrator\". First make sure your Windows version meets the requirement (Windows 10 version 2004 / Build 19041 or later, or Windows 11)."},
+        {"on": ["a1", "install"], "done": ["admin"], "packet": {"at": "install", "text": "WSL 2 + Ubuntu"}, "text": "Run <code>wsl --install</code>: it enables the two optional components WSL and \"Virtual Machine Platform\", installs the Linux kernel, sets WSL 2 as the default, and downloads and installs Ubuntu."},
+        {"on": ["a2", "reboot"], "done": ["admin", "install"], "text": "<strong>Restart your computer</strong> when prompted. The enabled components take effect only after a restart."},
+        {"on": ["a3", "user"], "done": ["admin", "install", "reboot"], "packet": {"at": "user", "text": "user name + password"}, "text": "The first time you open Ubuntu, it decompresses files and then asks you to create a Linux user name and password. These are unrelated to your Windows account. Nothing appears on screen while you type the password, which is normal."},
+        {"on": ["a4", "apt"], "done": ["admin", "install", "reboot", "user"], "packet": {"at": "apt", "text": "git・python3・JDK 21"}, "text": "In Ubuntu, run <code>sudo apt update &amp;&amp; sudo apt upgrade</code>, then use <code>apt install</code> to install Git, Python (with venv and pip) and JDK 21, and set <code>JAVA_HOME</code>."},
+        {"on": ["a5", "clone"], "done": ["admin", "install", "reboot", "user", "apt"], "packet": {"at": "clone", "text": "~/echolab"}, "text": "<code>git clone</code> into your Ubuntu home directory (not under <code>/mnt/c</code>). For the remaining steps, see <a href=\"02-setup.html\">Setup</a>."}
+      ]</script>
+    </div>
+
+    <h2>1. Check your Windows version and virtualization</h2>
+    <p><code>wsl --install</code> requires <strong>Windows 10 version 2004 or later (Build 19041 or later)</strong>, or <strong>Windows 11</strong>. To check: press <kbd>Windows logo key + R</kbd>, type <code>winver</code> and select "OK". The window that opens shows the version and the OS build number. You can also find them under Settings → System → About.</p>
+    <p>If your version is too old, update it through Windows Update first. Microsoft also provides <a href="https://learn.microsoft.com/en-us/windows/wsl/install-manual">manual installation steps</a> for older versions, but this guide does not cover them.</p>
+    <p>WSL 2 also needs your computer's <strong>virtualization</strong> feature to be enabled. Most computers have it on by default; if you see error <code>0x80370102</code> during installation or startup, see <a href="#trouble">Common problems</a> below.</p>
+
+    <h2>2. Install WSL and Ubuntu</h2>
+    <p>Find <strong>PowerShell</strong> (or Windows Terminal) in the Start menu, right-click it, choose <strong>"Run as administrator"</strong>, and enter:</p>
+    <pre><code>wsl --install</code></pre>
+    <p class="cmd-note">PowerShell (administrator). For Windows-side commands, this page shows only the command itself, without example output.</p>
+    <p>According to Microsoft's documentation, this single command: enables the two optional components "Windows Subsystem for Linux" and "Virtual Machine Platform"; downloads and installs the latest Linux kernel; sets WSL 2 as the default version; and downloads and installs the Ubuntu distribution. You will need to <strong>restart your computer</strong> along the way; restart when prompted.</p>
+
+    <h3>Choosing an Ubuntu version (optional)</h3>
+    <p>The distribution installed by default is named "Ubuntu". To pick a specific version, first list the distributions available online, then give the name with <code>-d</code>:</p>
+    <pre><code>wsl -l -o
+wsl --install -d Ubuntu-24.04</code></pre>
+    <p class="cmd-note">PowerShell. <code>wsl -l -o</code> is short for <code>wsl --list --online</code>. Use the name exactly as it appears in the NAME column of the list after <code>-d</code>.</p>
+    <p>The package names and output on the Ubuntu side of this page were verified on <strong>Ubuntu 24.04</strong>. Which version the default "Ubuntu" points to changes over time, so after installing, check it with <code>cat /etc/os-release</code> as shown below.</p>
+
+    <h3>First launch: create a Linux user</h3>
+    <p>After restarting, open <strong>Ubuntu</strong> from the Start menu (or open an Ubuntu tab in Windows Terminal). On first launch, wait while files are decompressed; you are then asked for a new <strong>user name</strong> and <strong>password</strong>. Things to know (all from Microsoft's documentation):</p>
+    <ul>
+      <li>This user name and password belong only to this Linux distribution and have <strong>nothing to do with your Windows user name or password</strong>. You can choose different ones.</li>
+      <li>While you type the password, <strong>nothing appears on screen</strong> (not even <code>*</code>). This is normal; just press Enter when you are done.</li>
+      <li>This account becomes the distribution's default user and is signed in automatically at launch. It is the Linux administrator and can run administrative commands with <code>sudo</code>. The password <code>sudo</code> asks for later is the one you set here.</li>
+      <li>If you forget the password: in PowerShell, run <code>wsl -u root</code> to enter as root, reset it with <code>passwd &lt;username&gt;</code>, then <code>exit</code>.</li>
+    </ul>
+
+    <h2 id="verify">3. Check the installation</h2>
+    <p>In PowerShell (administrator not needed), run:</p>
+    <pre><code>wsl -l -v</code></pre>
+    <p class="cmd-note">PowerShell. <code>wsl -l -v</code> is short for <code>wsl --list --verbose</code>.</p>
+    <p>It lists the installed distributions, with each one's state (running or stopped) and the WSL version it uses. Check that the Ubuntu row shows <strong>VERSION 2</strong>. Distributions newly installed with <code>wsl --install</code> use WSL 2 by default.</p>
+    <p>If VERSION shows 1, or if you want to update WSL itself to the latest version first, use these commands:</p>
+    <pre><code>wsl --update
+wsl --set-default-version 2
+wsl --set-version Ubuntu 2</code></pre>
+    <p class="cmd-note">PowerShell. In order: update WSL; make WSL 2 the default for distributions installed from now on; convert an installed distribution (here the one named Ubuntu; use the name shown by <code>wsl -l -v</code>) to WSL 2.</p>
+    <p>Microsoft's documentation warns that converting between WSL 1 and WSL 2 can take a long time and may fail; if the distribution already holds important files, back them up first. A freshly installed, empty distribution is nothing to worry about.</p>
+
+    <h2>4. Install the tools EchoLab needs inside Ubuntu</h2>
+    <p>From here on, <strong>run every command in the Ubuntu terminal</strong> (the prompt usually looks like <code>username@computername:~$</code>), not in PowerShell.</p>
+    <p>First check the distribution's version, then update its packages. Windows does not update the Linux distributions in WSL automatically, so update once yourself the first time you use it, and regularly after that:</p>
+    <div class="term" data-title="bash — Ubuntu: version and update">
+      <script type="application/json">[
+        {
+"cmd": "cat /etc/os-release | head -2"
+},
+        {
+"out": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"",
+"cls": "hl"
+},
+        {
+"out": "NAME=\"Ubuntu\""
+},
+        {
+"cmd": "sudo apt update && sudo apt upgrade"
+},
+        {
+"out": "… (downloading package lists)",
+"cls": "dim",
+"delay": 700
+},
+        {
+"out": "Reading state information..."
+},
+        {
+"out": "3 packages can be upgraded. Run 'apt list --upgradable' to see them."
+},
+        {
+"out": "… (lists the packages to upgrade; type Y to confirm and the upgrade starts)",
+"cls": "dim",
+"delay": 700
+},
+        {
+"out": "Processing triggers for libc-bin (2.39-0ubuntu8.9) ..."
+}
+]</script>
+    </div>
+    <p>Then install all the tools EchoLab needs in one go:</p>
+    <div class="term" data-title="bash — Ubuntu: install Git, Python, JDK 21">
+      <script type="application/json">[
+        {"cmd": "sudo apt install -y git python3 python3-venv python3-pip openjdk-21-jdk"},
+        {"out": "…", "cls": "dim"},
+        {"out": "0 upgraded, 328 newly installed, 0 to remove and 0 not upgraded."},
+        {"out": "Need to get 356 MB of archives.", "cls": "hl"},
+        {"out": "After this operation, 1223 MB of additional disk space will be used."},
+        {"out": "… (downloading and installing; takes a few minutes)", "cls": "dim", "delay": 900},
+        {"cmd": "python3 --version"},
+        {"out": "Python 3.12.3", "cls": "hl"},
+        {"cmd": "git --version"},
+        {"out": "git version 2.43.0", "cls": "hl"},
+        {"cmd": "java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18", "cls": "hl"},
+        {"out": "OpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)"},
+        {"out": "OpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)"},
+        {"cmd": "which java python3 git"},
+        {"out": "/usr/bin/java"},
+        {"out": "/usr/bin/python3"},
+        {"out": "/usr/bin/git"}
+      ]</script>
+    </div>
+    <p>This session comes from a fresh Ubuntu 24.04.5 environment (for readability, apt's output is shortened and marked with "…"; package counts, sizes and version numbers change as the package archives are updated). What each package is for:</p>
+    <table>
+      <thead><tr><th>Package</th><th>Used for</th><th>Which path needs it</th></tr></thead>
+      <tbody>
+        <tr><td><code>git</code></td><td>Fetching the code (<code>git clone</code>)</td><td>All</td></tr>
+        <tr><td><code>python3</code></td><td>On Ubuntu 24.04, <code>python3</code> is Python 3.12, which meets EchoLab's requirement (3.12 or later)</td><td>All</td></tr>
+        <tr><td><code>python3-venv</code></td><td>Ubuntu ships <code>venv</code> / <code>ensurepip</code> (used to create virtual environments) as a separate package; without it, <code>python3 -m venv .venv</code> fails</td><td>All</td></tr>
+        <tr><td><code>python3-pip</code></td><td>pip (the virtual environment has its own pip; this one is handy at the system level)</td><td>All</td></tr>
+        <tr><td><code>openjdk-21-jdk</code></td><td>JDK 21: building and running the Java calc service, calc-engine (includes <code>javac</code>)</td><td>Path B, and path C when using the Java service. Not needed if you only follow path A</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Set JAVA_HOME</h3>
+    <p>The JDK installed with apt is already on PATH (<code>/usr/bin/java</code>), but tools such as Gradle's <code>./gradlew</code> also read <code>JAVA_HOME</code>, so set it as well. On Ubuntu 24.04 (x86-64), <code>openjdk-21-jdk</code> is installed in <code>/usr/lib/jvm/java-21-openjdk-amd64</code>:</p>
+    <div class="term" data-title="bash — Ubuntu: JAVA_HOME">
+      <script type="application/json">[
+        {"cmd": "readlink -f \"$(which java)\""},
+        {"out": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java", "cls": "hl"},
+        {"cmd": "echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> ~/.bashrc"},
+        {"cmd": "source ~/.bashrc"},
+        {"cmd": "echo $JAVA_HOME"},
+        {"out": "/usr/lib/jvm/java-21-openjdk-amd64"},
+        {"cmd": "\"$JAVA_HOME/bin/java\" -version 2>&1 | head -1"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The first command shows the actual path. If your output differs (for example <code>…-arm64</code> on an ARM64 computer), put the part before <code>bin/java</code> into <code>JAVA_HOME</code>. Because the line is in <code>~/.bashrc</code>, it takes effect automatically every time you open a terminal.</p>
+    <p>The tools installed in this section are the ones listed in <a href="01-prerequisites.html">Prerequisites</a>; you can double-check them with the checklist at the end of that page.</p>
+
+    <h2>5. Where to put the repository</h2>
+    <p>Clone the repository into your <strong>Ubuntu home directory</strong>, for example <code>~/echolab</code> (that is, <code>/home/&lt;username&gt;/echolab</code>), and <strong>not</strong> under <code>/mnt/c/…</code> (the Windows C: drive):</p>
+    <ul>
+      <li><strong>Speed</strong>: Microsoft recommends keeping files you work on with Linux tools in the WSL file system. Accessing files across operating systems works but can be much slower; installing dependencies and running tests read and write many small files, so the difference is very noticeable.</li>
+      <li><strong>Consistent behavior</strong>: under <code>/mnt/c</code>, file permissions, case sensitivity and so on follow the rules of the Windows file system, which differ from CI's Linux environment.</li>
+    </ul>
+    <p>The clone command itself is in <a href="02-setup.html">Setup</a>. Just run <code>cd ~</code> first to return to your home directory.</p>
+
+    <h3>Viewing files from the Windows side</h3>
+    <ul>
+      <li>In the Ubuntu terminal, go to a directory and run <code>explorer.exe .</code> (note the trailing dot) to open the current directory in Windows File Explorer.</li>
+      <li>Type <code>\\wsl$</code> into File Explorer's address bar to see all installed distributions and their files; your home directory is at <code>\\wsl$\&lt;distribution name&gt;\home\&lt;username&gt;</code>.</li>
+      <li>To edit with VS Code: install VS Code's <a href="https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl">WSL extension</a>, then run <code>code .</code> in the repository directory in the Ubuntu terminal. VS Code connects to WSL and edits and runs things on the Linux side. For details, see Microsoft's <a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-vscode">Get started using VS Code with WSL</a>. This step is optional.</li>
+    </ul>
+    <div class="callout warn"><strong>Viewing is fine; run everything in Ubuntu</strong>Opening and browsing files from the Windows side is no problem, but run Python, Git and Java commands only in the Ubuntu terminal. Do not use the Windows versions of Git or Python on the repository under <code>\\wsl$</code>.</div>
+
+    <h2>6. Set up Git in WSL</h2>
+    <p>If you only <code>git clone</code> the public repository and run EchoLab locally, no Git setup and no GitHub account are needed. If you want to commit locally, first set your name and email in Ubuntu:</p>
+    <pre><code>git config --global user.name "Your Name"
+git config --global user.email "you@example.com"</code></pre>
+    <p class="cmd-note">Ubuntu terminal. These settings are stored in Ubuntu's <code>~/.gitconfig</code> and are completely separate from any Git settings on the Windows side.</p>
+    <p>To push to your own repository on GitHub, you need to authenticate. GitHub does not accept your account password for Git operations over HTTPS; you can choose to:</p>
+    <ul>
+      <li>install the <a href="https://cli.github.com/">GitHub CLI</a> (<code>gh</code>) in Ubuntu and sign in by running <code>gh auth login</code> and following the prompts;</li>
+      <li>or use a <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens">personal access token</a> instead of a password;</li>
+      <li>or set up an <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh">SSH key</a>.</li>
+    </ul>
+    <p>Whichever you choose, set it up in Ubuntu, and run Git commands only in Ubuntu.</p>
+
+    <h2 id="trouble">7. Common problems</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Error <code>0x80370102</code> during installation or startup ("The virtual machine could not be started because a required feature is not installed.")</td><td>The computer's virtualization feature is off, or "Virtual Machine Platform" is not enabled</td><td>Turn on virtualization in the BIOS (UEFI) settings as described by your computer's manufacturer (usually among the CPU options), and make sure "Virtual Machine Platform" is enabled. See Microsoft's <a href="https://support.microsoft.com/windows/c5578302-6e43-4b4b-a449-8ced115f58e1">Enable virtualization on Windows</a>. Note also that WSL 2 requires a CPU that supports SLAT; very old CPUs cannot run WSL 2</td></tr>
+        <tr><td><code>wsl --install</code> is not available</td><td>Windows is too old (earlier than Windows 10 version 2004 / Build 19041)</td><td>Check the version with <code>winver</code>, update through Windows Update, then install</td></tr>
+        <tr><td>Running <code>wsl --install</code> only shows WSL's help text</td><td>WSL is already installed (this command works only when WSL is not installed at all)</td><td>Run <code>wsl --list --online</code> to see the available distributions, then <code>wsl --install -d Ubuntu</code> (or another name from the list) to install just the distribution</td></tr>
+        <tr><td>Installing dependencies and running tests are very slow</td><td>The repository is under <code>/mnt/c/…</code>, so every file read and write crosses the boundary between Windows and Linux</td><td>Clone again into your Ubuntu home directory (<code>cd ~</code>, then <code>git clone</code>) and recreate <code>.venv</code> in the new location</td></tr>
+        <tr><td>Running a script fails with <code>cannot execute: required file not found</code>, or shows <code>$'\r': command not found</code></td><td>The file has Windows CRLF line endings (for example, it was cloned with the Windows version of Git, or saved by an editor that converts line endings to CRLF)</td><td>Clone again in Ubuntu with the Linux version of Git. The repository's <code>.gitattributes</code> already specifies <code>eol=lf</code>; you can also run <code>git config --global core.autocrlf input</code> in Ubuntu so that CRLF is converted to LF on commit. See the section on line endings in Microsoft's <a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-git">Get started using Git on WSL</a></td></tr>
+        <tr><td><code>java: command not found</code>, although <code>java.exe -version</code> works; or you used <code>python.exe</code> out of habit</td><td>The tools are installed only on the Windows side. WSL can run Windows programs (with <code>.exe</code>), but those are the Windows versions and see the Windows environment</td><td>Install them in Ubuntu with <code>apt install</code> as in section 4 above. Check that <code>which java python3 git</code> shows paths under <code>/usr/…</code>, not <code>/mnt/c/…</code>, and never include <code>.exe</code> in commands</td></tr>
+        <tr><td><code>sudo</code> asks for a password you cannot remember</td><td>The Linux user's password is unrelated to your Windows password</td><td>In PowerShell, run <code>wsl -u root</code>, then reset it with <code>passwd &lt;username&gt;</code></td></tr>
+      </tbody>
+    </table>
+    <p>The two error messages in the line-endings row are what Ubuntu 24.04 actually printed when running scripts with CRLF line endings (the first appears when the <code>#!</code> line ends with CR, the second when the script contains a blank line); the wording may differ with other script contents and shell versions. For problems with EchoLab itself, see <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</p>
+
+    <h2 id="refs">References</h2>
+    <p>The Windows-side content on this page is based on these official Microsoft documents:</p>
+    <ul>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/install">How to install Linux on Windows with WSL</a> (prerequisites, <code>wsl --install</code>, changing the distribution, checking the WSL version)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/setup/environment">Set up a WSL development environment</a> (what <code>--install</code> does, Linux user name and password, updating packages, file storage, VS Code)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/basic-commands">Basic commands for WSL</a> (<code>-l -o</code>, <code>-l -v</code>, <code>--update</code>, <code>--set-default-version</code>, <code>--set-version</code>)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">Working across file systems</a> (where to store files, <code>explorer.exe .</code>, <code>\\wsl$</code>, running Windows programs)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/troubleshooting">Troubleshooting WSL</a> (<code>0x80370102</code>, virtualization, checking the build number)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/install-manual">Manual installation steps for older versions of WSL</a> (checking the version with <code>winver</code>)</li>
+      <li><a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-git">Get started using Git on WSL</a> (Git setup, line endings)</li>
+    </ul>
+    <p>Microsoft's documentation is updated over time; where this page and the official documentation disagree, follow the official documentation.</p>
+
+    <div class="callout ok"><strong>WSL is ready</strong>Next: in the Ubuntu terminal, run <code>cd ~</code>, then follow <a href="02-setup.html">Setup</a> to clone the repository and create the virtual environment.</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

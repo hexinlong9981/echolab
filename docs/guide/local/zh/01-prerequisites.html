@@ -37,6 +37,7 @@
       <li><strong>macOS</strong>：命令与 Linux 相同（在「终端」中执行）。</li>
       <li><strong>Windows</strong>：请使用 <strong>WSL2</strong>（Windows Subsystem for Linux），在 WSL 的 Linux 里完成本指南的全部操作。</li>
     </ul>
+    <div class="callout"><strong>从未用过 WSL？</strong>先看 <a href="01b-windows-wsl.html">在 Windows 上安装设置 WSL</a>：从安装 WSL 2 和 Ubuntu，到在 Ubuntu 里装好本页列出的 Python、Git、JDK 21。</div>
     <div class="callout warn"><strong>Windows 用户：所有命令都在 WSL 里执行，不要混用 Windows 一侧的工具</strong>
       在 WSL 的终端里，PATH 默认也包含 Windows 的目录（<code>/mnt/c/…</code>），所以 Windows 版的 <code>python.exe</code>、<code>git.exe</code> 也能被找到。它们看到的是 Windows 的文件系统和换行规则，和本指南的命令不兼容。请做到三点：
       <ul>

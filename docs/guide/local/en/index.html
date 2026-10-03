@@ -72,6 +72,7 @@ flowchart TD
       ]</script>
     </div>
 
+    <div class="callout"><strong>Windows users</strong>All commands in this guide run in WSL's Linux. Never used WSL? Start with <a href="01b-windows-wsl.html">Set up WSL on Windows</a>.</div>
     <p>Below is a real session on a fresh Linux (WSL2) environment. Dependencies were installed with <code>-q</code>, which prints almost nothing on success. The path has been shortened to <code>~/echolab</code>.</p>
     <div class="term" data-title="bash — shortest path">
       <script type="application/json">[
@@ -106,6 +107,7 @@ flowchart TD
     <h2>What each page covers</h2>
     <div class="cards">
       <a class="card" href="01-prerequisites.html" style="text-decoration:none"><h4>Prerequisites</h4><p>OS (including WSL2), Python, Git, JDK 21, Docker, an API key, and which path needs which.</p></a>
+      <a class="card" href="01b-windows-wsl.html" style="text-decoration:none"><h4>Set up WSL on Windows</h4><p>For Windows users: install WSL 2 and Ubuntu, then install Git, Python and JDK 21 inside Ubuntu.</p></a>
       <a class="card" href="02-setup.html" style="text-decoration:none"><h4>Setup</h4><p>Clone, virtual environment, dependencies, confirming the install with tests, and a directory tour.</p></a>
       <a class="card" href="03-scripted.html" style="text-decoration:none"><h4>Run in scripted mode (no API key)</h4><p>Path A: run the bundled example, read the status line, write a script of your own.</p></a>
       <a class="card" href="04-java-service.html" style="text-decoration:none"><h4>Run with the Java calc service</h4><p>Path B: build the calc-engine jar and call the real Java calculations over MCP.</p></a>

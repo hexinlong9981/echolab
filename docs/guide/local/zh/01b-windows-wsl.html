@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>在 Windows 上安装设置 WSL | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="01b-windows-wsl.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>Windows</span><span>WSL 2</span><span>Ubuntu</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>在 Windows 上安装设置 WSL</h1>
+    <p class="lead">写给从没用过 WSL 的 Windows 用户：从安装 WSL 2 和 Ubuntu 开始，到在 Ubuntu 里装好 EchoLab 需要的 Git、Python 和 JDK 为止。做完这一页，就可以照 <a href="02-setup.html">安装与设置</a> 继续往下走。</p>
+    <p>Windows 一侧的步骤以微软官方文档为准（链接见文末的 <a href="#refs">参考资料</a>）。Ubuntu 里的终端记录是在 Ubuntu 24.04 环境中实际执行得到的。</p>
+
+    <h2>我需要这一章吗？</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  Q{"你的电脑是？"} -- Linux 或 macOS --&gt; S["跳过本页"]
+  Q -- Windows --&gt; W{"已经有能用的&lt;br/&gt;WSL 2 + Ubuntu？"}
+  W -- 有 --&gt; T["从本页第 4 节读起&lt;br/&gt;（在 Ubuntu 里装工具）"]
+  W -- 没有 / 不确定 --&gt; F["从头读本页"]
+  S --&gt; N["下一页：安装与设置"]
+  T --&gt; N
+  F --&gt; N
+      </pre>
+      <div class="caption">图 1：Linux、macOS 用户可以跳过本页，直接去 <a href="02-setup.html">安装与设置</a></div>
+    </div>
+    <p>不确定自己有没有装过？在 PowerShell 里执行 <code>wsl -l -v</code>（见下文 <a href="#verify">确认安装结果</a>）：列出了发行版、且 VERSION 为 2，就说明已经装好了。</p>
+
+    <h2>WSL 是什么，为什么要在 WSL 里运行 EchoLab</h2>
+    <p>WSL（Windows Subsystem for Linux，适用于 Linux 的 Windows 子系统）让你在 Windows 上直接使用 Linux 发行版（例如 Ubuntu）及其命令行工具，不需要传统的虚拟机或双系统。WSL 2 在一个轻量级的工具虚拟机里运行真正的 Linux 内核。</p>
+    <p>EchoLab 在 Windows 上要放在 WSL 里运行，原因是：</p>
+    <ul>
+      <li><strong>和 CI 一致</strong>：仓库的 GitHub Actions 在 <code>ubuntu-latest</code> 上用 Python 3.12 和 JDK 21 运行测试。在 WSL 的 Ubuntu 里运行，命令、路径和换行规则都和 CI 相同。</li>
+      <li><strong>本指南的命令都是 Linux 命令</strong>：<code>.venv/bin/python</code>、<code>./gradlew</code>、<code>export JAVA_HOME=…</code> 这些写法在 PowerShell 里不能直接用。</li>
+      <li><strong>只在一侧工作</strong>：工具（Git、Python、JDK）和代码都放在 Linux 里，不要和 Windows 一侧的工具混用。原因见 <a href="01-prerequisites.html">准备环境</a> 中「所有命令都在 WSL 里执行」的说明。</li>
+    </ul>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TB
+  WT["Windows Terminal&lt;br/&gt;或开始菜单的 Ubuntu"]
+  VS["VS Code + WSL 扩展&lt;br/&gt;（可选）"]
+  EX["文件资源管理器&lt;br/&gt;\\wsl$"]
+  subgraph VM["WSL 2（轻量级虚拟机）"]
+    direction TB
+    U["Ubuntu&lt;br/&gt;git・python3・java"]
+    H["~/echolab&lt;br/&gt;Linux 文件系统"]
+    U --&gt; H
+  end
+  C["Windows 的 C: 盘&lt;br/&gt;Linux 里是 /mnt/c"]
+  WT -- 打开 shell --&gt; U
+  VS -- 远程连接 --&gt; U
+  EX -- 浏览文件 --&gt; H
+  U -. 跨边界，慢&lt;br/&gt;不要放仓库 .-&gt; C
+      </pre>
+      <div class="caption">图 2：Windows Terminal 和 VS Code 只是「前端」，命令实际在 WSL 2 里的 Ubuntu 中执行；代码放在 Ubuntu 的家目录 <code>~</code> 下</div>
+    </div>
+
+    <h2>整体步骤</h2>
+    <p>点「下一步」逐步查看，或点「自动播放」。</p>
+    <div class="flow-anim" data-cols="11">
+      <div class="stage">
+        <div class="node" data-id="admin">管理员终端<small>PowerShell</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="install">安装<small>wsl --install</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="reboot">重启<small>Windows</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="user">创建用户<small>Linux 用户名</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="apt">安装工具<small>apt install</small></div>
+        <div class="arrow" data-id="a5">→</div>
+        <div class="node" data-id="clone">克隆<small>~/echolab</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["admin"], "text": "在开始菜单里右键 PowerShell（或 Windows Terminal），选「以管理员身份运行」。先确认 Windows 版本满足要求（Windows 10 版本 2004 / 内部版本 19041 及以上，或 Windows 11）。"},
+        {"on": ["a1", "install"], "done": ["admin"], "packet": {"at": "install", "text": "WSL 2 + Ubuntu"}, "text": "执行 <code>wsl --install</code>：启用 WSL 和「虚拟机平台」两个可选组件，安装 Linux 内核，把 WSL 2 设为默认，并下载安装 Ubuntu。"},
+        {"on": ["a2", "reboot"], "done": ["admin", "install"], "text": "按提示<strong>重启电脑</strong>。启用的组件要重启后才生效。"},
+        {"on": ["a3", "user"], "done": ["admin", "install", "reboot"], "packet": {"at": "user", "text": "用户名 + 密码"}, "text": "第一次打开 Ubuntu 时会解压文件，然后要求创建 Linux 的用户名和密码。它和 Windows 账户无关；输入密码时屏幕上不显示任何字符，这是正常的。"},
+        {"on": ["a4", "apt"], "done": ["admin", "install", "reboot", "user"], "packet": {"at": "apt", "text": "git・python3・JDK 21"}, "text": "在 Ubuntu 里 <code>sudo apt update &amp;&amp; sudo apt upgrade</code>，再用 <code>apt install</code> 装 Git、Python（含 venv、pip）和 JDK 21，设置 <code>JAVA_HOME</code>。"},
+        {"on": ["a5", "clone"], "done": ["admin", "install", "reboot", "user", "apt"], "packet": {"at": "clone", "text": "~/echolab"}, "text": "在 Ubuntu 的家目录里 <code>git clone</code>（不要放在 <code>/mnt/c</code> 下）。后面的步骤见 <a href=\"02-setup.html\">安装与设置</a>。"}
+      ]</script>
+    </div>
+
+    <h2>1. 确认 Windows 的版本和虚拟化</h2>
+    <p><code>wsl --install</code> 要求 <strong>Windows 10 版本 2004 及以上（内部版本 19041 及以上）</strong>，或 <strong>Windows 11</strong>。确认方法：按 <kbd>Windows 徽标键 + R</kbd>，输入 <code>winver</code>，点「确定」，弹出的窗口里会显示版本号和内部版本号（OS 内部版本）。也可以在「设置 → 系统 → 关于」里查看。</p>
+    <p>版本太旧时，先通过 Windows 更新升级。微软也为旧版本提供了 <a href="https://learn.microsoft.com/zh-cn/windows/wsl/install-manual">手动安装步骤</a>，但本指南不做介绍。</p>
+    <p>WSL 2 还需要电脑的<strong>虚拟化功能</strong>处于开启状态。多数电脑默认已开启；如果安装或启动时出现错误 <code>0x80370102</code>，见下文的 <a href="#trouble">常见问题</a>。</p>
+
+    <h2>2. 安装 WSL 和 Ubuntu</h2>
+    <p>在开始菜单里找到 <strong>PowerShell</strong>（或 Windows Terminal），右键选择<strong>「以管理员身份运行」</strong>，输入：</p>
+    <pre><code>wsl --install</code></pre>
+    <p class="cmd-note">PowerShell（管理员）。Windows 一侧的命令只给出命令本身，不附输出示例。</p>
+    <p>按照微软文档，这一条命令会：启用「适用于 Linux 的 Windows 子系统」和「虚拟机平台」两个可选组件；下载并安装最新的 Linux 内核；把 WSL 2 设为默认版本；下载并安装 Ubuntu 发行版。过程中需要<strong>重启电脑</strong>，请按提示重启。</p>
+
+    <h3>想指定 Ubuntu 的版本（可选）</h3>
+    <p>默认安装的发行版名为「Ubuntu」。想指定版本时，先列出可以在线安装的发行版，再用 <code>-d</code> 指定名称：</p>
+    <pre><code>wsl -l -o
+wsl --install -d Ubuntu-24.04</code></pre>
+    <p class="cmd-note">PowerShell。<code>wsl -l -o</code> 是 <code>wsl --list --online</code> 的简写；<code>-d</code> 后面的名称请以列表里 NAME 一栏实际显示的为准。</p>
+    <p>本页 Ubuntu 一侧的包名和输出都在 <strong>Ubuntu 24.04</strong> 上验证过。默认的「Ubuntu」对应哪个版本会随时间变化，安装后请用下文的 <code>cat /etc/os-release</code> 确认。</p>
+
+    <h3>第一次启动：创建 Linux 用户</h3>
+    <p>重启后，从开始菜单打开 <strong>Ubuntu</strong>（或在 Windows Terminal 中打开 Ubuntu 标签页）。第一次启动会先等待文件解压，之后要求输入新的<strong>用户名</strong>和<strong>密码</strong>。需要知道的几点（均来自微软文档）：</p>
+    <ul>
+      <li>这个用户名和密码只属于这个 Linux 发行版，<strong>与 Windows 的用户名、密码无关</strong>，可以另取。</li>
+      <li>输入密码时<strong>屏幕上什么也不显示</strong>（连 <code>*</code> 也没有），这是正常的，输完按回车即可。</li>
+      <li>这个账户会成为该发行版的默认用户，启动时自动登录；它是 Linux 的管理员，可以用 <code>sudo</code> 执行管理命令。之后 <code>sudo</code> 要求的密码就是这里设的密码。</li>
+      <li>忘了密码：在 PowerShell 里执行 <code>wsl -u root</code> 以 root 身份进入，再用 <code>passwd &lt;用户名&gt;</code> 重设，完成后 <code>exit</code>。</li>
+    </ul>
+
+    <h2 id="verify">3. 确认安装结果</h2>
+    <p>在 PowerShell（不需要管理员）里执行：</p>
+    <pre><code>wsl -l -v</code></pre>
+    <p class="cmd-note">PowerShell。<code>wsl -l -v</code> 是 <code>wsl --list --verbose</code> 的简写。</p>
+    <p>它会列出已安装的发行版，以及每个发行版的状态（运行中或已停止）和所用的 WSL 版本。确认 Ubuntu 那一行的 <strong>VERSION 为 2</strong>。用 <code>wsl --install</code> 新装的发行版默认就是 WSL 2。</p>
+    <p>如果 VERSION 显示为 1，或者想先把 WSL 本身更新到最新版本，可以使用下面的命令：</p>
+    <pre><code>wsl --update
+wsl --set-default-version 2
+wsl --set-version Ubuntu 2</code></pre>
+    <p class="cmd-note">PowerShell。依次为：更新 WSL；把今后新装的发行版默认设为 WSL 2；把已安装的发行版（这里是名为 Ubuntu 的发行版，名称以 <code>wsl -l -v</code> 的显示为准）转换为 WSL 2。</p>
+    <p>微软文档提醒：在 WSL 1 和 WSL 2 之间转换可能耗时较长，也可能失败；发行版里已经有重要文件时，请先备份。刚装好的空发行版不必担心。</p>
+
+    <h2>4. 在 Ubuntu 里安装 EchoLab 需要的工具</h2>
+    <p>从这里开始，<strong>所有命令都在 Ubuntu 的终端里执行</strong>（提示符一般是 <code>用户名@电脑名:~$</code>），不再使用 PowerShell。</p>
+    <p>先确认发行版的版本，再更新软件包。Windows 不会自动更新 WSL 里的 Linux 发行版，所以第一次使用时要自己更新一次，以后也建议定期执行：</p>
+    <div class="term" data-title="bash — Ubuntu：版本与更新">
+      <script type="application/json">[
+        {
+"cmd": "cat /etc/os-release | head -2"
+},
+        {
+"out": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"",
+"cls": "hl"
+},
+        {
+"out": "NAME=\"Ubuntu\""
+},
+        {
+"cmd": "sudo apt update && sudo apt upgrade"
+},
+        {
+"out": "…（下载软件包列表）",
+"cls": "dim",
+"delay": 700
+},
+        {
+"out": "Reading state information..."
+},
+        {
+"out": "3 packages can be upgraded. Run 'apt list --upgradable' to see them."
+},
+        {
+"out": "…（列出要升级的包，输入 Y 确认后开始升级）",
+"cls": "dim",
+"delay": 700
+},
+        {
+"out": "Processing triggers for libc-bin (2.39-0ubuntu8.9) ..."
+}
+]</script>
+    </div>
+    <p>然后一次装好 EchoLab 需要的全部工具：</p>
+    <div class="term" data-title="bash — Ubuntu：安装 Git、Python、JDK 21">
+      <script type="application/json">[
+        {"cmd": "sudo apt install -y git python3 python3-venv python3-pip openjdk-21-jdk"},
+        {"out": "…", "cls": "dim"},
+        {"out": "0 upgraded, 328 newly installed, 0 to remove and 0 not upgraded."},
+        {"out": "Need to get 356 MB of archives.", "cls": "hl"},
+        {"out": "After this operation, 1223 MB of additional disk space will be used."},
+        {"out": "…（下载并安装，需要几分钟）", "cls": "dim", "delay": 900},
+        {"cmd": "python3 --version"},
+        {"out": "Python 3.12.3", "cls": "hl"},
+        {"cmd": "git --version"},
+        {"out": "git version 2.43.0", "cls": "hl"},
+        {"cmd": "java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18", "cls": "hl"},
+        {"out": "OpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)"},
+        {"out": "OpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)"},
+        {"cmd": "which java python3 git"},
+        {"out": "/usr/bin/java"},
+        {"out": "/usr/bin/python3"},
+        {"out": "/usr/bin/git"}
+      ]</script>
+    </div>
+    <p>以上记录来自一个全新的 Ubuntu 24.04.5 环境（为便于阅读，apt 的输出做了省略，用「…」表示；包的数量、大小和版本号会随软件源的更新而变化）。各个包的作用：</p>
+    <table>
+      <thead><tr><th>包</th><th>用途</th><th>哪条路线需要</th></tr></thead>
+      <tbody>
+        <tr><td><code>git</code></td><td>取得代码（<code>git clone</code>）</td><td>全部</td></tr>
+        <tr><td><code>python3</code></td><td>Ubuntu 24.04 的 <code>python3</code> 就是 Python 3.12，满足 EchoLab 的要求（3.12 或更高）</td><td>全部</td></tr>
+        <tr><td><code>python3-venv</code></td><td>Ubuntu 把建虚拟环境用的 <code>venv</code> / <code>ensurepip</code> 拆成了单独的包，不装的话 <code>python3 -m venv .venv</code> 会失败</td><td>全部</td></tr>
+        <tr><td><code>python3-pip</code></td><td>pip（虚拟环境里另有自己的 pip；装上它便于在系统层面使用）</td><td>全部</td></tr>
+        <tr><td><code>openjdk-21-jdk</code></td><td>JDK 21：构建并运行 Java 计算服务 calc-engine（含 <code>javac</code>）</td><td>路线 B，以及路线 C 使用 Java 服务时。只走路线 A 可以不装</td></tr>
+      </tbody>
+    </table>
+
+    <h3>设置 JAVA_HOME</h3>
+    <p>apt 装的 JDK 已经在 PATH 上（<code>/usr/bin/java</code>），但 Gradle 的 <code>./gradlew</code> 等工具也会读 <code>JAVA_HOME</code>，所以把它设好。在 Ubuntu 24.04（x86-64）上，<code>openjdk-21-jdk</code> 的安装位置是 <code>/usr/lib/jvm/java-21-openjdk-amd64</code>：</p>
+    <div class="term" data-title="bash — Ubuntu：JAVA_HOME">
+      <script type="application/json">[
+        {"cmd": "readlink -f \"$(which java)\""},
+        {"out": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java", "cls": "hl"},
+        {"cmd": "echo 'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' >> ~/.bashrc"},
+        {"cmd": "source ~/.bashrc"},
+        {"cmd": "echo $JAVA_HOME"},
+        {"out": "/usr/lib/jvm/java-21-openjdk-amd64"},
+        {"cmd": "\"$JAVA_HOME/bin/java\" -version 2>&1 | head -1"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>第一条命令用来确认实际路径：如果你的输出不同（例如 ARM64 的电脑上是 <code>…-arm64</code>），请把 <code>bin/java</code> 之前的部分写进 <code>JAVA_HOME</code>。写进 <code>~/.bashrc</code> 后，以后每次打开终端都会自动生效。</p>
+    <p>这一节装好的工具，就是 <a href="01-prerequisites.html">准备环境</a> 里列出的那些；可以按那一页末尾的检查清单再确认一遍。</p>
+
+    <h2>5. 仓库放在哪里</h2>
+    <p>把仓库克隆到 <strong>Ubuntu 的家目录</strong>，例如 <code>~/echolab</code>（即 <code>/home/&lt;用户名&gt;/echolab</code>），<strong>不要</strong>放在 <code>/mnt/c/…</code>（也就是 Windows 的 C 盘）下：</p>
+    <ul>
+      <li><strong>速度</strong>：微软建议用 Linux 工具处理的文件就放在 WSL 的文件系统里。跨操作系统访问文件虽然可行，但可能明显变慢；安装依赖、运行测试会读写大量小文件，差别很明显。</li>
+      <li><strong>行为一致</strong>：在 <code>/mnt/c</code> 下，文件权限、大小写敏感性等都遵循 Windows 文件系统的规则，和 CI 的 Linux 环境不一样。</li>
+    </ul>
+    <p>克隆的具体命令见 <a href="02-setup.html">安装与设置</a>。克隆前先 <code>cd ~</code> 回到家目录即可。</p>
+
+    <h3>从 Windows 一侧查看文件</h3>
+    <ul>
+      <li>在 Ubuntu 终端里进入某个目录后执行 <code>explorer.exe .</code>（注意末尾的点），会用 Windows 的文件资源管理器打开当前目录。</li>
+      <li>在文件资源管理器的地址栏输入 <code>\\wsl$</code>，可以看到所有已安装的发行版及其文件；家目录位于 <code>\\wsl$\&lt;发行版名&gt;\home\&lt;用户名&gt;</code>。</li>
+      <li>想用 VS Code 编辑：安装 VS Code 的 <a href="https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl">WSL 扩展</a> 后，在 Ubuntu 终端的仓库目录里执行 <code>code .</code>，VS Code 会连接到 WSL，在 Linux 一侧编辑和运行。详见微软的 <a href="https://learn.microsoft.com/zh-cn/windows/wsl/tutorials/wsl-vscode">在 WSL 中使用 VS Code</a>。这一步是可选的。</li>
+    </ul>
+    <div class="callout warn"><strong>查看可以，运行请留在 Ubuntu 里</strong>从 Windows 一侧打开、浏览文件没有问题；但 Python、Git、Java 这些命令请都在 Ubuntu 的终端里执行，不要对 <code>\\wsl$</code> 下的仓库使用 Windows 版的 Git 或 Python。</div>
+
+    <h2>6. 在 WSL 里设置 Git</h2>
+    <p>只是 <code>git clone</code> 公开仓库、在本地运行 EchoLab 的话，不需要任何 Git 设置，也不需要 GitHub 账号。想在本地提交（commit）时，先在 Ubuntu 里设置姓名和邮箱：</p>
+    <pre><code>git config --global user.name "你的名字"
+git config --global user.email "you@example.com"</code></pre>
+    <p class="cmd-note">Ubuntu 终端。这些设置保存在 Ubuntu 的 <code>~/.gitconfig</code> 中，与 Windows 一侧的 Git 设置互不相干。</p>
+    <p>想推送（push）到自己在 GitHub 上的仓库时，需要认证。GitHub 不接受账户密码用于 HTTPS 方式的 Git 操作，可以选择：</p>
+    <ul>
+      <li>在 Ubuntu 里安装 <a href="https://cli.github.com/">GitHub CLI</a>（<code>gh</code>），执行 <code>gh auth login</code> 按提示登录；</li>
+      <li>或使用 <a href="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens">个人访问令牌（personal access token）</a> 代替密码；</li>
+      <li>或配置 <a href="https://docs.github.com/zh/authentication/connecting-to-github-with-ssh">SSH 密钥</a>。</li>
+    </ul>
+    <p>无论哪种方式，都在 Ubuntu 里完成设置，Git 命令也只在 Ubuntu 里执行。</p>
+
+    <h2 id="trouble">7. 常见问题</h2>
+    <table>
+      <thead><tr><th>现象</th><th>原因</th><th>处理方法</th></tr></thead>
+      <tbody>
+        <tr><td>安装或启动时出现错误 <code>0x80370102</code>（「The virtual machine could not be started because a required feature is not installed.」）</td><td>电脑的虚拟化功能未开启，或「虚拟机平台」功能未启用</td><td>按电脑厂商的说明，在 BIOS（UEFI）设置中开启虚拟化（通常在 CPU 相关的选项里），并确认「虚拟机平台」已启用。参见微软的 <a href="https://support.microsoft.com/windows/c5578302-6e43-4b4b-a449-8ced115f58e1">在 Windows 上启用虚拟化</a>。另外，WSL 2 要求 CPU 支持 SLAT，很旧的 CPU 无法运行 WSL 2</td></tr>
+        <tr><td><code>wsl --install</code> 无法使用</td><td>Windows 版本太旧（低于 Windows 10 版本 2004 / 内部版本 19041）</td><td>用 <code>winver</code> 确认版本，通过 Windows 更新升级后再安装</td></tr>
+        <tr><td>执行 <code>wsl --install</code> 只显示了 WSL 的帮助文字</td><td>WSL 已经装过了（这条命令只在完全没有安装 WSL 时可用）</td><td>先 <code>wsl --list --online</code> 查看可用的发行版，再 <code>wsl --install -d Ubuntu</code>（或列表中的其他名称）只安装发行版</td></tr>
+        <tr><td>安装依赖、运行测试特别慢</td><td>仓库放在 <code>/mnt/c/…</code> 下，每次读写文件都要跨越 Windows 和 Linux 的边界</td><td>在 Ubuntu 的家目录里重新克隆（<code>cd ~</code> 后 <code>git clone</code>），在新位置重建 <code>.venv</code></td></tr>
+        <tr><td>运行脚本时报 <code>cannot execute: required file not found</code>，或出现 <code>$'\r': command not found</code></td><td>文件的换行符是 Windows 的 CRLF（例如用 Windows 版 Git 克隆，或用把换行改成 CRLF 的编辑器保存过）</td><td>在 Ubuntu 里用 Linux 版的 Git 重新克隆。仓库的 <code>.gitattributes</code> 已指定 <code>eol=lf</code>；另外可以在 Ubuntu 里执行 <code>git config --global core.autocrlf input</code>，让提交时把 CRLF 转为 LF。参见微软的 <a href="https://learn.microsoft.com/zh-cn/windows/wsl/tutorials/wsl-git">在 WSL 上开始使用 Git</a> 中关于换行符的说明</td></tr>
+        <tr><td><code>java: command not found</code>，但 <code>java.exe -version</code> 能运行；或者习惯性地用了 <code>python.exe</code></td><td>工具只装在了 Windows 一侧。WSL 可以运行 Windows 程序（需带 <code>.exe</code>），但那是 Windows 版，看到的是 Windows 的环境</td><td>按上文第 4 节在 Ubuntu 里 <code>apt install</code>。确认 <code>which java python3 git</code> 显示的都是 <code>/usr/…</code> 下的路径，而不是 <code>/mnt/c/…</code>；命令里不要带 <code>.exe</code></td></tr>
+        <tr><td><code>sudo</code> 要密码，但想不起来了</td><td>Linux 用户的密码与 Windows 的密码无关</td><td>在 PowerShell 里 <code>wsl -u root</code>，再 <code>passwd &lt;用户名&gt;</code> 重设</td></tr>
+      </tbody>
+    </table>
+    <p>换行符那一行的两条错误信息，是在 Ubuntu 24.04 中执行 CRLF 换行的脚本时实际得到的（前者在第一行 <code>#!</code> 带有 CR 时出现，后者在脚本中有空行时出现）；不同的脚本内容和 shell 版本，报错的文字可能不同。EchoLab 本身运行时的问题见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</p>
+
+    <h2 id="refs">参考资料</h2>
+    <p>本页中 Windows 一侧的内容依据以下微软官方文档：</p>
+    <ul>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/install">安装 WSL</a>（前提条件、<code>wsl --install</code>、更改发行版、检查 WSL 版本）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/setup/environment">设置 WSL 开发环境</a>（<code>--install</code> 做了什么、Linux 用户名和密码、更新软件包、文件存储、VS Code）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/basic-commands">WSL 的基本命令</a>（<code>-l -o</code>、<code>-l -v</code>、<code>--update</code>、<code>--set-default-version</code>、<code>--set-version</code>）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/filesystems">跨文件系统工作</a>（文件放在哪里、<code>explorer.exe .</code>、<code>\\wsl$</code>、运行 Windows 程序）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/troubleshooting">WSL 故障排除</a>（<code>0x80370102</code>、虚拟化、查看内部版本号）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/install-manual">旧版 WSL 的手动安装步骤</a>（用 <code>winver</code> 查看版本）</li>
+      <li><a href="https://learn.microsoft.com/zh-cn/windows/wsl/tutorials/wsl-git">在 WSL 上开始使用 Git</a>（Git 设置、换行符）</li>
+    </ul>
+    <p>微软文档会更新；本页与官方文档不一致时，以官方文档为准。</p>
+
+    <div class="callout ok"><strong>WSL 准备完成</strong>下一步：在 Ubuntu 终端里 <code>cd ~</code>，然后按 <a href="02-setup.html">安装与设置</a> 克隆仓库、建虚拟环境。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

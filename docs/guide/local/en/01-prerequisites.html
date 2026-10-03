@@ -37,6 +37,7 @@
       <li><strong>macOS</strong>: the commands are the same as on Linux (run them in Terminal).</li>
       <li><strong>Windows</strong>: use <strong>WSL2</strong> (Windows Subsystem for Linux) and do everything in this guide inside WSL's Linux.</li>
     </ul>
+    <div class="callout"><strong>Never used WSL?</strong>Start with <a href="01b-windows-wsl.html">Set up WSL on Windows</a>: it covers everything from installing WSL 2 and Ubuntu to installing the Python, Git and JDK 21 listed on this page inside Ubuntu.</div>
     <div class="callout warn"><strong>Windows users: run every command inside WSL and do not mix in Windows-side tools</strong>
       In a WSL terminal, PATH includes Windows directories (<code>/mnt/c/…</code>) by default, so the Windows versions of <code>python.exe</code> and <code>git.exe</code> can also be found. They see the Windows file system and line-ending conventions and are not compatible with the commands in this guide. Make sure that:
       <ul>
