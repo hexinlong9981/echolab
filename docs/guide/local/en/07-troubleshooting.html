@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting local runs | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="07-troubleshooting.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Troubleshooting</span><span>Python</span><span>Java</span><span>WSL</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Troubleshooting local runs</h1>
+    <p class="lead">This page covers only problems with <strong>setting up the environment</strong>: Python, the virtual environment, the JDK, the jar, WSL and Docker. If the program runs but the answer is not what you expected (<code>llm_error</code>, <code>budget_exceeded</code>, <code>fallback</code> and so on), see <a href="../../en/08-troubleshooting.html">Troubleshooting and FAQ</a> in the user guide.</p>
+
+    <div class="callout"><strong>About the output on this page</strong>Every problem that could be reproduced was reproduced on a fresh clone of the repository, and the "symptom" outputs are real. The repository path has been shortened to <code>~/echolab</code>, paths in the home directory to <code>~</code> or <code>/home/user</code>, the user name has been replaced with <code>user</code>, and long outputs are cut with "…". Problems that cannot be reproduced safely (such as offline installation) are only described, and are marked as such.</div>
+
+    <h2>First, find which layer the problem is in</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  A["A command failed&lt;br/&gt;read the error"] --&gt; P["command not found&lt;br/&gt;No module named …"] --&gt; P0["② Virtual environment"]
+  A --&gt; P1["ImportError: … 'UTC'"] --&gt; P2["① Python version"]
+  A --&gt; N["pip cannot download"] --&gt; N1["③ Network / offline"]
+  A --&gt; J["エラー: … java が見つかりません"] --&gt; J0{"JAVA_HOME&lt;br/&gt;set?"}
+  J0 -- No --&gt; J1["④ Install JDK 21"]
+  J0 -- Yes --&gt; J2["⑥ Wrong JAVA_HOME"]
+  A --&gt; K["エラー: … jar がありません"] --&gt; K1["⑦ Build the jar"]
+  A --&gt; V["UnsupportedClassVersionError&lt;br/&gt;起動できませんでした"] --&gt; V1["⑤ Old java on PATH"]
+  A --&gt; G["gradlew: ERROR: JAVA_HOME …"] --&gt; G1["⑥ Wrong JAVA_HOME"]
+  A --&gt; W["cannot execute: required file not found&lt;br/&gt;java.exe・/mnt/c"] --&gt; W1["⑧ WSL"]
+  A --&gt; D["permission denied … docker.sock"] --&gt; D1["⑨ Docker permissions"]
+  A --&gt; U["A status line 状態: … was printed"] --&gt; U1["Answer-level problem&lt;br/&gt;see the user guide"]
+      </pre>
+      <div class="caption">Figure 1: Find the matching section from the error message. The Japanese messages mean "java not found", "jar not found" and "could not start"</div>
+    </div>
+
+    <h2>① Python is too old</h2>
+    <div class="term" data-title="bash — symptom (Python 3.10 virtual environment)">
+      <script type="application/json">[
+        {"cmd": "python --version"},
+        {"out": "Python 3.10.20"},
+        {"cmd": "python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"out": "Traceback (most recent call last):", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "  File \"~/echolab/core/trace/__init__.py\", line 26, in <module>", "cls": "err"},
+        {"out": "    from datetime import UTC, datetime", "cls": "err"},
+        {"out": "ImportError: cannot import name 'UTC' from 'datetime' (…/lib/python3.10/datetime.py)", "cls": "err"}
+      ]</script>
+    </div>
+    <p><strong>Cause</strong>: the project targets Python 3.12 (CI uses 3.12, and <code>ruff</code>'s target version is <code>py312</code>), and the code uses features that only exist from 3.11 on. In our test, <code>pip install</code> succeeded in a 3.10 virtual environment, but running the program failed with the error above. (3.11 also passed the unit tests in our test, but it is not a supported version.)</p>
+    <p><strong>Fix</strong>: install Python 3.12 or newer, then <strong>delete the old virtual environment and create it again</strong>; a virtual environment is tied to the Python that created it:</p>
+    <pre><code>python3.12 --version
+rm -rf .venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt</code></pre>
+
+    <h2>② The virtual environment is not activated</h2>
+    <div class="term" data-title="bash — symptom (a new terminal)">
+      <script type="application/json">[
+        {"cmd": "pytest -m \"not e2e\""},
+        {"out": "bash: pytest: command not found", "cls": "err"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "bash: python: command not found", "cls": "err"},
+        {"cmd": "python3 -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"out": "Traceback (most recent call last):", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "ModuleNotFoundError: No module named 'anthropic'", "cls": "err"}
+      ]</script>
+    </div>
+    <p><strong>Cause</strong>: <code>pytest</code>, <code>ruff</code> and the dependencies are installed only in <code>.venv</code>. Many Linux distributions have no <code>python</code> command (only <code>python3</code>), and the system <code>python3</code> does not have the dependencies installed. You need to activate the environment again in every new terminal.</p>
+    <p><strong>Fix</strong>:</p>
+    <pre><code>cd ~/echolab
+source .venv/bin/activate      # success when (.venv) appears before the prompt
+which python pytest            # both should point into ~/echolab/.venv/bin/</code></pre>
+    <p>If you prefer not to activate it, write the full path instead: <code>.venv/bin/python -m core.agent …</code>, <code>.venv/bin/pytest</code>. If you see <code>No module named 'core'</code>, the current directory is not the repository root.</p>
+
+    <h2>③ pip cannot install (network, offline)</h2>
+    <p>(Described only, not reproduced.) <code>pip install -r requirements-dev.txt</code> needs to download packages such as <code>anthropic</code>, <code>mcp</code>, <code>pyyaml</code>, <code>jsonschema</code>, <code>pytest</code> and <code>ruff</code> from PyPI. Common situations:</p>
+    <table>
+      <thead><tr><th>Situation</th><th>Typical sign</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>A network that needs a proxy</td><td><code>Could not find a version that satisfies the requirement …</code> after a long series of retries</td><td>Set <code>HTTPS_PROXY</code>, or use <code>pip install --proxy http://…</code>; a corporate network may also require trusting its root certificate</td></tr>
+        <tr><td>Using a mirror</td><td>The official index is slow or unreachable</td><td><code>pip install -i &lt;mirror URL&gt; -r requirements-dev.txt</code>, or set <code>PIP_INDEX_URL</code></td></tr>
+        <tr><td>A fully offline machine</td><td>Cannot connect</td><td>On a machine with network access and the same OS and Python version, run <code>pip download -r requirements-dev.txt -d wheels</code>, copy <code>wheels/</code> over, then run <code>pip install --no-index --find-links wheels -r requirements-dev.txt</code></td></tr>
+        <tr><td>Creating the virtual environment fails</td><td><code>ensurepip is not available</code> on Debian/Ubuntu</td><td>Install the matching system package, such as <code>sudo apt install python3.12-venv</code></td></tr>
+      </tbody>
+    </table>
+    <p class="cmd-note">The same applies on the Java side: the first <code>./gradlew</code> run downloads from services.gradle.org and Maven repositories, so an offline environment needs a prepared <code>~/.gradle</code> cache.</p>
+
+    <h2>④ java not found</h2>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>(<code>my-banner.yaml</code> is the demo script written on <a href="04-java-service.html">page 4</a>; any command without <code>--fake-backend</code> gives the same result.) The error means: "Error: executable java for service calc-engine not found. Install JDK 21 and put java on PATH, or set the JAVA_HOME environment variable so that $JAVA_HOME/bin/java exists." The next line says that <code>--debug</code> shows the traceback.</p>
+    <p><strong>Cause</strong>: there is no <code>java</code> on PATH and <code>JAVA_HOME</code> is not set. The CLI checks this before starting the subprocess. Settings in <code>~/.bashrc</code> only take effect in newly opened interactive terminals.</p>
+    <p><strong>Fix</strong>: install JDK 21 as described on <a href="04-java-service.html">page 4</a>, then run <code>export JAVA_HOME=$HOME/.local/jdk/21</code> (adjust to the actual location). If you do not need Java for now, add <code>--fake-backend</code>.</p>
+
+    <h2>⑤ An old java on PATH</h2>
+    <p>The CLI uses <code>JAVA_HOME</code> <strong>only when <code>java</code> is not found on PATH</strong>. If Java 8 or 17 is already on PATH, the jar is started with that old version even when <code>JAVA_HOME</code> points to JDK 21. Reproduced below with a <code>java</code> that points to Java 8:</p>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 1500},
+        {"out": "java.lang.UnsupportedClassVersionError: org/springframework/boot/loader/launch/JarLauncher has been compiled by a more recent version of the Java Runtime (class file version 61.0), this version of the Java Runtime only recognizes class file versions up to 52.0", "cls": "err"},
+        {"out": "\tat java.lang.ClassLoader.defineClass1(Native Method)", "cls": "dim"},
+        {"out": "…", "cls": "dim"},
+        {"out": "Error: A JNI error has occurred, please check your installation and try again", "cls": "err"},
+        {"out": "Exception in thread \"main\" エラー: サービス calc-engine を起動できませんでした（ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)）。起動コマンド: java -jar services/calc-engine/build/libs/calc-engine-mcp.jar", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p><strong>How to read it</strong>: the first lines are what the Java subprocess wrote to standard error; <code>class file version 61.0</code> needs a newer Java, and <code>up to 52.0</code> means the running Java is Java 8. The last line is the CLI's error: "Error: could not start service calc-engine (…). Start command: java -jar …".</p>
+    <p><strong>Fix</strong>: put JDK 21 at the front of PATH, then check:</p>
+    <pre><code>export PATH="$JAVA_HOME/bin:$PATH"
+java -version          # the first line should be openjdk version "21…"
+which java             # should point to bin/java of JDK 21</code></pre>
+
+    <h2>⑥ JAVA_HOME points to the wrong directory</h2>
+    <p><code>JAVA_HOME</code> must be the JDK's <strong>root directory</strong> (the one containing <code>bin/java</code>), not the <code>bin</code> directory and not a parent directory holding several JDKs. When it is wrong, the CLI's error is exactly the same as in ④ (tested with <code>JAVA_HOME=~/.local/jdk</code>, one level too high). The Gradle Wrapper's error is more direct:</p>
+    <div class="term" data-title="bash — symptom (services/calc-engine)">
+      <script type="application/json">[
+        {"cmd": "JAVA_HOME=~/.local/jdk ./gradlew bootJar"},
+        {"out": " "},
+        {"out": "ERROR: JAVA_HOME is set to an invalid directory: /home/user/.local/jdk", "cls": "err"},
+        {"out": " "},
+        {"out": "Please set the JAVA_HOME variable in your environment to match the"},
+        {"out": "location of your Java installation."},
+        {"cmd": "unset JAVA_HOME; ./gradlew bootJar"},
+        {"out": " "},
+        {"out": "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"cmd": "ls ~/.local/jdk/"},
+        {"out": "21  jdk-21.0.12.1+1"},
+        {"cmd": "export JAVA_HOME=~/.local/jdk/21 && ls $JAVA_HOME/bin/java"},
+        {"out": "/home/user/.local/jdk/21/bin/java", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>Fix</strong>: set <code>JAVA_HOME</code> to the directory that contains <code>bin/java</code>, and confirm with <code>ls $JAVA_HOME/bin/java</code>. Do not point <code>JAVA_HOME</code> at a JDK on the Windows side (see ⑧).</p>
+
+    <h2>⑦ The jar does not exist</h2>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の jar がありません: ~/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar。先に jar を作ってください：(cd services/calc-engine && ./gradlew bootJar)", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>The error means: "Error: the jar for service calc-engine does not exist: …. Build the jar first: (cd services/calc-engine &amp;&amp; ./gradlew bootJar)".</p>
+    <p><strong>Cause</strong>: Java was found, but the jar has not been built yet (a fresh clone, after <code>./gradlew clean</code>, or after deleting <code>build/</code>). <strong>Fix</strong>: build it with the command given in the error, which returns you to the repository root afterwards: <code>(cd services/calc-engine &amp;&amp; ./gradlew bootJar)</code>. In the same situation the end-to-end tests are skipped; see <a href="06-tests-evals.html">Run tests &amp; evals</a>.</p>
+
+    <h2>⑧ Mixing in Windows tools under WSL</h2>
+    <p>By default, WSL appends the Windows PATH (<code>/mnt/c/…</code>) to the Linux PATH. So Windows programs with <code>.exe</code>, such as <code>java.exe</code> and <code>python.exe</code>, can be called, but they <strong>cannot replace</strong> the Linux <code>java</code> or <code>python3</code>:</p>
+    <div class="term" data-title="bash — in WSL">
+      <script type="application/json">[
+        {"cmd": "which java"},
+        {"out": "/usr/bin/which: no java in (…:/mnt/c/Program Files/Java/jdk1.8.0_111/bin:…)", "cls": "dim"},
+        {"cmd": "java.exe -version"},
+        {"out": "java version \"1.8.0_111\"", "cls": "warn"},
+        {"out": "Java(TM) SE Runtime Environment (build 1.8.0_111-b14)", "cls": "warn"},
+        {"out": "Java HotSpot(TM) 64-Bit Server VM (build 25.111-b14, mixed mode)", "cls": "warn"}
+      ]</script>
+    </div>
+    <ul>
+      <li><strong>Java</strong>: the CLI and Gradle look for <code>java</code>, not <code>java.exe</code>. A JDK installed on the Windows side does not help (and in the example above it is Java 8 anyway). Install the Linux JDK 21 inside WSL (<a href="04-java-service.html">page 4</a>).</li>
+      <li><strong>Python</strong>: likewise, create the virtual environment in WSL with the Linux <code>python3.12</code>; do not run the repository in WSL with the Windows Python.</li>
+      <li><strong>Repository location</strong>: clone the repository into the Linux file system (such as <code>~/echolab</code>), not under <code>/mnt/c/…</code>. Access across file systems is slow, so Gradle builds and pytest become noticeably slower, and file permissions may also be wrong.</li>
+      <li><strong>Line endings</strong>: just use <code>git clone</code> inside WSL; the repository's <code>.gitattributes</code> requires LF for <code>gradlew</code>. If a file was copied or rewritten with CRLF by a Windows tool, you get the error below:</li>
+    </ul>
+    <div class="term" data-title="bash — gradlew with CRLF">
+      <script type="application/json">[
+        {"cmd": "./gradlew bootJar"},
+        {"out": "bash: ./gradlew: cannot execute: required file not found", "cls": "err"},
+        {"cmd": "file gradlew"},
+        {"out": "gradlew: POSIX shell script, Unicode text, UTF-8 text executable, with CRLF line terminators", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>Fix</strong>: <code>git clone</code> again into your WSL home directory, or remove the carriage returns with <code>sed -i 's/\r$//' gradlew</code>.</p>
+
+    <h2>⑨ Docker: permission denied</h2>
+    <p>You only run into this when using the optional Docker build described on <a href="04-java-service.html">page 4</a>.</p>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "docker ps"},
+        {"out": "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock", "cls": "err"},
+        {"cmd": "ls -l /var/run/docker.sock"},
+        {"out": "srw-rw---- 1 root docker 0 Oct  3 10:19 /var/run/docker.sock"},
+        {"cmd": "id -nG"},
+        {"out": "user wheel", "cls": "warn"}
+      ]</script>
+    </div>
+    <p><strong>Cause</strong>: the Docker daemon's socket is accessible only to root and the <code>docker</code> group, and the current user is not in the <code>docker</code> group.</p>
+    <p><strong>Fix</strong> (described only, not run for this page):</p>
+    <pre><code>sudo usermod -aG docker "$USER"   # add yourself to the docker group
+# then sign out and back in (in WSL, run wsl --shutdown on the Windows side and reopen),
+# or apply it to the current terminal only:
+newgrp docker
+docker ps                          # no error means it worked</code></pre>
+    <ul>
+      <li>Membership in the <code>docker</code> group effectively gives that user root-level privileges, so do this only on your own development machine.</li>
+      <li>If you use Docker Desktop's WSL integration, enable integration for your distribution in Docker Desktop's settings; the message in that case differs from the one above.</li>
+      <li>If you would rather not deal with Docker, install JDK 21 locally and build there; the result is the same.</li>
+    </ul>
+
+    <h2>Still stuck?</h2>
+    <ul>
+      <li>For CLI configuration and startup errors, add <code>--debug</code> to see the full traceback.</li>
+      <li>If the program has already printed a status line (<code>状態: …</code>), the problem is at the answer level: credentials, cost caps, failed verification, tool input errors and so on. See <a href="../../en/08-troubleshooting.html">Troubleshooting and FAQ</a>.</li>
+      <li>For a full description of options, environment variables and exit codes, see the <a href="../../en/04-cli-reference.html">CLI reference</a>.</li>
+      <li>Back to environment setup: <a href="01-prerequisites.html">Prerequisites</a> ・ <a href="02-setup.html">Setup</a>.</li>
+    </ul>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

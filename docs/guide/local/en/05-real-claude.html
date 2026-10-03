@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run with real Claude | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="05-real-claude.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Run</span><span>Claude API</span><span>Cost caps</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Run with real Claude</h1>
+    <p class="lead">Without <code>--llm</code>, the CLI calls the Claude API by default (model <code>claude-opus-5-5</code>): Claude understands your question, chooses the calculation tools and writes the answer. This page explains how to set up an API key, how the cost caps protect you, and which data leaves your computer.</p>
+
+    <div class="callout"><strong>About the output on this page</strong>The environment used for this page did <strong>not</strong> have an API key set, so only two kinds of real output are shown below: with no credentials, and when a cost cap is reached. No real Claude answers are shown here; answers have the same format as in scripted mode, and how to read them is covered in <a href="../../en/03-reading-answers.html">Reading the answers</a>. The path has been shortened to <code>~/echolab</code>.</div>
+
+    <h2>The life of a real run</h2>
+    <p>The animation below is a <strong>conceptual</strong> walk through one question, in the order the code handles it (<code>core/agent/loop.py</code>). It is not a replay of a real run and shows no real Claude output.</p>
+    <div class="flow-anim" data-cols="3">
+      <div class="stage">
+        <div class="node" data-id="q">Question<small>CLI</small></div>
+        <div class="node" data-id="bud">Cost check<small>ledger and caps</small></div>
+        <div class="node" data-id="cl">Claude<small>claude-opus-5-5</small></div>
+        <div class="node" data-id="tool">Tools<small>gateway → calc service</small></div>
+        <div class="node" data-id="ver">Verifier<small>checks number sources</small></div>
+        <div class="node" data-id="ans">Answer<small>render and trace</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["q"], "packet": {"at": "q", "text": "question"}, "text": "<b>You ask a question.</b> The CLI creates a run ID, opens the gateway (by default this starts the Java calc service) and creates this run's trace file in <code>.echolab/traces/</code>. (Conceptual demo)"},
+        {"on": ["bud"], "done": ["q"], "text": "<b>Before every call to Claude</b>, the totals for today (UTC) and this month (UTC) in the ledger <code>.echolab/costs.jsonl</code> are compared with the caps. If a cap has been reached, Claude is <strong>not called</strong> and the run ends with <code>budget_exceeded</code>."},
+        {"on": ["cl"], "done": ["q", "bud"], "packet": {"at": "cl", "text": "question + tool definitions"}, "text": "<b>Claude is called</b> with the system prompt, the tool definitions and the conversation so far. Credentials are used only at this step: if they are missing or invalid, the run ends with <code>llm_error</code>. When the reply comes back, its cost is calculated from the price table and appended to the ledger."},
+        {"on": ["tool"], "done": ["q", "bud", "cl"], "packet": {"at": "tool", "text": "c1.total …"}, "text": "<b>Claude requests a tool call.</b> The gateway lets through only the tools declared in <code>domain.yaml</code>, checks the input against JSON Schema and passes it to the calc service; the result goes back to Claude with source IDs such as <code>c1.total</code>. Then the cost check runs again and Claude is called again."},
+        {"on": ["ver"], "done": ["q", "bud", "cl", "tool"], "packet": {"at": "ver", "text": "[[c1.total|0]]"}, "text": "<b>Claude writes an answer template with placeholders</b>, and the verifier checks that every number has a source. If not, the draft is rejected (差し戻し) and sent back to Claude to rewrite. That is another Claude call, so the cost check runs first again."},
+        {"on": ["ans"], "done": ["q", "bud", "cl", "tool", "ver"], "text": "<b>Once the draft passes</b>, the renderer fills in the numbers by source ID, and the CLI prints the answer, the source table and the status line (<code>状態: answered … 費用: $…</code>). If the draft still fails after 3 rejections, the run ends with <code>fallback</code> and gives no numbers."}
+      ]</script>
+    </div>
+
+    <h2>1. Get an API key</h2>
+    <ol>
+      <li>Sign in to Anthropic's Claude Console (<code>https://platform.claude.com/</code>; the old address <code>console.anthropic.com</code> redirects there).</li>
+      <li>Under <strong>Settings → API keys</strong>, create a key and copy the string starting with <code>sk-ant-</code>. The key is shown only once.</li>
+      <li>The API is billed by usage, so set up credit in the Console's billing settings. EchoLab has its own cost caps (see below); the two are independent.</li>
+    </ol>
+
+    <h2>2. Let the CLI find your credentials</h2>
+    <p>The CLI uses Anthropic's official Python SDK and looks for credentials in the SDK's default order. Two common ways:</p>
+    <pre><code># Option A: environment variable (only for the current terminal)
+export ANTHROPIC_API_KEY=sk-ant-...   # your key
+
+# Option B: sign in with Anthropic's CLI; the SDK reads the configuration it saves
+ant auth login</code></pre>
+    <div class="callout warn"><strong>Do not put your key in the repository</strong>This repository is public. <code>.gitignore</code> already ignores <code>.env</code> and <code>.env.*</code>, but <strong>the CLI does not read <code>.env</code> automatically</strong>. If you want to keep your key in <code>.env</code>, load it yourself: <code>set -a; . ./.env; set +a</code>. Before committing, you can confirm it is not tracked with <code>git status</code> and <code>git check-ignore -v .env</code>.</div>
+
+    <h2>3. Check the cost caps first</h2>
+    <p>The cost ledger is checked before every call to Claude. The defaults are in <code>config/budget.yaml</code>:</p>
+    <table>
+      <thead><tr><th>Setting</th><th>Default</th><th>Override with environment variable</th></tr></thead>
+      <tbody>
+        <tr><td>Daily cap <code>caps_usd.daily</code></td><td>$1.00 (the day rolls over at 00:00 UTC (09:00 in Tokyo))</td><td><code>ECHOLAB_DAILY_USD</code></td></tr>
+        <tr><td>Monthly cap <code>caps_usd.monthly</code></td><td>$10.00 (the month rolls over in UTC)</td><td><code>ECHOLAB_MONTHLY_USD</code></td></tr>
+        <tr><td>Ledger <code>ledger</code></td><td><code>.echolab/costs.jsonl</code> (ignored by Git)</td><td><code>ECHOLAB_LEDGER</code></td></tr>
+        <tr><td>Price table <code>pricing_usd_per_mtok</code></td><td><code>claude-opus-5-5</code>: $4.00 input, $20.00 output per million tokens</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p>For your first tries, you may want to lower the caps:</p>
+    <pre><code>export ECHOLAB_DAILY_USD=0.20
+export ECHOLAB_MONTHLY_USD=2.00</code></pre>
+    <p>Only <code>--llm anthropic</code> writes to the real ledger; scripted mode uses a temporary ledger for each run. For how cost is calculated and the format of each ledger line, see <a href="../../en/06-cost-and-safety.html">Cost caps and data trust</a>.</p>
+
+    <h2>4. Ask a question</h2>
+    <p>Run from the repository root with the virtual environment activated (leaving out <code>--llm</code> means <code>anthropic</code>). By default the Java calc service is started, so complete <a href="04-java-service.html">page 4</a> first. If you do not have Java yet, add <code>--fake-backend</code>, but then questions that need the sample data references cannot be answered.</p>
+    <pre><code>export JAVA_HOME=$HOME/.local/jdk/21
+python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？"</code></pre>
+    <p class="cmd-note">The question (in Japanese) asks for the expected damage with ATK 2000, skill multiplier 2.5, damage bonus 0.3, crit rate 0.6, crit damage 2.2, DEF constant 1600, enemy DEF 1000, DEF ignore 0, enemy RES 0.1 and RES shred 0. With real Claude you can ask in your own words.</p>
+    <p>This is the real output of that command with <strong>no credentials set</strong>:</p>
+    <div class="term" data-title="bash — no credentials (real run)">
+      <script type="application/json">[
+        {"cmd": "time python -m core.agent \"攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？\"", "speed": 10},
+        {"pause": 2500},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T064052Z-3030ff", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064052Z-3030ff.jsonl", "cls": "dim"},
+        {"out": " "},
+        {"out": "real\t0m8.370s", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "1"},
+        {"cmd": "grep -o '\"event\": \"llm_error\".*' .echolab/traces/20261003T064052Z-3030ff.jsonl"},
+        {"out": "\"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"},
+        {"cmd": "ls .echolab/"},
+        {"out": "traces"}
+      ]</script>
+    </div>
+    <ul>
+      <li>The answer means: "No Claude API credentials were found, so I could not answer. Set the environment variable <code>ANTHROPIC_API_KEY</code> (or sign in with <code>ant auth login</code>), or use scripted mode (<code>--llm scripted</code>), which needs no API key." The source table says 「（引用した出典はありません）」 ("no sources cited"). The trace's <code>llm_error</code> event records <code>kind: credentials</code> and "Claude API credentials not found (set ANTHROPIC_API_KEY or similar)".</li>
+      <li>Status <code>llm_error</code>, exit code 1, cost 0. No API call was made, so the ledger <code>costs.jsonl</code> was not even created (<code>.echolab/</code> contains only <code>traces</code>).</li>
+      <li>The roughly 8 seconds are mostly Java service startup: the gateway is opened first, and only then is Claude called.</li>
+      <li>For telling apart other <code>llm_error</code> cases, such as invalid credentials, rate limits or network errors, see item ③ of <a href="../../en/08-troubleshooting.html">Troubleshooting and FAQ</a>.</li>
+    </ul>
+    <p>With credentials set, the same command prints Claude's answer, the source table and the status line <code>状態: answered … 費用: $…</code>, and the cost is appended to <code>.echolab/costs.jsonl</code>.</p>
+
+    <h2>5. What happens when a cap is reached</h2>
+    <p>The cost check happens <strong>before Claude is called</strong>, and also before the credentials are used (<code>_call_llm</code> in <code>core/agent/loop.py</code> runs <code>budget.check()</code> first). So you can reproduce it without spending money and without a key: set the daily cap to 0 and point the ledger at a temporary file, so the real ledger is not touched.</p>
+    <div class="term" data-title="bash — reproduce the cost cap (real run)">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_DAILY_USD=0 ECHOLAB_LEDGER=/tmp/echolab-test-ledger.jsonl python -m core.agent \"攻撃力 2000、…（同上）…のときの期待ダメージは？\" --fake-backend", "speed": 12},
+        {"pause": 800},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 0 USD / 上限 0 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T064101Z-e1e459", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064101Z-e1e459.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"event\": \"[a-z_]*\"' .echolab/traces/20261003T064101Z-e1e459.jsonl"},
+        {"out": "\"event\": \"question\""},
+        {"out": "\"event\": \"budget_exceeded\"", "cls": "hl"},
+        {"out": "\"event\": \"answer\""},
+        {"cmd": "ls /tmp/echolab-test-ledger.jsonl"},
+        {"out": "ls: cannot access '/tmp/echolab-test-ledger.jsonl': No such file or directory", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>「…（同上）…」 in the command means "… (same as above) …"; it is shortened here for layout, and the run used the full question. The answer means: "Today's (UTC) cost has reached the daily cap, so I cannot answer right now (used 0 USD / cap 0 USD). It becomes available again when the UTC date changes. The cap can be changed with the environment variable <code>ECHOLAB_DAILY_USD</code> or <code>caps_usd.daily</code> in <code>config/budget.yaml</code>."</p>
+    <ul>
+      <li>Even without credentials, the result is <code>budget_exceeded</code>, not <code>llm_error</code>: the cap check comes first, and Claude was never called. The trace has no <code>llm_call</code> or <code>llm_error</code> event.</li>
+      <li>The answer says which cap was reached (today = daily), the amount used and the cap, when it becomes available again, and how to change it. With <code>ECHOLAB_MONTHLY_USD=0</code>, the answer instead begins 「今月（UTC）のコストが月次の上限に達したため…」 ("This month's (UTC) cost has reached the monthly cap…").</li>
+      <li>The temporary ledger file was not created: no call was made, so there was nothing to record.</li>
+      <li>If a cap is reached partway through a question (for example, before the second Claude call after a tool call), the run likewise ends with <code>budget_exceeded</code>, and the cost already incurred is recorded in the ledger as is.</li>
+    </ul>
+
+    <h2>6. Which data is sent</h2>
+    <table>
+      <thead><tr><th></th><th>Scripted mode <code>--llm scripted</code></th><th>Real Claude <code>--llm anthropic</code></th></tr></thead>
+      <tbody>
+        <tr><td>External network access</td><td>None</td><td>Only the Claude API</td></tr>
+        <tr><td>What is sent</td><td>Nothing</td><td>The system prompt, the tool definitions (input schemas), <strong>the full text of your question</strong>, Claude's earlier replies, tool results (source IDs and numbers), and the verifier's rejection notices</td></tr>
+        <tr><td>What stays on your machine</td><td colspan="2">The calculations (Java subprocess or Python reference implementation), the sample data, the traces in <code>.echolab/traces/</code>, and the cost ledger <code>.echolab/costs.jsonl</code></td></tr>
+      </tbody>
+    </table>
+    <p>Your question is sent as is, and is also written as is to the trace on your machine. Do not put personal information unrelated to the calculation in your questions. For a diagram of the data flow, see <a href="../../en/06-cost-and-safety.html">Cost caps and data trust</a>.</p>
+
+    <h2>Tips for safe use</h2>
+    <div class="cards">
+      <div class="card"><h4>Keep the key in the environment only</h4><p>Use <code>export</code> or <code>ant auth login</code>; do not write it in code, configuration files, or scripts whose command history you might share.</p></div>
+      <div class="card"><h4>Start with scripted mode</h4><p>Switch to real Claude only after your environment and the Java service work, so you do not pay while debugging setup problems.</p></div>
+      <div class="card"><h4>Lower the caps at first</h4><p>For your first tries, set <code>ECHOLAB_DAILY_USD</code> to a small value; restore the default once you are familiar.</p></div>
+      <div class="card"><h4>Check traces before sharing</h4><p>Traces contain the full question and every draft. <code>.echolab/</code> is ignored by Git, so it is not committed by accident.</p></div>
+      <div class="card"><h4>If your key leaks</h4><p>Delete the key in the Console right away and create a new one; just removing it from a file is not enough.</p></div>
+    </div>
+
+    <div class="related"><strong>Related</strong>: <a href="../../en/04-cli-reference.html">CLI reference</a> (options, statuses and exit codes) ・ <a href="../../en/06-cost-and-safety.html">Cost caps and data trust</a> ・ <a href="06-tests-evals.html">Run tests &amp; evals</a> (including the command for running evals with real Claude)</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

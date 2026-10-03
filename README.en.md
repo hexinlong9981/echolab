@@ -10,6 +10,8 @@
 [Disclaimer](DISCLAIMER.en.md)
 
 > **User guide** (illustrated and animated; Japanese, English, Chinese): <https://hexinlong9981.github.io/echolab/en/> (source: [`docs/guide/`](docs/guide/))
+>
+> **Local run guide** (starting with no API key): <https://hexinlong9981.github.io/echolab/local/en/>
 
 ## What it is
 

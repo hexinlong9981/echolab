@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地运行的故障排除 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="07-troubleshooting.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>排错</span><span>Python</span><span>Java</span><span>WSL</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>本地运行的故障排除</h1>
+    <p class="lead">本页只处理<strong>环境搭建</strong>阶段的问题：Python、虚拟环境、JDK、jar、WSL、Docker。程序已经运行、但回答不符合预期（<code>llm_error</code>、<code>budget_exceeded</code>、<code>fallback</code> 等）的问题，见使用说明中的 <a href="../../zh/08-troubleshooting.html">故障排除与 FAQ</a>。</p>
+
+    <div class="callout"><strong>关于本页的输出</strong>能复现的问题都在一份全新克隆的仓库上实际复现过，「症状」里是真实输出。仓库路径缩写为 <code>~/echolab</code>，主目录下的路径缩写为 <code>~</code> 或 <code>/home/user</code>，用户名替换为 <code>user</code>，长输出用「…」省略。无法安全复现的问题（如离线安装）只作说明，并已注明。</div>
+
+    <h2>先判断问题出在哪一层</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  A["命令出错了&lt;br/&gt;看错误信息"] --&gt; P["command not found&lt;br/&gt;No module named …"] --&gt; P0["② 虚拟环境"]
+  A --&gt; P1["ImportError: … 'UTC'"] --&gt; P2["① Python 版本"]
+  A --&gt; N["pip 无法下载"] --&gt; N1["③ 网络・离线"]
+  A --&gt; J["エラー: … java が見つかりません"] --&gt; J0{"设置了&lt;br/&gt;JAVA_HOME？"}
+  J0 -- 没有 --&gt; J1["④ 安装 JDK 21"]
+  J0 -- 有 --&gt; J2["⑥ JAVA_HOME 指错"]
+  A --&gt; K["エラー: … jar がありません"] --&gt; K1["⑦ 构建 jar"]
+  A --&gt; V["UnsupportedClassVersionError&lt;br/&gt;起動できませんでした"] --&gt; V1["⑤ PATH 上是旧版 java"]
+  A --&gt; G["gradlew: ERROR: JAVA_HOME …"] --&gt; G1["⑥ JAVA_HOME 指错"]
+  A --&gt; W["cannot execute: required file not found&lt;br/&gt;java.exe・/mnt/c"] --&gt; W1["⑧ WSL"]
+  A --&gt; D["permission denied … docker.sock"] --&gt; D1["⑨ Docker 权限"]
+  A --&gt; U["已有状态行 状態: …"] --&gt; U1["回答层面的问题&lt;br/&gt;见使用说明"]
+      </pre>
+      <div class="caption">图 1：按错误信息找到对应的小节</div>
+    </div>
+
+    <h2>① Python 版本过旧</h2>
+    <div class="term" data-title="bash — 症状（Python 3.10 的虚拟环境）">
+      <script type="application/json">[
+        {"cmd": "python --version"},
+        {"out": "Python 3.10.20"},
+        {"cmd": "python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"out": "Traceback (most recent call last):", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "  File \"~/echolab/core/trace/__init__.py\", line 26, in <module>", "cls": "err"},
+        {"out": "    from datetime import UTC, datetime", "cls": "err"},
+        {"out": "ImportError: cannot import name 'UTC' from 'datetime' (…/lib/python3.10/datetime.py)", "cls": "err"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：项目以 Python 3.12 为准（CI 使用 3.12，<code>ruff</code> 的目标版本也是 <code>py312</code>），代码用到了 3.11 起才有的功能。实测 3.10 的虚拟环境里 <code>pip install</code> 可以成功，但一运行就出现上面的错误。（3.11 实测也能通过单元测试，但不是项目支持的版本。）</p>
+    <p><strong>解决</strong>：安装 Python 3.12 或更新的版本，<strong>删除旧的虚拟环境后重建</strong>——虚拟环境会固定创建它时所用的 Python：</p>
+    <pre><code>python3.12 --version
+rm -rf .venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt</code></pre>
+
+    <h2>② 虚拟环境没有激活</h2>
+    <div class="term" data-title="bash — 症状（新开的终端）">
+      <script type="application/json">[
+        {"cmd": "pytest -m \"not e2e\""},
+        {"out": "bash: pytest: command not found", "cls": "err"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "bash: python: command not found", "cls": "err"},
+        {"cmd": "python3 -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"out": "Traceback (most recent call last):", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "ModuleNotFoundError: No module named 'anthropic'", "cls": "err"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：<code>pytest</code>、<code>ruff</code> 和依赖库都只装在 <code>.venv</code> 里。很多 Linux 发行版没有 <code>python</code> 这个命令（只有 <code>python3</code>），而系统的 <code>python3</code> 没有安装依赖。每开一个新终端，都需要重新激活。</p>
+    <p><strong>解决</strong>：</p>
+    <pre><code>cd ~/echolab
+source .venv/bin/activate      # 提示符前出现 (.venv) 即成功
+which python pytest            # 都应指向 ~/echolab/.venv/bin/</code></pre>
+    <p>不想激活时，也可以直接写完整路径：<code>.venv/bin/python -m core.agent …</code>、<code>.venv/bin/pytest</code>。如果出现 <code>No module named 'core'</code>，说明当前目录不是仓库根目录。</p>
+
+    <h2>③ pip 无法安装（网络、离线）</h2>
+    <p>（说明，未复现。）<code>pip install -r requirements-dev.txt</code> 需要从 PyPI 下载 <code>anthropic</code>、<code>mcp</code>、<code>pyyaml</code>、<code>jsonschema</code>、<code>pytest</code>、<code>ruff</code> 等包。常见情况：</p>
+    <table>
+      <thead><tr><th>情况</th><th>典型表现</th><th>处理</th></tr></thead>
+      <tbody>
+        <tr><td>需要代理的网络</td><td>长时间重试后报 <code>Could not find a version that satisfies the requirement …</code></td><td>设置 <code>HTTPS_PROXY</code>，或用 <code>pip install --proxy http://…</code>；公司网络可能需要信任其根证书</td></tr>
+        <tr><td>使用镜像源</td><td>官方源很慢或不可达</td><td><code>pip install -i &lt;镜像地址&gt; -r requirements-dev.txt</code>，或设置 <code>PIP_INDEX_URL</code></td></tr>
+        <tr><td>完全离线的机器</td><td>无法连接</td><td>在能联网、且操作系统与 Python 版本相同的机器上执行 <code>pip download -r requirements-dev.txt -d wheels</code>，把 <code>wheels/</code> 拷过去后执行 <code>pip install --no-index --find-links wheels -r requirements-dev.txt</code></td></tr>
+        <tr><td>创建虚拟环境就失败</td><td>Debian／Ubuntu 上提示 <code>ensurepip is not available</code></td><td>安装对应的系统包，如 <code>sudo apt install python3.12-venv</code></td></tr>
+      </tbody>
+    </table>
+    <p class="cmd-note">Java 一侧同理：第一次运行 <code>./gradlew</code> 要从 services.gradle.org 和 Maven 仓库下载，离线环境需要事先准备好 <code>~/.gradle</code> 缓存。</p>
+
+    <h2>④ 找不到 java</h2>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>（<code>my-banner.yaml</code> 是 <a href="04-java-service.html">第 4 页</a> 中编写的演示台本，用任何不加 <code>--fake-backend</code> 的命令都会得到同样的结果。）错误的意思是：找不到服务 calc-engine 的可执行文件 <code>java</code>；请安装 JDK 21 并把 <code>java</code> 加入 PATH，或设置 <code>JAVA_HOME</code>（使 <code>$JAVA_HOME/bin/java</code> 存在）。</p>
+    <p><strong>原因</strong>：PATH 上没有 <code>java</code>，也没有设置 <code>JAVA_HOME</code>。CLI 在启动子进程之前就做了检查。<code>~/.bashrc</code> 里的设置只对新开的交互式终端生效。</p>
+    <p><strong>解决</strong>：按 <a href="04-java-service.html">第 4 页</a> 安装 JDK 21，然后 <code>export JAVA_HOME=$HOME/.local/jdk/21</code>（按实际位置）。暂时不用 Java 时，加 <code>--fake-backend</code>。</p>
+
+    <h2>⑤ PATH 上是旧版本的 java</h2>
+    <p>CLI <strong>只在 PATH 上找不到 <code>java</code> 时</strong>才使用 <code>JAVA_HOME</code>。如果 PATH 上已经有 Java 8 或 17，即使 <code>JAVA_HOME</code> 指向 JDK 21，也会用旧版本启动 jar。下面用一个指向 Java 8 的 <code>java</code> 复现：</p>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 1500},
+        {"out": "java.lang.UnsupportedClassVersionError: org/springframework/boot/loader/launch/JarLauncher has been compiled by a more recent version of the Java Runtime (class file version 61.0), this version of the Java Runtime only recognizes class file versions up to 52.0", "cls": "err"},
+        {"out": "\tat java.lang.ClassLoader.defineClass1(Native Method)", "cls": "dim"},
+        {"out": "…", "cls": "dim"},
+        {"out": "Error: A JNI error has occurred, please check your installation and try again", "cls": "err"},
+        {"out": "Exception in thread \"main\" エラー: サービス calc-engine を起動できませんでした（ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)）。起動コマンド: java -jar services/calc-engine/build/libs/calc-engine-mcp.jar", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p><strong>怎么看</strong>：前几行是 Java 子进程写到标准错误的信息，<code>class file version 61.0</code> 以上需要更新的 Java，<code>up to 52.0</code> 表示当前是 Java 8；最后一行是 CLI 的报错「无法启动服务 calc-engine」。</p>
+    <p><strong>解决</strong>：让 JDK 21 排在 PATH 最前面，然后确认：</p>
+    <pre><code>export PATH="$JAVA_HOME/bin:$PATH"
+java -version          # 第一行应为 openjdk version "21…"
+which java             # 应指向 JDK 21 的 bin/java</code></pre>
+
+    <h2>⑥ JAVA_HOME 指错了目录</h2>
+    <p><code>JAVA_HOME</code> 必须是 JDK 的<strong>根目录</strong>（其下有 <code>bin/java</code>），不是 <code>bin</code> 目录，也不是存放多个 JDK 的上级目录。指错时，CLI 的报错与 ④ 完全相同（实测 <code>JAVA_HOME=~/.local/jdk</code>，即上一级目录）。Gradle Wrapper 的报错更直接：</p>
+    <div class="term" data-title="bash — 症状（services/calc-engine）">
+      <script type="application/json">[
+        {"cmd": "JAVA_HOME=~/.local/jdk ./gradlew bootJar"},
+        {"out": " "},
+        {"out": "ERROR: JAVA_HOME is set to an invalid directory: /home/user/.local/jdk", "cls": "err"},
+        {"out": " "},
+        {"out": "Please set the JAVA_HOME variable in your environment to match the"},
+        {"out": "location of your Java installation."},
+        {"cmd": "unset JAVA_HOME; ./gradlew bootJar"},
+        {"out": " "},
+        {"out": "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"cmd": "ls ~/.local/jdk/"},
+        {"out": "21  jdk-21.0.12.1+1"},
+        {"cmd": "export JAVA_HOME=~/.local/jdk/21 && ls $JAVA_HOME/bin/java"},
+        {"out": "/home/user/.local/jdk/21/bin/java", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>解决</strong>：把 <code>JAVA_HOME</code> 设为包含 <code>bin/java</code> 的那个目录，并用 <code>ls $JAVA_HOME/bin/java</code> 确认。不要把 <code>JAVA_HOME</code> 指向 Windows 侧的 JDK（见 ⑧）。</p>
+
+    <h2>⑦ jar 不存在</h2>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の jar がありません: ~/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar。先に jar を作ってください：(cd services/calc-engine && ./gradlew bootJar)", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：找到了 Java，但还没有构建 jar（新克隆的仓库、执行过 <code>./gradlew clean</code>、或删掉了 <code>build/</code>）。<strong>解决</strong>：按报错里给出的命令构建，然后回到仓库根目录：<code>(cd services/calc-engine &amp;&amp; ./gradlew bootJar)</code>。端到端测试在同样的情况下会被跳过，见 <a href="06-tests-evals.html">运行测试与评估</a>。</p>
+
+    <h2>⑧ 在 WSL 中混用了 Windows 侧的工具</h2>
+    <p>WSL 默认把 Windows 的 PATH（<code>/mnt/c/…</code>）追加到 Linux 的 PATH 后面。因此 <code>java.exe</code>、<code>python.exe</code> 这样带 <code>.exe</code> 的 Windows 程序也能被调用，但它们<strong>不能代替</strong> Linux 侧的 <code>java</code> 或 <code>python3</code>：</p>
+    <div class="term" data-title="bash — WSL 中">
+      <script type="application/json">[
+        {"cmd": "which java"},
+        {"out": "/usr/bin/which: no java in (…:/mnt/c/Program Files/Java/jdk1.8.0_111/bin:…)", "cls": "dim"},
+        {"cmd": "java.exe -version"},
+        {"out": "java version \"1.8.0_111\"", "cls": "warn"},
+        {"out": "Java(TM) SE Runtime Environment (build 1.8.0_111-b14)", "cls": "warn"},
+        {"out": "Java HotSpot(TM) 64-Bit Server VM (build 25.111-b14, mixed mode)", "cls": "warn"}
+      ]</script>
+    </div>
+    <ul>
+      <li><strong>Java</strong>：CLI 和 Gradle 找的是 <code>java</code>，不是 <code>java.exe</code>。Windows 侧装了 JDK 也没有用（上例还是 Java 8）。请在 WSL 里另装 Linux 版 JDK 21（<a href="04-java-service.html">第 4 页</a>）。</li>
+      <li><strong>Python</strong>：同理，在 WSL 里用 Linux 的 <code>python3.12</code> 创建虚拟环境；不要用 Windows 的 Python 去运行 WSL 中的仓库。</li>
+      <li><strong>仓库位置</strong>：把仓库克隆到 Linux 文件系统（如 <code>~/echolab</code>），不要放在 <code>/mnt/c/…</code>。跨文件系统访问很慢，Gradle 构建和 pytest 都会明显变慢，文件权限也可能不对。</li>
+      <li><strong>换行符</strong>：在 WSL 里用 <code>git clone</code> 即可；仓库的 <code>.gitattributes</code> 规定 <code>gradlew</code> 使用 LF。如果文件经由 Windows 工具复制或改写成了 CRLF，就会出现下面的错误：</li>
+    </ul>
+    <div class="term" data-title="bash — gradlew 变成 CRLF 时">
+      <script type="application/json">[
+        {"cmd": "./gradlew bootJar"},
+        {"out": "bash: ./gradlew: cannot execute: required file not found", "cls": "err"},
+        {"cmd": "file gradlew"},
+        {"out": "gradlew: POSIX shell script, Unicode text, UTF-8 text executable, with CRLF line terminators", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>解决</strong>：在 WSL 的主目录里重新 <code>git clone</code>；或者执行 <code>sed -i 's/\r$//' gradlew</code> 去掉回车符。</p>
+
+    <h2>⑨ Docker：permission denied</h2>
+    <p>只在使用 <a href="04-java-service.html">第 4 页</a> 的可选 Docker 构建方式时才会遇到。</p>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "docker ps"},
+        {"out": "permission denied while trying to connect to the docker API at unix:///var/run/docker.sock", "cls": "err"},
+        {"cmd": "ls -l /var/run/docker.sock"},
+        {"out": "srw-rw---- 1 root docker 0 Oct  3 10:19 /var/run/docker.sock"},
+        {"cmd": "id -nG"},
+        {"out": "user wheel", "cls": "warn"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：Docker 守护进程的套接字只允许 root 和 <code>docker</code> 组访问，而当前用户不在 <code>docker</code> 组里。</p>
+    <p><strong>解决</strong>（说明，本页未执行）：</p>
+    <pre><code>sudo usermod -aG docker "$USER"   # 加入 docker 组
+# 然后注销并重新登录（WSL 中可在 Windows 侧执行 wsl --shutdown 后重开），
+# 或只在当前终端临时生效：
+newgrp docker
+docker ps                          # 不再报错即可</code></pre>
+    <ul>
+      <li>加入 <code>docker</code> 组相当于给予该用户 root 级别的权限，请只在自己的开发机上这样做。</li>
+      <li>使用 Docker Desktop 的 WSL 集成时，请在 Docker Desktop 的设置里为当前发行版开启集成；它的提示与上面不同。</li>
+      <li>不想处理 Docker 时，直接在本机安装 JDK 21 构建即可，结果相同。</li>
+    </ul>
+
+    <h2>仍未解决？</h2>
+    <ul>
+      <li>CLI 的设置・启动错误加上 <code>--debug</code> 会显示完整的 Traceback。</li>
+      <li>程序已经输出状态行（<code>状態: …</code>）时，问题在回答层面：凭据、费用上限、校验未通过、工具输入错误等，见 <a href="../../zh/08-troubleshooting.html">故障排除与 FAQ</a>。</li>
+      <li>参数、环境变量和退出码的完整说明见 <a href="../../zh/04-cli-reference.html">CLI 参考</a>。</li>
+      <li>回到环境准备：<a href="01-prerequisites.html">准备环境</a>・<a href="02-setup.html">安装与设置</a>。</li>
+    </ul>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

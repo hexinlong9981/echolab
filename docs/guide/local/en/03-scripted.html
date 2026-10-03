@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run in scripted mode (no API key) | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="03-scripted.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Run</span><span>Path A</span><span>--llm scripted</span><span>--fake-backend</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Run in scripted mode (no API key)</h1>
+    <p class="lead">Scripted mode replaces Claude with a YAML file: which tools to call and what the drafts say are written in advance. The tool calculations, the verifier, the renderer and the traces are all real code. This page runs the bundled example, explains the status line, then writes a script of your own and runs it.</p>
+    <p>All terminal sessions on this page are real runs; the path of the repository has been shortened to <code>~/echolab</code>.</p>
+
+    <h2>What is simulated and what is real</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  Q["Question&lt;br/&gt;(command-line argument)"] --&gt; AG["Agent loop&lt;br/&gt;core/agent"]
+  S["Script YAML&lt;br/&gt;stands in for Claude"] &lt;--&gt; AG
+  AG --&gt; GW["Gateway&lt;br/&gt;allowlist・numbering"]
+  GW --&gt; F["Calc service&lt;br/&gt;Python stand-in or Java"]
+  GW --&gt; CMP["Compare tools&lt;br/&gt;compare.*"]
+  AG --&gt; V["Verifier&lt;br/&gt;+ renderer"]
+  V --&gt; OUT["Answer + source table"]
+  AG -.-&gt; T["Trace&lt;br/&gt;.echolab/traces/"]
+  style S stroke-dasharray: 6 4
+      </pre>
+      <div class="caption">Figure 1: Scripted mode replaces only the dashed box (the LLM). With <code>--fake-backend</code>, the calc service is replaced by a Python stand-in in the same process; everything else is real code</div>
+    </div>
+    <table>
+      <thead><tr><th>Part</th><th>Scripted mode + <code>--fake-backend</code> (path A)</th></tr></thead>
+      <tbody>
+        <tr><td>LLM</td><td><strong>Simulated</strong>: <code>core/agent/llm/scripted.py</code> returns the script's turns one by one. No network, and it does not read your question</td></tr>
+        <tr><td>Calculation</td><td><strong>Stand-in</strong>: <code>tests/core/fakes.py</code> calculates with a Python reference implementation and, like Java, returns results to 6 decimal places (HALF_EVEN). It provides only three tools, <code>damage.expected</code>, <code>echo.score</code> and <code>gacha.probability_within</code> (no <code>gacha.simulate</code>), and does not check these tools' inputs against JSON Schema</td></tr>
+        <tr><td>Gateway</td><td>Real: exposes only the tools declared in <code>domain.yaml</code> and numbers calls in order, <code>c1</code>, <code>c2</code>…</td></tr>
+        <tr><td>Compare tools</td><td>Real: <code>compare.diff</code> and <code>compare.ratio</code> (core code, not routed through the calc service)</td></tr>
+        <tr><td>Verifier・renderer</td><td>Real: checks every number in the draft and rejects the draft (差し戻し, "sent back for rewriting") if any fails; once it passes, replaces the placeholders with numbers</td></tr>
+        <tr><td>Trace</td><td>Real: written to <code>.echolab/traces/&lt;run ID&gt;.jsonl</code></td></tr>
+        <tr><td>Cost</td><td>Calculated from the fictitious usage written in the script and recorded in a temporary ledger that is discarded after the run; <code>.echolab/costs.jsonl</code> is not written</td></tr>
+      </tbody>
+    </table>
+    <p>Drop <code>--fake-backend</code> and the calculations switch to the real Java service (path B, see <a href="04-java-service.html">Run with the Java calc service</a>); the script stays the same.</p>
+
+    <h2>Running the bundled example</h2>
+    <p>The bundled script <code>core/agent/examples/compare_builds.yaml</code> compares the expected damage of two builds (ビルド A and B). The question is in Japanese, matching the script's content:</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063754Z-904935", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063754Z-904935.jsonl", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "0"}
+      ]</script>
+    </div>
+    <p>The answer reads: "Build B is stronger. Expected damage of build A: 6,192. Expected damage of build B: 7,128. Difference: 936 (15.1% more than A)." The source table columns are source ID (出典 ID), value (値), tool (ツール) and unverified data (未確認データ).</p>
+
+    <h3>Reading the status line</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Value here</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>状態</code> (status)</td><td><code>answered</code></td><td>The draft passed verification and an answer with numbers was given. Another common value is <code>fallback</code>: the draft still failed after repeated rejections, so only a fixed answer without numbers is given</td></tr>
+        <tr><td><code>差し戻し</code> (rejected drafts)</td><td><code>1 回</code> (1)</td><td>The number of drafts rejected by the verifier. This script <strong>deliberately</strong> has the first draft write the difference "936" itself, so it is rejected once</td></tr>
+        <tr><td><code>費用</code> (cost)</td><td><code>$0.0000</code></td><td>The cost of this run. This script has no <code>usage</code>, so it is 0; in scripted mode the amount is fictitious anyway</td></tr>
+        <tr><td><code>実行 ID</code> (run ID)</td><td><code>20261003T063754Z-904935</code></td><td>The run's identifier (UTC time + random suffix), which is also the trace file name</td></tr>
+        <tr><td><code>トレース</code> (trace)</td><td>…<code>.jsonl</code></td><td>Where the trace was written</td></tr>
+      </tbody>
+    </table>
+    <p>Exit codes: <code>0</code> answered, <code>1</code> could not answer (<code>fallback</code> and similar), <code>2</code> configuration or usage error. For a detailed reading of the answer text and the source table, see <a href="../../en/03-reading-answers.html">Reading the answers</a> in the user guide.</p>
+
+    <h3>What happens in this script</h3>
+    <p>The script has 4 turns. Click "Next" to step through them:</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="script">Script<small>stands in for the LLM</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="gw">Gateway + tools<small>numbers c1, c2…</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="ver">Verifier<small>checks numbers</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">Renderer<small>fills in numbers</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["script", "a1", "gw"], "packet": {"at": "gw", "text": "c1.total, c2.total"}, "text": "Turn 1: two <code>damage_expected</code> calls at once (with A's and B's parameters). The gateway numbers them in order, and the results become sources such as <code>c1.total</code> and <code>c2.total</code>."},
+        {"on": ["script", "a2", "ver"], "done": ["gw"], "fail": ["ver"], "packet": {"at": "ver", "text": "936 → rejected"}, "text": "Turn 2: the draft 「ビルド B の方が [[c2.total|0]] で、A より 936 高いです。」 (\"Build B is [[c2.total|0]], 936 higher than A.\") contains <code>936</code> with no source (it is not in the question either). The verifier rejects it and tells the LLM to compute differences and ratios with the compare tools."},
+        {"on": ["script", "a1", "gw"], "done": [], "packet": {"at": "gw", "text": "c3.diff, c4.change"}, "text": "Turn 3 (<code>expect: 差し戻し</code>: confirms that the previous message really was a rejection notice): calls <code>compare_diff</code> and <code>compare_ratio</code>, producing <code>c3.diff</code>, <code>c4.ratio</code> and <code>c4.change</code>."},
+        {"on": ["script", "a2", "ver"], "done": ["gw", "ver"], "packet": {"at": "ver", "text": "passed"}, "text": "Turn 4: every number in the draft is written as a placeholder, such as <code>[[c3.diff|0]]</code> and <code>[[c4.change|%1]]</code>, so verification passes."},
+        {"on": ["a3", "out"], "done": ["gw", "ver"], "packet": {"at": "out", "text": "936 / 15.1%"}, "text": "The renderer replaces the placeholders with numbers from the sources: <code>936.000000</code> → <code>936</code>, <code>0.151163</code> → <code>15.1%</code>. The source table lists only the 4 sources cited in the answer."}
+      ]</script>
+    </div>
+
+    <h2>The question text is not "understood"</h2>
+    <p>Scripted mode ignores what the question says. Ask "Hello" with the same script and you get exactly the same answer as above:</p>
+    <div class="term" data-title="bash — a different question">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"Hello\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"pause": 400},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": "…", "cls": "dim"},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T064818Z-efe98b", "cls": "warn"}
+      ]</script>
+    </div>
+    <p>The question matters in two places: it is written into the trace, and the verifier allows the answer to cite <strong>numbers that appear in the question</strong>. So if a script's draft writes numbers directly, the verification result can change when the question changes. For a system that really understands the question, see <a href="05-real-claude.html">Run with real Claude</a>.</p>
+
+    <h2>Writing your own script</h2>
+    <h3>Script format</h3>
+    <p>The format is defined by <code>core/agent/llm/scripted.py</code>. The top level of the file is <code>turns:</code> (or the file can be a plain list); each element is one LLM turn, used in order:</p>
+    <table>
+      <thead><tr><th>Key</th><th>Required?</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>tool_uses</code></td><td>Optional</td><td>The list of tools to call in this turn, each as <code>{name, input}</code> (<code>id</code> may be omitted and is then generated). Multiple calls in the same turn run in parallel. When <code>tool_uses</code> is present, the turn's <code>stop_reason</code> defaults to <code>tool_use</code></td></tr>
+        <tr><td><code>text</code></td><td>Optional</td><td>Without <code>tool_uses</code>, this is the <strong>answer draft</strong> (a template) handed to the verifier; numbers are cited with placeholders</td></tr>
+        <tr><td><code>expect</code></td><td>Optional</td><td>A string that must appear in the previous message sent to the LLM. For example, <code>expect: 差し戻し</code> confirms that the previous draft really was rejected; if it does not match, the run ends with an error</td></tr>
+        <tr><td><code>usage</code></td><td>Optional</td><td>Fictitious token usage, such as <code>{input_tokens: 1200, output_tokens: 80}</code>; <code>cache_creation_input_tokens</code> and <code>cache_read_input_tokens</code> are also accepted. All default to 0. Used to demonstrate the cost calculation</td></tr>
+        <tr><td><code>stop_reason</code></td><td>Optional</td><td>By default decided by whether <code>tool_uses</code> is present; you can also write <code>refusal</code> or <code>max_tokens</code> to simulate those cases</td></tr>
+      </tbody>
+    </table>
+    <p>Write <strong>tool names</strong> as their "wire names", with the dot replaced by an underscore:</p>
+    <table>
+      <thead><tr><th>In the script</th><th>Tool</th><th>Source fields (examples)</th></tr></thead>
+      <tbody>
+        <tr><td><code>damage_expected</code></td><td><code>damage.expected</code></td><td><code>total</code>, <code>base</code>, <code>bonus_multiplier</code>, <code>crit_multiplier</code>, <code>defense_multiplier</code>, <code>resistance_multiplier</code></td></tr>
+        <tr><td><code>echo_score</code></td><td><code>echo.score</code></td><td><code>score</code>, <code>percent_of_ideal</code></td></tr>
+        <tr><td><code>gacha_probability_within</code></td><td><code>gacha.probability_within</code></td><td><code>probability</code></td></tr>
+        <tr><td><code>compare_diff</code></td><td><code>compare.diff</code></td><td><code>diff</code></td></tr>
+        <tr><td><code>compare_ratio</code></td><td><code>compare.ratio</code></td><td><code>ratio</code>, <code>change</code></td></tr>
+      </tbody>
+    </table>
+    <p>A <strong>source ID</strong> is "call number.field": the 1st tool call of the run is <code>c1</code>, the 2nd is <code>c2</code>, and so on (a call that fails also takes a number). Compare tool inputs take source IDs, such as <code>{a: c2.total, b: c1.total}</code>.</p>
+    <p><strong>Placeholders</strong> come in three forms (thousands separators in the integer part, round half to even):</p>
+    <table>
+      <thead><tr><th>Form</th><th>Effect</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><code>[[c1.total]]</code></td><td>Up to 2 decimal places, trailing zeros removed</td><td><code>6192.000000</code> → <code>6,192</code></td></tr>
+        <tr><td><code>[[c1.total|1]]</code></td><td>Exactly N decimal places</td><td><code>6192.000000</code> → <code>6,192.0</code></td></tr>
+        <tr><td><code>[[c4.change|%1]]</code></td><td>Multiplied by 100, N decimal places, with <code>%</code></td><td><code>0.151163</code> → <code>15.1%</code></td></tr>
+      </tbody>
+    </table>
+    <p>Apart from placeholders, a draft may contain only three kinds of numbers: numbers that appear in the question, list numbers at the start of a line (such as <code>1.</code>), and integers of 10 or less immediately followed by a counting word (in English, words such as "ways", "steps", "options" or "builds", as in "3 steps"; Japanese and Chinese counters are also recognized).</p>
+    <div class="callout"><strong>Reference examples</strong>Every eval case in <code>evals/faithfulness/cases.yaml</code> has a <code>turns</code> section in the same format (covering expected damage, echo scores, gacha probabilities and compare tools), which you can adapt. Keys there such as <code>fake_unverified</code> and <code>expect.status</code> are only for the eval runner; the CLI ignores them. For tool inputs, see the <code>input</code> of each case in <code>domains/wuwa/golden/*.yaml</code>.</div>
+
+    <h3>Example: gacha probabilities</h3>
+    <p>Here is a new script. It uses the toy rules from <code>domains/wuwa/golden/gacha.yaml</code> (the values are illustrative, not official game values) to calculate the chance of getting the featured character within 10 pulls and within 20 pulls. To demonstrate a rejection, turn 2 deliberately writes a self-estimated number. The script lives outside the repository, in <code>~/echolab-scripts/</code>; it does not need to be added to the repository.</p>
+    <pre><code># My own script: gacha probabilities under toy rules (illustrative values, not official game values)
+turns:
+  # Turn 1: two tool calls in parallel (within 10 pulls, within 20 pulls)
+  - tool_uses:
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 10
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 20
+    usage: {input_tokens: 2000, output_tokens: 150}
+  # Turn 2: deliberately write a self-estimated number (73%); the verifier rejects it
+  - text: The chance of getting the featured character within 10 pulls is about 73%.
+    usage: {input_tokens: 400, output_tokens: 40}
+  # Turn 3: cite tool results only through placeholders; passes verification
+  - expect: 差し戻し
+    text: |-
+      Under the rules you gave:
+      - Chance of getting the featured character within 10 pulls: [[c1.probability|%1]]
+      - Chance of getting the featured character within 20 pulls: [[c2.probability|%1]]
+    usage: {input_tokens: 600, output_tokens: 80}</code></pre>
+    <p class="cmd-note">~/echolab-scripts/gacha_toy.yaml</p>
+    <p><code>expect: 差し戻し</code> stays in Japanese: it must match the rejection notice the program actually sends. When you run it, put the rules in the question as well (the script does not read the question, but the verifier treats numbers in the question as citable):</p>
+    <div class="term" data-title="bash — run your own script">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"Under these rules: base rate 0.1, the rate rises by 0.1 per pull from pull 5, pull 10 guarantees a 5-star, the featured character is 0.5 of 5-stars, and after losing the 50/50 the next 5-star is always featured. Starting from 0 pity with no guarantee, what is the chance of getting the featured character within 10 pulls and within 20 pulls?\" --llm scripted --script ../echolab-scripts/gacha_toy.yaml --fake-backend", "speed": 8},
+        {"pause": 500},
+        {"out": "Under the rules you gave:", "cls": "hl"},
+        {"out": "- Chance of getting the featured character within 10 pulls: 73.4%", "cls": "hl"},
+        {"out": "- Chance of getting the featured character within 20 pulls: 100.0%", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------", "cls": "dim"},
+        {"out": "c1.probability  0.7344054712000005  gacha.probability_within  -"},
+        {"out": "c2.probability  1.0                 gacha.probability_within  -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0174　実行 ID: 20261003T064808Z-c94797", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064808Z-c94797.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li>The raw value of <code>c1.probability</code>, <code>0.7344054712000005</code>, matches the expected value <code>0.7344054712</code> of golden case gacha-001 (probabilities are floating-point numbers returned as-is in their shortest representation, not rounded to 6 decimal places like expected damage). <code>[[c1.probability|%1]]</code> renders it as <code>73.4%</code>.</li>
+      <li>20 pulls is twice the hard pity, and "after losing the 50/50 the next 5-star is always featured" applies, so the featured character is guaranteed: <code>1.0</code> → <code>100.0%</code>.</li>
+      <li>"10 pulls" and "20 pulls" in the draft were not rejected, because 10 and 20 both appear in the question.</li>
+      <li><code>費用: $0.0174</code> (cost) comes from the fictitious <code>usage</code> in the script: 3,000 input tokens in total × $4 per million + 270 output tokens in total × $20 per million (the <code>claude-opus-5-5</code> prices in <code>config/budget.yaml</code>). It only demonstrates how cost is calculated; nothing is actually charged, and nothing is written to <code>.echolab/costs.jsonl</code>.</li>
+    </ul>
+
+    <h3>Looking at the rejected draft</h3>
+    <p>The rejected first draft is recorded in the trace's <code>verdict</code> events:</p>
+    <div class="term" data-title="bash — view verdicts">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -c \"import json,sys; [print(e['draft'], e['ok'], e['problems']) for e in map(json.loads, open(sys.argv[1])) if e['event'] == 'verdict']\" .echolab/traces/20261003T064808Z-c94797.jsonl", "speed": 8},
+        {"out": "1 False ['数値「73%」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。']", "cls": "err"},
+        {"out": "2 True []", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The problem with draft 1: "The number '73%' has no source. Cite tool results with [[source ID]] and compute differences and ratios with the compare tools (citing numbers from the question is allowed)." This text is sent back to the LLM as the rejection notice, which is why <code>expect: 差し戻し</code> in turn 3 matches.</p>
+
+    <h3>What if the draft keeps writing numbers?</h3>
+    <p>If every draft writes numbers directly, the run ends with <code>fallback</code> once the rejection limit is reached: no numbers are given, and the exit code is 1. The script <code>~/echolab-scripts/always_bad.yaml</code> below writes "The chance is about 73%." for three turns in a row after the tool call:</p>
+    <pre><code># Every draft writes the number directly: verification never passes
+turns:
+  - tool_uses:
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 10
+  - text: The chance is about 73%.
+  - text: The chance is about 73%.
+  - text: The chance is about 73%.</code></pre>
+    <div class="term" data-title="bash — every draft rejected">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"Under these rules: … (same as above) … within 20 pulls?\" --llm scripted --script ../echolab-scripts/always_bad.yaml --fake-backend", "speed": 10},
+        {"pause": 500},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "cls": "warn"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": ""},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T064811Z-ba3f21", "cls": "err"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064811Z-ba3f21.jsonl", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "1"}
+      ]</script>
+    </div>
+    <p>The "… (same as above) …" in the command is shortened for layout; the actual run used the full question. The fixed answer means: "Sorry. I could not write an answer whose calculation results can be traced to their sources, so I will not give an answer containing numbers. Please make the conditions more specific and ask again." The source table says 「（引用した出典はありません）」 ("no sources cited"). Better no numbers than numbers without a source.</p>
+
+    <h3>Common mistakes when writing scripts</h3>
+    <table>
+      <thead><tr><th>Symptom (actual output)</th><th>Cause</th></tr></thead>
+      <tbody>
+        <tr><td><code>エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: 台本の応答（2 件）を使い切った後に呼ばれました</code>, exit code 2<br>("Error: the run did not follow the script (check the combination of question, script and --fake-backend): called after the script's responses (2) were used up")</td><td>The script has too few turns: for example, the last draft was rejected and the program asked for another turn, but the script had run out. Check the drafts for numbers without a source, or add the follow-up turns</td></tr>
+        <tr><td><code>エラー: 台本が見つかりません: ../my/nope.yaml</code>, exit code 2<br>("Error: script not found")</td><td>The <code>--script</code> path is wrong. Relative paths are resolved from the current directory</td></tr>
+        <tr><td><code>エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。</code>, exit code 2<br>("Error: executable java for service calc-engine not found. Install JDK 21 and put java on PATH, or set the JAVA_HOME environment variable so that $JAVA_HOME/bin/java exists.")</td><td><code>--fake-backend</code> was left out, so the CLI tried to start the Java calc service. For path A, add <code>--fake-backend</code>; to use Java, see the next page, <a href="04-java-service.html">Run with the Java calc service</a></td></tr>
+      </tbody>
+    </table>
+    <p>Add <code>--debug</code> to see the full traceback. For more problems, see <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</p>
+
+    <div class="callout ok"><strong>Next steps</strong>To use the real Java calc service, go to <a href="04-java-service.html">Run with the Java calc service</a>; to ask in your own words, go to <a href="05-real-claude.html">Run with real Claude</a>; to run scripts in bulk as evals, go to <a href="06-tests-evals.html">Run tests &amp; evals</a>.</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

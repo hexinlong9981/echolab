@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>安装与设置 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="02-setup.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>git clone</span><span>venv</span><span>pytest</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>安装与设置</h1>
+    <p class="lead">取得代码、建 Python 虚拟环境、安装依赖，再用测试确认安装成功。这一页的步骤三条路线都要做，大约几分钟（主要是下载依赖的时间）。</p>
+    <p>本页的终端记录都是在一个全新的克隆里实际执行得到的；为便于阅读，克隆所在的路径已缩写为 <code>~/echolab</code>。</p>
+
+    <h2>整体步骤</h2>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="clone">克隆<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="venv">虚拟环境<small>python3 -m venv</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="pip">安装依赖<small>pip install</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="test">验证<small>pytest</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="ready">就绪<small>选路线</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["clone"], "packet": {"at": "clone", "text": "echolab/"}, "text": "<code>git clone</code> 公开仓库，<code>cd echolab</code>。之后所有命令都在<strong>仓库根目录</strong>执行：<code>python -m core.agent</code> 要从这里才能找到 <code>core</code> 包。"},
+        {"on": ["a1", "venv"], "done": ["clone"], "packet": {"at": "venv", "text": ".venv/"}, "text": "<code>python3 -m venv .venv</code> 在仓库里建一个独立的 Python 环境，依赖不会装进系统的 Python。<code>.venv/</code> 已被 Git 忽略。"},
+        {"on": ["a2", "pip"], "done": ["clone", "venv"], "packet": {"at": "pip", "text": "requirements-dev.txt"}, "text": "<code>pip install -r requirements-dev.txt</code>：运行所需的 anthropic、mcp、pyyaml、jsonschema，加上开发用的 pytest、pytest-asyncio、ruff。"},
+        {"on": ["a3", "test"], "done": ["clone", "venv", "pip"], "packet": {"at": "test", "text": "294 passed"}, "text": "<code>pytest -m \"not e2e\"</code> 运行不需要 Java 的全部测试。全部通过就说明 Python 这一侧安装成功。"},
+        {"on": ["a4", "ready"], "done": ["clone", "venv", "pip", "test"], "text": "准备完毕。接着去 <a href=\"03-scripted.html\">用脚本模式运行</a>（路线 A），或按需要去 Java、真实 Claude 的页面。"}
+      ]</script>
+    </div>
+
+    <h2>1. 克隆仓库</h2>
+    <div class="term" data-title="bash — 克隆">
+      <script type="application/json">[
+        {"cmd": "git clone https://github.com/hexinlong9981/echolab.git"},
+        {"out": "Cloning into 'echolab'..."},
+        {"cmd": "cd echolab"},
+        {"cmd": "ls"},
+        {"out": "config               docs            README.en.md          services"},
+        {"out": "core                 domains         README.md             tests"},
+        {"out": "DISCLAIMER.en.md     evals           README.zh-CN.md"},
+        {"out": "DISCLAIMER.md        LICENSE         requirements-dev.txt"},
+        {"out": "DISCLAIMER.zh-CN.md  pyproject.toml  requirements.txt"}
+      ]</script>
+    </div>
+    <p>Windows 用户请在 WSL 的终端里执行，并克隆到 WSL 的家目录下（见 <a href="01-prerequisites.html">准备环境</a>）。</p>
+
+    <h2>2. 建虚拟环境、安装依赖</h2>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "python3 -m venv .venv"},
+        {"cmd": ".venv/bin/python --version"},
+        {"out": "Python 3.12.11"},
+        {"cmd": ".venv/bin/pip install -r requirements-dev.txt"},
+        {"out": "…（下载并安装依赖）", "cls": "dim", "delay": 900},
+        {"out": "Successfully installed annotated-types-0.8.0 anthropic-1.11.0 anyio-4.15.1 … ruff-0.16.10 … uvicorn-0.54.0", "cls": "hl"},
+        {"cmd": ".venv/bin/pip list | grep -i -E '^(anthropic|mcp|pyyaml|jsonschema|pytest|pytest-asyncio|ruff) '"},
+        {"out": "anthropic                 1.11.0"},
+        {"out": "jsonschema                4.26.0"},
+        {"out": "mcp                       1.30.0"},
+        {"out": "pytest                    8.4.2"},
+        {"out": "pytest-asyncio            1.4.0"},
+        {"out": "PyYAML                    6.0.3"},
+        {"out": "ruff                      0.16.10"}
+      ]</script>
+    </div>
+    <p>最后可能还会出现一条 <code>[notice] A new release of pip is available</code>，可以忽略。装了什么、为什么需要：</p>
+    <table>
+      <thead><tr><th>包</th><th>来自</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>anthropic</code></td><td>requirements.txt</td><td>Anthropic 官方 Python SDK，调用 Claude API（路线 C）。脚本模式下不会联网</td></tr>
+        <tr><td><code>mcp</code></td><td>requirements.txt</td><td>MCP 客户端：以子进程启动 Java 计算服务并经 stdio 通信（路线 B/C）</td></tr>
+        <tr><td><code>pyyaml</code></td><td>requirements.txt</td><td>读取 <code>domain.yaml</code>、<code>config/*.yaml</code>、脚本、黄金用例</td></tr>
+        <tr><td><code>jsonschema</code></td><td>requirements.txt</td><td>网关按 JSON Schema 校验工具的输入；测试中校验数据文件</td></tr>
+        <tr><td><code>pytest</code>、<code>pytest-asyncio</code></td><td>requirements-dev.txt</td><td>运行 <code>tests/</code> 下的测试（很多是异步的）</td></tr>
+        <tr><td><code>ruff</code></td><td>requirements-dev.txt</td><td>代码检查（lint）</td></tr>
+      </tbody>
+    </table>
+    <p><code>requirements-dev.txt</code> 的第一行是 <code>-r requirements.txt</code>，所以装它就包含了运行所需的全部依赖。只想运行 CLI、不跑测试时，装 <code>requirements.txt</code> 也可以。</p>
+
+    <h3>激活虚拟环境（可选）</h3>
+    <p>上面的命令都写成 <code>.venv/bin/python</code>、<code>.venv/bin/pip</code>，不激活也能用。如果每次输入嫌长，可以在每个新终端里先激活一次，之后 <code>python</code> 就指向虚拟环境里的 Python：</p>
+    <div class="term" data-title="bash — 激活">
+      <script type="application/json">[
+        {"cmd": "source .venv/bin/activate"},
+        {"cmd": "which python"},
+        {"out": "~/echolab/.venv/bin/python", "cls": "hl"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR] [--debug]"},
+        {"out": "                            question"},
+        {"out": ""},
+        {"out": "出典付きで質問に答える", "cls": "hl"},
+        {"out": "…", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>各选项的含义见使用说明的 <a href="../../zh/04-cli-reference.html">命令参考</a>。本指南后面的命令统一写成 <code>.venv/bin/python …</code>，激活后写 <code>python …</code> 效果相同。</p>
+
+    <h2>3. 用测试确认安装成功</h2>
+    <p>运行不需要 Java 的全部测试。<code>-m "not e2e"</code> 排除了要启动 Java 计算服务（jar）的端到端测试，所以这一步只需要 Python。</p>
+    <div class="term" data-title="bash — 测试">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/pytest -m \"not e2e\""},
+        {"out": "........................................................................ [ 24%]"},
+        {"out": "........................................................................ [ 48%]"},
+        {"out": "........................................................................ [ 73%]"},
+        {"out": "........................................................................ [ 97%]"},
+        {"out": "......                                                                   [100%]"},
+        {"out": "294 passed, 5 deselected in 11.88s", "cls": "hl"},
+        {"cmd": ".venv/bin/ruff check ."},
+        {"out": "All checks passed!", "cls": "hl"}
+      ]</script>
+    </div>
+    <ul>
+      <li><code>294 passed</code>：全部通过。测试数量会随仓库的更新变化，重要的是没有 <code>failed</code> 或 <code>error</code>。</li>
+      <li><code>5 deselected</code>：被 <code>-m "not e2e"</code> 排除的端到端测试。它们需要构建好的 jar，运行方法见 <a href="06-tests-evals.html">运行测试与评估</a>。</li>
+    </ul>
+    <div class="callout"><strong>为什么不加 <code>-q</code></strong><code>pyproject.toml</code> 的 pytest 设置里已经有 <code>addopts = "-q"</code>。命令行再加 <code>-q</code> 就变成更安静的 <code>-qq</code>：实际运行 <code>pytest -q -m "not e2e"</code> 时，只打印进度点，不再打印最后的 <code>294 passed, …</code> 这一行。想看到汇总行，就像上面那样不加 <code>-q</code>。</div>
+
+    <h2>4. 目录导览</h2>
+    <p>只列出运行时会接触到的部分：</p>
+    <table>
+      <thead><tr><th>位置</th><th>内容</th><th>什么时候会用到</th></tr></thead>
+      <tbody>
+        <tr><td><code>core/</code></td><td>与领域无关的核心（Python）：<code>agent/</code>（CLI 和对话循环、LLM 的实现）、<code>gateway/</code>（工具许可列表、Schema 校验、编号、费用上限）、<code>compare/</code>（比较工具）、<code>verifier/</code>（校验器和渲染器）、<code>trace/</code>、<code>evals/</code></td><td>每次运行。<code>core/agent/examples/compare_builds.yaml</code> 是自带的示例脚本</td></tr>
+        <tr><td><code>services/calc-engine/</code></td><td>Java 21 的计算库和 MCP 服务器（Gradle 项目，带 <code>./gradlew</code>）</td><td>路线 B/C：在这里构建 jar（<code>build/libs/calc-engine-mcp.jar</code>）</td></tr>
+        <tr><td><code>domains/wuwa/</code></td><td>领域包：<code>domain.yaml</code>（声明可用的工具）、<code>golden/</code>（黄金用例）、<code>data/v2.x/</code>（示例数据）、<code>prompts/</code>（系统提示）</td><td>每次运行都会读取。写脚本时可以参考 <code>golden/</code> 的输入</td></tr>
+        <tr><td><code>config/</code></td><td><code>services.yaml</code>（怎样启动计算服务）、<code>budget.yaml</code>（费用上限和价格表）</td><td>路线 B/C；路线 C 的费用上限</td></tr>
+        <tr><td><code>evals/</code></td><td><code>faithfulness/cases.yaml</code>（忠实度评估用例，也是很好的脚本范例）、<code>reports/</code>（汇总后的报告）</td><td>运行评估时</td></tr>
+        <tr><td><code>tests/</code></td><td>pytest 测试；<code>tests/core/fakes.py</code> 是 <code>--fake-backend</code> 使用的 Python 替身</td><td>运行测试时；路线 A</td></tr>
+        <tr><td><code>docs/</code></td><td>架构说明、ADR（设计决策记录）、使用说明和本指南的源文件</td><td>想了解设计时</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. 运行时文件写在哪里</h2>
+    <p>运行时产生的文件都写在仓库根目录下的 <code>.echolab/</code>，它和 <code>.venv/</code> 一样被 <code>.gitignore</code> 排除，不会出现在 <code>git status</code> 里。</p>
+    <table>
+      <thead><tr><th>文件</th><th>内容</th><th>什么时候写</th></tr></thead>
+      <tbody>
+        <tr><td><code>.echolab/traces/&lt;运行 ID&gt;.jsonl</code></td><td>一次提问的执行轨迹：问题、LLM 调用、工具调用、校验判定、回答</td><td>每次运行（所有路线）</td></tr>
+        <tr><td><code>.echolab/costs.jsonl</code></td><td>费用台账：每次调用 Claude 的用量和金额，用来检查每日、每月上限</td><td>只在路线 C（<code>--llm anthropic</code>）。脚本模式的用量是虚构的，记在每次运行用完即删的临时台账里，不写这个文件</td></tr>
+      </tbody>
+    </table>
+    <div class="term" data-title="bash — 运行之后">
+      <script type="application/json">[
+        {"cmd": "ls .echolab/traces"},
+        {"out": "20261003T063754Z-904935.jsonl"},
+        {"out": "20261003T063757Z-65c118.jsonl"},
+        {"out": "…", "cls": "dim"},
+        {"cmd": "git check-ignore -v .echolab .venv"},
+        {"out": ".gitignore:42:.echolab/\t.echolab"},
+        {"out": ".gitignore:18:.venv/\t.venv"},
+        {"cmd": "git status --short"},
+        {"out": "（没有输出：工作区是干净的）", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>轨迹的读法见使用说明的 <a href="../../zh/07-traces-evals.html">执行轨迹与评估</a>。想清空记录时，直接删除 <code>.echolab/traces/</code> 下的文件即可。</p>
+
+    <div class="callout ok"><strong>安装完成</strong>下一步：<a href="03-scripted.html">用脚本模式运行（无需 API 密钥）</a>。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

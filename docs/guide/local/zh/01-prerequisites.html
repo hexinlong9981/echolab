@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>准备环境 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="01-prerequisites.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>环境</span><span>Python・JDK・WSL2</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>准备环境</h1>
+    <p class="lead">先确认电脑上有哪些工具。最短的路线 A 只需要 Python 3.12+ 和 Git；JDK 21 和 API 密钥只在对应的路线才需要。本页列出每样东西的用途、检查命令和实际的输出示例。</p>
+
+    <h2>需要什么 → 哪条路线需要</h2>
+    <table>
+      <thead><tr><th>需要什么</th><th>用途</th><th>路线 A<br>脚本 + Python 替身</th><th>路线 B<br>脚本 + Java 服务</th><th>路线 C<br>真实 Claude</th></tr></thead>
+      <tbody>
+        <tr><td>Linux / macOS / Windows（WSL2）</td><td>运行环境</td><td>需要</td><td>需要</td><td>需要</td></tr>
+        <tr><td>Python 3.12 或更高</td><td>CLI、网关、校验器、测试</td><td>需要</td><td>需要</td><td>需要</td></tr>
+        <tr><td>Git</td><td>取得代码</td><td>需要</td><td>需要</td><td>需要</td></tr>
+        <tr><td>网络</td><td>下载 Python 依赖；构建 jar 时下载 Gradle 依赖；调用 Claude API</td><td>仅安装时</td><td>安装和首次构建时</td><td>始终</td></tr>
+        <tr><td>JDK 21</td><td>构建并运行 Java 计算服务 calc-engine</td><td>不需要</td><td>需要</td><td>通常需要（加 <code>--fake-backend</code> 时不需要）</td></tr>
+        <tr><td>Docker（可选）</td><td>不装 JDK、在容器里构建和测试 Java</td><td>不需要</td><td>可选</td><td>可选</td></tr>
+        <tr><td>Anthropic API 密钥</td><td>调用 Claude；会产生费用</td><td>不需要</td><td>不需要</td><td>需要</td></tr>
+      </tbody>
+    </table>
+    <p>下面的输出示例来自编写本指南时使用的环境（Windows 上的 WSL2，Linux 发行版为 Rocky Linux 10）。你的版本号不同是正常的，只要满足要求即可。</p>
+
+    <h2>操作系统</h2>
+    <ul>
+      <li><strong>Linux</strong>：任何较新的发行版都可以。</li>
+      <li><strong>macOS</strong>：命令与 Linux 相同（在「终端」中执行）。</li>
+      <li><strong>Windows</strong>：请使用 <strong>WSL2</strong>（Windows Subsystem for Linux），在 WSL 的 Linux 里完成本指南的全部操作。</li>
+    </ul>
+    <div class="callout warn"><strong>Windows 用户：所有命令都在 WSL 里执行，不要混用 Windows 一侧的工具</strong>
+      在 WSL 的终端里，PATH 默认也包含 Windows 的目录（<code>/mnt/c/…</code>），所以 Windows 版的 <code>python.exe</code>、<code>git.exe</code> 也能被找到。它们看到的是 Windows 的文件系统和换行规则，和本指南的命令不兼容。请做到三点：
+      <ul>
+        <li>Python、Git、JDK 都安装在 <strong>WSL 的 Linux 里</strong>，命令里不带 <code>.exe</code>。</li>
+        <li>把仓库克隆到 WSL 的家目录（如 <code>~/echolab</code>），而不是 <code>/mnt/c/…</code> 下：速度更快，也不会出现权限和换行符的问题。</li>
+        <li>不要用 Windows 的 PowerShell 或「命令提示符」去执行本指南的命令。</li>
+      </ul>
+    </div>
+    <p>确认自己在 WSL 里、而不是在 Windows 一侧：</p>
+    <div class="term" data-title="bash — 确认 WSL2">
+      <script type="application/json">[
+        {"cmd": "uname -sr"},
+        {"out": "Linux 6.6.87.2-microsoft-standard-WSL2", "cls": "hl"},
+        {"cmd": "command -v python.exe"},
+        {"out": "/mnt/c/Users/<用户名>/AppData/Local/Programs/Python/Python313/python.exe", "cls": "warn"},
+        {"out": "（↑ 这是 Windows 一侧的 Python，不要用它）", "cls": "dim"}
+      ]</script>
+    </div>
+    <p><code>uname -sr</code> 的结果里有 <code>microsoft-standard-WSL2</code> 就说明在 WSL2 中。第二条命令只是为了说明 Windows 的程序也在 PATH 上（用户名已替换为 <code>&lt;用户名&gt;</code>）；本指南只使用不带 <code>.exe</code> 的 Linux 版命令。</p>
+
+    <h2>Python 3.12 或更高</h2>
+    <p>项目按 Python 3.12 设定（<code>pyproject.toml</code> 中 ruff 的 <code>target-version = "py312"</code>）。本指南的输出都是用 Python 3.12.11 实际运行得到的。还需要标准库的 <code>venv</code>（用来建虚拟环境）。</p>
+    <div class="term" data-title="bash — 检查 Python">
+      <script type="application/json">[
+        {"cmd": "python3 --version"},
+        {"out": "Python 3.12.11", "cls": "hl"},
+        {"cmd": "python3 -c \"import sys; print(sys.version_info >= (3, 12))\""},
+        {"out": "True", "cls": "hl"},
+        {"cmd": "python3 -c \"import venv, ensurepip; print('ok')\""},
+        {"out": "ok"}
+      ]</script>
+    </div>
+    <ul>
+      <li>第二条输出 <code>False</code>：系统的 <code>python3</code> 太旧。先看看有没有单独安装的 <code>python3.12</code>（<code>python3.12 --version</code>），有的话后面的命令把 <code>python3</code> 换成 <code>python3.12</code> 即可；没有就用发行版的包管理器或 python.org 的安装包装一个 3.12 以上的版本。</li>
+      <li>第三条报 <code>ModuleNotFoundError</code>：有些 Linux 发行版把 <code>venv</code> / <code>ensurepip</code> 拆成了单独的包（名称通常类似 <code>python3.12-venv</code>），装上即可。</li>
+    </ul>
+
+    <h2>Git</h2>
+    <div class="term" data-title="bash — 检查 Git">
+      <script type="application/json">[
+        {"cmd": "git --version"},
+        {"out": "git version 2.47.3", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>只用来执行 <code>git clone</code>，版本没有特别要求。仓库是公开的，克隆不需要 GitHub 账号。</p>
+
+    <h2>JDK 21（路线 B，以及路线 C 使用 Java 服务时）</h2>
+    <p>计算服务 calc-engine 用 Java 21 编写，需要 <strong>JDK</strong>（不只是 JRE）来构建 jar，运行时也需要 Java 21。哪个发行版都可以，这里以 Eclipse Temurin 为例。</p>
+    <p>CLI 找 <code>java</code> 的顺序是：先找 PATH 上的 <code>java</code>，找不到就用 <code>$JAVA_HOME/bin/java</code>。所以<strong>不必把 Java 加入 PATH，只要设好 <code>JAVA_HOME</code></strong>；构建用的 <code>./gradlew</code> 也会读 <code>JAVA_HOME</code>。</p>
+    <p>例如：从 Adoptium 下载 Temurin 21 的 Linux x64 压缩包，解压到 <code>~/.local/jdk</code>，再建一个不带版本号的链接 <code>~/.local/jdk/21</code>（下面是在一个空的家目录里实际执行的记录）：</p>
+    <div class="term" data-title="bash — 安装 JDK 21（压缩包方式）">
+      <script type="application/json">[
+        {"cmd": "mkdir -p ~/.local/jdk"},
+        {"cmd": "tar -xzf OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz -C ~/.local/jdk"},
+        {"cmd": "ls ~/.local/jdk"},
+        {"out": "jdk-21.0.12.1+1"},
+        {"cmd": "ln -s ~/.local/jdk/jdk-21.0.12.1+1 ~/.local/jdk/21"},
+        {"cmd": "export JAVA_HOME=~/.local/jdk/21"},
+        {"cmd": "\"$JAVA_HOME/bin/java\" -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS", "cls": "hl"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"},
+        {"cmd": "\"$JAVA_HOME/bin/javac\" -version"},
+        {"out": "javac 21.0.12.1", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>要点：第一行是 <code>version "21.…"</code>；<code>javac</code> 也能运行（说明装的是 JDK）。<code>export JAVA_HOME=…</code> 只对当前终端有效，想长期有效就把这一行加到 <code>~/.bashrc</code>（或你所用 shell 的配置文件）里。用发行版的包管理器或 macOS 的安装包安装也可以，只要 <code>java -version</code> 显示 21。</p>
+    <div class="callout"><strong>PATH 上没有 java 也没关系</strong>本指南的环境里，<code>command -v java || echo "PATH 上没有 java"</code> 输出的就是 <code>PATH 上没有 java</code>，只靠 <code>JAVA_HOME</code> 运行。反过来，如果 PATH 上有一个<strong>旧版本</strong>的 <code>java</code>（例如 Java 8），CLI 会优先用它，而用 Java 21 构建的 jar 不能在旧版本的 Java 上运行；这种情况请把 JDK 21 放到 PATH 的前面。详见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</div>
+
+    <h2>Docker（可选）</h2>
+    <p>如果不想安装 JDK，README 提供了用 <code>gradle:8-jdk21</code> 容器构建和测试 Java 的命令（在 <code>services/calc-engine</code> 下执行 <code>./gradlew check</code>）。具体用法见 <a href="04-java-service.html">使用 Java 计算服务运行</a>。</p>
+    <div class="term" data-title="bash — 检查 Docker">
+      <script type="application/json">[
+        {"cmd": "docker --version"},
+        {"out": "Docker version 29.8.2, build 7fc2dff", "cls": "hl"}
+      ]</script>
+    </div>
+    <div class="callout warn"><strong><code>docker --version</code> 只检查了客户端</strong>还要能连上 Docker 引擎。本指南的环境里，当前用户没有访问权限时，<code>docker version</code> 会输出 <code>permission denied while trying to connect to the docker API at unix:///var/run/docker.sock</code>。这时需要把用户加入 <code>docker</code> 组（或按你的 Docker 安装方式的说明处理）。Windows 上用 Docker Desktop 时，还要在设置里为你的 WSL 发行版打开 WSL 集成。</div>
+    <p>注意：容器只用来<strong>构建和测试</strong>。路线 B 中 CLI 是在本机以 <code>java -jar …</code> 启动计算服务的，所以真正运行 Java 服务时，本机仍然需要 Java 21。</p>
+
+    <h2>Anthropic API 密钥（仅路线 C）</h2>
+    <p>只有让真实 Claude 回答时才需要。路线 A、B 完全不联网调用 API，也不产生费用。检查是否已经设置（不会把密钥显示出来）：</p>
+    <div class="term" data-title="bash — 检查 API 密钥">
+      <script type="application/json">[
+        {"cmd": "test -n \"$ANTHROPIC_API_KEY\" && echo 已设置 || echo 未设置"},
+        {"out": "未设置", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>设置方法、费用上限（默认每天 1 美元、每月 10 美元）和没有密钥时的表现，见 <a href="05-real-claude.html">使用真实 Claude 运行</a>。</p>
+    <div class="callout bad"><strong>不要把密钥写进仓库里的文件</strong>只在环境变量里设置。<code>.gitignore</code> 已经排除了 <code>.env</code>、<code>*.key</code> 等文件，但最稳妥的做法是根本不把密钥写进工作目录。</div>
+
+    <h2>检查清单</h2>
+    <table>
+      <thead><tr><th>检查</th><th>命令</th><th>期望的结果</th></tr></thead>
+      <tbody>
+        <tr><td>Python 版本</td><td><code>python3 --version</code></td><td><code>Python 3.12.x</code> 或更高</td></tr>
+        <tr><td>venv 可用</td><td><code>python3 -c "import venv, ensurepip; print('ok')"</code></td><td><code>ok</code></td></tr>
+        <tr><td>Git</td><td><code>git --version</code></td><td>显示版本号</td></tr>
+        <tr><td>JDK 21（路线 B/C）</td><td><code>"$JAVA_HOME/bin/java" -version</code></td><td><code>version "21.…"</code></td></tr>
+        <tr><td>API 密钥（路线 C）</td><td><code>test -n "$ANTHROPIC_API_KEY" &amp;&amp; echo 已设置 || echo 未设置</code></td><td><code>已设置</code></td></tr>
+      </tbody>
+    </table>
+    <p>准备好了就进入 <a href="02-setup.html">安装与设置</a>。</p>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

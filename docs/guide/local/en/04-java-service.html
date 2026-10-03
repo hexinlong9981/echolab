@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run with the Java calc service | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="04-java-service.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Run</span><span>JDK 21</span><span>calc-engine</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Run with the Java calc service</h1>
+    <p class="lead">Drop <code>--fake-backend</code> and the CLI starts the real calc service, calc-engine (an MCP server built with Java 21 and Spring Boot). This page covers, in order: installing JDK 21, building the jar, how the CLI starts the service, running the example, and the "data references" that only the Java service supports.</p>
+
+    <div class="callout"><strong>About the output on this page</strong>Every command and output on this page comes from a real run on a fresh clone of the repository (Linux/WSL2, Python 3.12, Temurin 21). For readability, the long path of the repository has been shortened to <code>~/echolab</code>, the user name has been replaced with <code>user</code>, and the middle of long outputs is replaced with "…". Timings depend on your machine and network and are only a rough guide.</div>
+
+    <h2>Two calculation backends for scripted mode</h2>
+    <p>In <a href="03-scripted.html">Run in scripted mode (no API key)</a> we added <code>--fake-backend</code>: the calculations are done by the Python reference implementation (<code>tests/core/fakes.py</code>), and no Java is needed. Without it, the CLI starts the Java calc service as configured in <code>config/services.yaml</code>. Both give the same numbers for the same question; the differences are:</p>
+    <table>
+      <thead><tr><th></th><th><code>--fake-backend</code> (Python reference implementation)</th><th>Without it (Java calc service)</th></tr></thead>
+      <tbody>
+        <tr><td>Requires</td><td>Only the Python environment</td><td>JDK 21 + a built jar</td></tr>
+        <tr><td>Time for the bundled example (measured)</td><td>About 3.2 seconds</td><td>About 8.5 seconds (the extra time is mostly JVM and Spring startup)</td></tr>
+        <tr><td>Data references (<code>banner</code>/<code>profile</code>)</td><td>Not supported; the tool returns an error</td><td>Supported, with an "unverified" (未確認) note added automatically</td></tr>
+        <tr><td>Used for</td><td>Demos, unit tests, evals in scripted mode</td><td>Real use, end-to-end tests (<code>pytest -m e2e</code>)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>1. Install JDK 21</h2>
+    <p>Any JDK 21 distribution works. The example below installs Eclipse Temurin from an archive into your home directory, without root (x64 Linux/WSL2; for other platforms, pick the matching package on the Adoptium website; on macOS you can also install <code>temurin@21</code> with Homebrew).</p>
+    <pre><code>mkdir -p ~/.local/jdk
+curl -L -o /tmp/temurin21.tar.gz \
+  https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse
+tar -xzf /tmp/temurin21.tar.gz -C ~/.local/jdk        # extracts a directory such as jdk-21.0.12.1+1 (the version changes)
+ln -sfn ~/.local/jdk/jdk-21.0.12.1+1 ~/.local/jdk/21  # a fixed path without the version number makes upgrades easier
+echo 'export JAVA_HOME=$HOME/.local/jdk/21' &gt;&gt; ~/.bashrc
+export JAVA_HOME=$HOME/.local/jdk/21</code></pre>
+    <p class="cmd-note">The download is about 198 MB. Once the line is in <code>~/.bashrc</code>, new terminals set <code>JAVA_HOME</code> automatically.</p>
+    <div class="term" data-title="bash — check the JDK">
+      <script type="application/json">[
+        {"cmd": "$JAVA_HOME/bin/java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"}
+      ]</script>
+    </div>
+    <div class="callout ok"><strong>java does not need to be on PATH</strong>Before starting the service, the CLI looks for <code>java</code>: if it is on PATH, that one is used; if it is not on PATH but <code>JAVA_HOME</code> is set, <code>$JAVA_HOME/bin/java</code> is used instead (see <code>resolve_executable</code> in <code>core/gateway/mcp_backend.py</code>). The Gradle Wrapper also reads <code>JAVA_HOME</code>. So setting <code>JAVA_HOME</code> is enough.</div>
+    <div class="callout warn"><strong>Mind the order</strong>The CLI uses <code>JAVA_HOME</code> only when <code>java</code> is <strong>not found</strong> on PATH. If an older <code>java</code> (such as Java 8 or 17) is already on PATH, the CLI uses it and the service fails to start. In that case, put JDK 21 at the front of PATH: <code>export PATH="$JAVA_HOME/bin:$PATH"</code>. For the actual error, see <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</div>
+
+    <h2>2. Build the jar</h2>
+    <p>From the repository root, go to <code>services/calc-engine</code> and build the executable jar with the bundled Gradle Wrapper. The <strong>first run</strong> downloads Gradle itself (8.14.3) and all dependencies, so it needs the network and took about 2 minutes in our run; later builds take a few seconds.</p>
+    <div class="term" data-title="bash — first build">
+      <script type="application/json">[
+        {"cmd": "cd services/calc-engine && ./gradlew bootJar"},
+        {"out": "Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip", "delay": 300},
+        {"out": ".............10%.............20%.............30%…………90%..............100%", "cls": "dim", "delay": 900},
+        {"out": " "},
+        {"out": "Welcome to Gradle 8.14.3!"},
+        {"out": "…", "cls": "dim"},
+        {"out": "Starting a Gradle Daemon (subsequent builds will be faster)", "cls": "dim"},
+        {"out": "> Task :compileJava", "delay": 1200},
+        {"out": "> Task :processResources"},
+        {"out": "> Task :classes"},
+        {"out": "> Task :resolveMainClassName"},
+        {"out": "> Task :bootJar", "delay": 500},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 2m 2s", "cls": "hl"},
+        {"out": "4 actionable tasks: 4 executed"},
+        {"cmd": "ls -lh build/libs/"},
+        {"out": "total 24M"},
+        {"out": "-rw-r--r-- 1 user user 24M Oct  3 15:38 calc-engine-mcp.jar", "cls": "hl"},
+        {"cmd": "./gradlew bootJar"},
+        {"out": "> Task :bootJar UP-TO-DATE", "cls": "dim", "delay": 600},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 2s", "cls": "hl"},
+        {"out": "4 actionable tasks: 4 up-to-date"},
+        {"cmd": "cd ../.."}
+      ]</script>
+    </div>
+    <ul>
+      <li>The result is <code>services/calc-engine/build/libs/calc-engine-mcp.jar</code> (about 24 MB, including Spring Boot and all dependencies). This is the path that <code>config/services.yaml</code> refers to.</li>
+      <li>Gradle itself and the dependencies are cached in <code>~/.gradle/</code> (change the location with <code>GRADLE_USER_HOME</code>), not in the repository. <code>build/</code> is ignored by Git.</li>
+      <li>Compilation runs Error Prone with <code>-Xlint:all -Werror</code>: any compiler warning fails the build.</li>
+      <li>After changing Java code, run <code>./gradlew bootJar</code> again; the CLI does not rebuild automatically. The data under <code>domains/wuwa/data</code> is read at run time, so changing data does not require a rebuild.</li>
+    </ul>
+
+    <h2>3. How the CLI starts the calc service</h2>
+    <p>How to start it is configured in <code>config/services.yaml</code>; all paths are relative to the repository root:</p>
+    <pre><code>schema_version: 1
+services:
+  calc-engine:
+    transport: stdio
+    command: ["java", "-jar", "services/calc-engine/build/libs/calc-engine-mcp.jar"]
+    env:
+      ECHOLAB_DATA_ROOT: domains</code></pre>
+    <p>Each time you run <code>python -m core.agent</code> (without <code>--fake-backend</code>), the gateway starts the jar as a <strong>subprocess</strong> and talks to it with the MCP protocol over standard input/output; the process exits when the question is done. It does not listen on any network port.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  participant U as You (terminal)
+  participant C as CLI and gateway&lt;br/&gt;Python
+  participant J as calc-engine&lt;br/&gt;java -jar subprocess
+  U-&gt;&gt;C: python -m core.agent "question" --llm scripted …
+  C-&gt;&gt;C: Read config/services.yaml
+  C-&gt;&gt;C: Check that java and the jar exist&lt;br/&gt;if not, exit with code 2
+  C-&gt;&gt;J: Start subprocess (working directory: repository root)
+  C-&gt;&gt;J: MCP initialize (stdin/stdout)
+  J--&gt;&gt;C: Initialized
+  C-&gt;&gt;J: tools/list
+  J--&gt;&gt;C: damage_expected, echo_score, gacha_…
+  loop Whenever the LLM requests a tool call
+    C-&gt;&gt;J: tools/call (waits up to 30 seconds each)
+    J--&gt;&gt;C: Result JSON (numbers, unverified data IDs)
+  end
+  C-&gt;&gt;J: Close session, process exits
+  C--&gt;&gt;U: Answer, source table, status line
+      </pre>
+      <div class="caption">Figure 1: What passes between the CLI and the Java calc service during one question (MCP over stdio)</div>
+    </div>
+    <ul>
+      <li><strong>Check first, then start</strong>: if <code>java</code> is found neither on PATH nor via <code>JAVA_HOME</code>, or the jar does not exist, the CLI does not start the process; it prints a one-line <code>エラー: …</code> ("Error: …", including how to fix it) and exits with code 2.</li>
+      <li><strong>Standard output is for MCP only</strong>: the service prints no startup banner and writes logs only to standard error, so nothing leaks into the answer.</li>
+      <li><strong>Environment variables</strong>: the values under <code>env</code> are defaults; if your shell already sets a variable with the same name, the shell's value wins.</li>
+    </ul>
+    <p>For how the agent, the gateway and the verifier fit together, see <a href="../../en/05-how-it-works.html">What happens behind the scenes</a>.</p>
+
+    <h2>4. Run the bundled example (without --fake-backend)</h2>
+    <p>Back in the repository root with the virtual environment activated, run the same command as on <a href="03-scripted.html">page 3</a>, just without <code>--fake-backend</code>:</p>
+    <div class="term" data-title="bash — with the Java calc service">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "time python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 8},
+        {"pause": 2500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063930Z-2d2896", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063930Z-2d2896.jsonl", "cls": "dim"},
+        {"out": " "},
+        {"out": "real\t0m8.533s", "cls": "hl"},
+        {"out": "user\t0m15.412s"},
+        {"out": "sys\t0m1.589s"}
+      ]</script>
+    </div>
+    <p>The answer and the source table are exactly the same as with <code>--fake-backend</code> (both backends return numbers to 6 decimal places); for a translation of the Japanese output, see <a href="03-scripted.html">page 3</a>. On the same machine, the run took about 3.2 seconds with <code>--fake-backend</code> and about 8.5 seconds with the Java service. Every question starts the JVM and Spring Boot afresh, which accounts for the extra time; the calculations themselves take a few milliseconds. The <code>user</code> time is larger than <code>real</code> because the JVM uses several threads in parallel during startup.</p>
+    <div class="callout"><strong>Scripted mode + Java service</strong>The run above is still in scripted mode (<code>--llm scripted</code>): the LLM's replies come from the script, but every number is really calculated by the Java service. If a calculation result differed from what the script expects, the later steps would no longer line up. This combination is exactly what the end-to-end tests use; see <a href="06-tests-evals.html">Run tests &amp; evals</a>.</div>
+
+    <h2>5. Data references (Java service only)</h2>
+    <p>Some tools can, instead of taking their parameters directly, refer by ID to the sample data bundled with the repository (<code>domains/wuwa/data/v2.x/</code>). Use one form or the other, not both:</p>
+    <table>
+      <thead><tr><th>Tool (MCP name)</th><th>Given directly</th><th>Data reference</th><th>Example ID</th></tr></thead>
+      <tbody>
+        <tr><td><code>gacha_probability_within</code>, <code>gacha_simulate</code></td><td><code>rules</code></td><td><code>banner</code></td><td><code>featured-character</code></td></tr>
+        <tr><td><code>echo_score</code></td><td><code>weights</code></td><td><code>profile</code></td><td><code>sample-crit-attacker</code></td></tr>
+      </tbody>
+    </table>
+    <p>The repository has only one example script, so here we write a small two-turn script, <code>my-banner.yaml</code> (in the repository root, not committed): turn 1 calls the gacha probability tool with <code>banner</code>, and turn 2 cites the result with a placeholder. The draft is in Japanese: "The chance of getting the limited character within 80 pulls is [[c1.probability|%1]]."</p>
+    <pre><code># Demo script for a banner data reference: a banner ID instead of rules given directly
+turns:
+  - tool_uses:
+      - name: gacha_probability_within
+        input: {banner: featured-character, start_pity: 0, guaranteed: false, pulls: 80}
+  - text: 80 回以内に限定キャラクターを獲得できる確率は [[c1.probability|%1]] です。</code></pre>
+    <div class="term" data-title="bash — reference banner data">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 2500},
+        {"out": "80 回以内に限定キャラクターを獲得できる確率は 60.6% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.6058637851964593  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T063947Z-7e2378", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063947Z-7e2378.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The question asks "What is the chance of getting the limited character within 80 pulls?", and the answer says it is 60.6%.</p>
+    <ul>
+      <li>The sample data is marked <code>verified: false</code> (not checked against official game data). The Java service returns the IDs of the unverified data it used (<code>gacha_rules:featured-character</code>) together with the result, and a note is added <strong>automatically</strong> at the end of the answer: 「※ この回答の数値の一部は、未確認のサンプルデータに基づいています。」 ("Some of the numbers in this answer are based on unverified sample data."). The LLM cannot leave this note out.</li>
+      <li>The 「未確認データ」 (unverified data) column of the source table shows exactly which data was used. For what the note means, see <a href="../../en/03-reading-answers.html">Reading the answers</a>.</li>
+    </ul>
+    <p>The same script fails with <code>--fake-backend</code>: the Python reference implementation only accepts <code>rules</code> given directly, so the tool returns an error and the script's turns no longer line up.</p>
+    <div class="term" data-title="bash — the stand-in has no data references">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml --fake-backend"},
+        {"pause": 800},
+        {"out": "エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: 台本の応答（2 件）を使い切った後に呼ばれました", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "grep -o '\"error\": \"[^\"]*\"' .echolab/traces/20261003T063950Z-3d2410.jsonl"},
+        {"out": "\"error\": \"入力が不正です: 'rules'\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The error means: "the run did not follow the script (check the combination of question, script and --fake-backend): called after the script's responses (2) were used up"; the next line says that <code>--debug</code> shows the traceback. The tool error recorded in the trace is 「入力が不正です: 'rules'」 ("invalid input: 'rules'").</p>
+    <p>The tools' input descriptions (JSON Schema) list <code>banner</code> and <code>profile</code>, so real Claude may also choose to refer to the sample data; to get such questions answered, use the Java service.</p>
+
+    <h2>6. The data directory: ECHOLAB_DATA_ROOT</h2>
+    <p>The Java service reads <code>domain.yaml</code> from <code>$ECHOLAB_DATA_ROOT/wuwa/</code>, then finds the data files through its <code>data_dir</code>. The default is <code>domains</code> from <code>config/services.yaml</code>, relative to the repository root (the subprocess's working directory). To use different data (such as a version you have checked yourself), set the environment variable of the same name in your shell to override it:</p>
+    <pre><code>ECHOLAB_DATA_ROOT=$PWD/domains python -m core.agent "…" --llm scripted --script my-banner.yaml   # same as the default
+ECHOLAB_DATA_ROOT=/path/to/my-data python -m core.agent "…"                                       # the directory must contain wuwa/domain.yaml</code></pre>
+    <p>If the directory is wrong, the service does not stop; it returns the error as the tool result (real Claude sees this error and can adjust). In our run with <code>ECHOLAB_DATA_ROOT=/tmp/echolab-nodata</code> (a directory that does not exist), the script above ended with <code>エラー: 台本どおりに進みませんでした…</code> ("Error: the run did not follow the script…") because its later turns no longer lined up, and the tool error recorded in the trace was ("data file not found"):</p>
+    <pre><code>"error": "gacha_probability_within: データファイルがありません: /tmp/echolab-nodata/wuwa/domain.yaml"</code></pre>
+    <p class="cmd-note">This directory is read only for data references (<code>banner</code>/<code>profile</code>, or <code>echo_score</code> without <code>max_roll</code>); calculations with every parameter given directly are not affected.</p>
+
+    <h2>Alternative: build with Docker (optional)</h2>
+    <p>If you would rather not install a JDK on your machine, you can build and test inside the official Gradle image (which includes JDK 21). The command below is taken from the README; run it in <code>services/calc-engine</code>:</p>
+    <pre><code>cd services/calc-engine
+docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
+  -v "$HOME/.gradle-echolab:/cache" -v "$(cd ../.. &amp;&amp; pwd):/w" -w /w/services/calc-engine \
+  gradle:8-jdk21 ./gradlew check</code></pre>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>--rm</code></td><td>Removes the container when it finishes</td></tr>
+        <tr><td><code>-u "$(id -u):$(id -g)"</code></td><td>Runs as your own user, so the generated <code>build/</code> is not owned by root</td></tr>
+        <tr><td><code>-e GRADLE_USER_HOME=/cache</code> and <code>-v "$HOME/.gradle-echolab:/cache"</code></td><td>Keeps Gradle's download cache in <code>~/.gradle-echolab</code> on the host, so later runs do not download again</td></tr>
+        <tr><td><code>-v "$(cd ../.. &amp;&amp; pwd):/w"</code> and <code>-w /w/services/calc-engine</code></td><td>Mounts the whole repository (the tests read the golden cases and data in <code>domains/wuwa</code>) and runs in the calc-engine directory</td></tr>
+        <tr><td><code>gradle:8-jdk21 ./gradlew check</code></td><td>Runs the tests and static checks; replace <code>check</code> with <code>bootJar</code> to only build the jar</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>Note</strong>Docker only handles the <strong>build</strong>. At run time the CLI still runs <code>java -jar …</code> on your machine, so to answer questions with the Java service you still need JDK 21 locally (the jar built in Docker can be used as is). This Docker command was not run in the environment used for this page; if you see <code>permission denied … docker.sock</code>, see <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</div>
+
+    <div class="related"><strong>Next</strong>: <a href="05-real-claude.html">Run with real Claude</a>, or <a href="06-tests-evals.html">Run tests &amp; evals</a> (including the end-to-end tests that use the jar).</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

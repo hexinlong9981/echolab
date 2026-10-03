@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>运行测试与评估 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="06-tests-evals.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>验证</span><span>pytest</span><span>Gradle</span><span>评估</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>运行测试与评估</h1>
+    <p class="lead">在本机运行与 CI 相同的检查：Python 的代码规范与单元测试、使用 jar 的端到端测试、Java 的测试与静态检查，以及数值忠实度评估。全部不需要 API 密钥。</p>
+
+    <div class="callout"><strong>关于本页的输出</strong>以下输出和耗时都来自一份全新克隆的仓库上的实际运行（WSL2，Python 3.12，Temurin 21）。路径缩写为 <code>~/echolab</code>，较长的输出用「…」省略。除特别说明外，命令都在仓库根目录、已激活虚拟环境（<code>source .venv/bin/activate</code>）的状态下执行。</div>
+
+    <h2>一览：命令 → 检查什么 → 需要什么 → 大约耗时</h2>
+    <table>
+      <thead><tr><th>命令</th><th>检查什么</th><th>需要什么</th><th>实测耗时</th></tr></thead>
+      <tbody>
+        <tr><td><code>ruff check .</code></td><td>Python 代码规范（lint）</td><td>虚拟环境</td><td>&lt; 0.1 秒</td></tr>
+        <tr><td><code>ruff format --check .</code></td><td>Python 代码格式（只检查不修改）</td><td>虚拟环境</td><td>&lt; 0.1 秒</td></tr>
+        <tr><td><code>pytest -m "not e2e"</code></td><td>黄金用例的格式与参照实现、网关、校验器、Agent、费用台账、评估结果与基线一致等（294 项）</td><td>虚拟环境</td><td>约 13 秒</td></tr>
+        <tr><td><code>pytest -m e2e</code></td><td>启动真实 jar，经 MCP 核对全部黄金用例、并发调用、错误输入、数据引用、台本 Agent 往返（5 项）</td><td>虚拟环境 + JDK 21 + jar</td><td>约 31 秒</td></tr>
+        <tr><td><code>./gradlew check</code>（在 <code>services/calc-engine</code>）</td><td>Java 单元・性质・架构测试（138 项）、Spotless、JaCoCo 行覆盖率 ≥ 90%（编译时 Error Prone）</td><td>JDK 21（首次需联网）</td><td>约 36 秒（已构建过 jar、Gradle 已缓存时）</td></tr>
+        <tr><td><code>./gradlew bootJar</code>（首次）</td><td>构建 e2e 和 CLI 使用的 jar</td><td>JDK 21 + 联网</td><td>约 2 分钟（含下载 Gradle 与依赖）；之后约 2 秒</td></tr>
+        <tr><td><code>python -m core.evals --llm scripted --out &lt;文件&gt;</code></td><td>数值忠实度评估（8 个用例，台本模式）</td><td>虚拟环境</td><td>约 3 秒</td></tr>
+      </tbody>
+    </table>
+    <p class="cmd-note">耗时是同一台机器上的一次实测，会因机器和缓存状态而变化。</p>
+
+    <h2>1. 代码规范：ruff</h2>
+    <div class="term" data-title="bash — ruff">
+      <script type="application/json">[
+        {"cmd": "ruff check ."},
+        {"out": "All checks passed!", "cls": "hl"},
+        {"cmd": "ruff format --check ."},
+        {"out": "93 files already formatted", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>规则在 <code>pyproject.toml</code> 的 <code>[tool.ruff]</code>（行宽 100，目标 Python 3.12）。<code>ruff format .</code>（不带 <code>--check</code>）会直接改写文件；CI 只用 <code>--check</code>，有未格式化的文件就失败。</p>
+
+    <h2>2. Python 测试（不含端到端）</h2>
+    <div class="term" data-title="bash — pytest">
+      <script type="application/json">[
+        {"cmd": "time pytest -m \"not e2e\""},
+        {"out": "........................................................................ [ 24%]", "delay": 600},
+        {"out": "........................................................................ [ 48%]", "delay": 600},
+        {"out": "........................................................................ [ 73%]", "delay": 600},
+        {"out": "........................................................................ [ 97%]", "delay": 600},
+        {"out": "......                                                                   [100%]", "delay": 300},
+        {"out": "294 passed, 5 deselected in 11.76s", "cls": "hl"},
+        {"out": " "},
+        {"out": "real\t0m13.499s", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li>不启动 Java，也不调用 Claude：LLM 用台本或 SDK 客户端的替身，计算服务用 Python 参照实现（与 <code>--fake-backend</code> 相同）。</li>
+      <li><code>5 deselected</code> 是被 <code>-m "not e2e"</code> 排除的端到端测试。</li>
+      <li>其中 <code>tests/core/test_evals.py</code> 会跑一遍台本模式的评估，并要求结果与已提交的 <code>evals/reports/scripted-baseline.md</code> 一致。</li>
+      <li>各测试文件的内容见仓库的 <code>tests/README.zh-CN.md</code>。</li>
+    </ul>
+
+    <h2>3. 端到端测试：pytest -m e2e</h2>
+    <p>端到端测试按 <code>config/services.yaml</code> 启动真实的 calc-engine jar。需要先按 <a href="04-java-service.html">第 4 页</a> 构建 jar，并让测试找到 JDK 21（设置 <code>JAVA_HOME</code> 即可）：</p>
+    <div class="term" data-title="bash — e2e">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "time pytest -m e2e"},
+        {"out": "…", "cls": "dim"},
+        {"out": "collected 299 items / 294 deselected / 5 selected", "cls": "dim"},
+        {"out": " "},
+        {"out": "tests/e2e/test_mcp_e2e.py .....                                          [100%]", "delay": 2500},
+        {"out": " "},
+        {"out": "====================== 5 passed, 294 deselected in 30.07s ======================", "cls": "hl"},
+        {"out": " "},
+        {"out": "real\t0m31.410s", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>没有 <code>java</code> 或没有 jar 时，这些测试默认<strong>跳过</strong>（不算失败），原因写在跳过信息里：</p>
+    <div class="term" data-title="bash — 缺少 java 或 jar 时">
+      <script type="application/json">[
+        {"cmd": "pytest -m e2e -rs"},
+        {"out": "sssss                                                                    [100%]"},
+        {"out": "=========================== short test summary info ============================", "cls": "dim"},
+        {"out": "SKIPPED [1] tests/e2e/test_mcp_e2e.py:67: java が見つかりません（PATH か JAVA_HOME を設定してください）", "cls": "warn"},
+        {"out": "…", "cls": "dim"},
+        {"out": "5 skipped, 294 deselected in 3.47s"},
+        {"cmd": "JAVA_HOME=$HOME/.local/jdk/21 pytest -m e2e -rs   # jar 尚未构建时"},
+        {"out": "…", "cls": "dim"},
+        {"out": "SKIPPED [1] tests/e2e/test_mcp_e2e.py:148: jar がありません: ~/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar", "cls": "warn"},
+        {"out": "5 skipped, 294 deselected in 3.48s"}
+      ]</script>
+    </div>
+    <p>设置 <code>ECHOLAB_E2E_REQUIRED=1</code> 后，缺少条件时<strong>不再跳过而是失败</strong>。CI 的 e2e 作业就是这样运行的，以免「全部跳过」被误当成通过。实测在没有 java 的环境下：</p>
+    <div class="term" data-title="bash — ECHOLAB_E2E_REQUIRED=1">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_E2E_REQUIRED=1 pytest -m e2e"},
+        {"out": "…", "cls": "dim"},
+        {"out": "E           core.gateway.mcp_backend.ServiceStartError: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_golden_cases_through_mcp - core.gatewa...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_parallel_calls_right_after_start - cor...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_invalid_input_is_an_error_result - cor...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_data_references_are_marked_unverified_and_noted", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_scripted_agent_over_real_service - cor...", "cls": "err"},
+        {"out": "5 failed, 294 deselected in 5.45s", "cls": "err"}
+      ]</script>
+    </div>
+    <p>条件齐全时，<code>ECHOLAB_E2E_REQUIRED=1 pytest -m e2e</code> 的结果与上面相同（5 passed，实测约 31 秒）。想确认自己的环境真的跑了 e2e，而不是悄悄跳过，就加上这个变量。</p>
+
+    <h2>4. Java：./gradlew check</h2>
+    <p>在 <code>services/calc-engine</code> 目录下运行。与 <code>bootJar</code> 一样，第一次运行会下载 Gradle 和依赖。</p>
+    <div class="term" data-title="bash — gradlew check">
+      <script type="application/json">[
+        {"cmd": "cd services/calc-engine && time ./gradlew check"},
+        {"out": "> Task :compileJava UP-TO-DATE", "cls": "dim"},
+        {"out": "…", "cls": "dim"},
+        {"out": "> Task :compileTestJava", "delay": 900},
+        {"out": "> Task :testClasses"},
+        {"out": "> Task :test", "delay": 2500},
+        {"out": "> Task :jacocoTestCoverageVerification"},
+        {"out": "> Task :spotlessJavaCheck"},
+        {"out": "…", "cls": "dim"},
+        {"out": "> Task :spotlessCheck"},
+        {"out": "> Task :check"},
+        {"out": "> Task :jacocoTestReport"},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 35s", "cls": "hl"},
+        {"out": "11 actionable tasks: 9 executed, 2 up-to-date"},
+        {"out": " "},
+        {"out": "real\t0m35.548s", "cls": "dim"}
+      ]</script>
+    </div>
+    <table>
+      <thead><tr><th>包含的检查</th><th>内容</th><th>本次实测</th></tr></thead>
+      <tbody>
+        <tr><td>测试（<code>test</code>）</td><td>JUnit 5 单元测试、jqwik 性质测试、ArchUnit 架构测试；黄金用例与 Python 参照实现共用 <code>domains/wuwa/golden</code></td><td>12 个测试类、138 项，全部通过</td></tr>
+        <tr><td>Spotless</td><td>Java 与 Gradle 脚本（Kotlin）的格式检查。格式不符时可运行 <code>./gradlew spotlessApply</code> 自动修正</td><td>通过</td></tr>
+        <tr><td>Error Prone</td><td>编译时的静态分析，并启用 <code>-Xlint:all -Werror</code>（警告即错误）。上例中 <code>compileJava</code> 已在 <code>bootJar</code> 时完成，所以显示 UP-TO-DATE</td><td>通过</td></tr>
+        <tr><td>JaCoCo</td><td><code>jacocoTestCoverageVerification</code> 要求行覆盖率 ≥ 90%（只启动服务器的 <code>McpServerApplication</code> 除外）</td><td>行覆盖率 97.5%（651 行中 635 行）</td></tr>
+      </tbody>
+    </table>
+    <p>报告（用浏览器直接打开）：</p>
+    <pre><code>services/calc-engine/build/reports/tests/test/index.html         # 测试结果
+services/calc-engine/build/reports/jacoco/test/html/index.html   # 覆盖率</code></pre>
+    <p>没有本机 JDK 时，也可以用 Docker 运行同样的 <code>check</code>，见 <a href="04-java-service.html">第 4 页</a> 末尾。</p>
+
+    <h2>5. 评估：数值忠实度</h2>
+    <p>评估用 8 个固定用例（<code>evals/faithfulness/cases.yaml</code>）检查「回答里有没有来历不明的数字」。台本模式不需要密钥，运行几秒：</p>
+    <div class="term" data-title="bash — 台本模式的评估">
+      <script type="application/json">[
+        {"cmd": "python -m core.evals --llm scripted --out /tmp/echolab-eval.md"},
+        {"pause": 1500},
+        {"out": "# 評価レポート：数値の忠実度"},
+        {"out": " "},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（8 件）"},
+        {"out": " "},
+        {"out": "## 指標"},
+        {"out": " "},
+        {"out": "| 指標 | 値 |", "cls": "dim"},
+        {"out": "|---|---|", "cls": "dim"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |", "cls": "hl"},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 0.462（6 / 13） |"},
+        {"out": "| 合格したケース | 8 / 8 |", "cls": "hl"},
+        {"out": "| 費用の合計（USD） | 0.028120 |"},
+        {"out": "…（ケースごとの結果の表）…", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "0"}
+      ]</script>
+    </div>
+    <ul>
+      <li>报告同时输出到屏幕和 <code>--out</code> 指定的文件（Markdown）。每个用例的原始记录保存在 <code>evals/reports/raw/</code>（已被 Git 忽略）。</li>
+      <li>指标：忠实度 1.000 表示没有任何回答包含无出处的数字；差し戻し率 0.462 是因为部分用例<strong>故意</strong>写出不合格的草稿，以确认校验器会退回。</li>
+      <li>台本模式的「費用」是根据台本里写的虚构用量算出的，只用于检查计费逻辑，不是真实花费。</li>
+      <li>实测输出除日期行外，与已提交的 <code>evals/reports/scripted-baseline.md</code> 完全一致。</li>
+    </ul>
+    <details><summary>用真实 Claude 运行评估（会产生费用）</summary>
+      <p>需要 API 密钥和 Java 服务（见 <a href="05-real-claude.html">第 5 页</a>）。每个用例都会调用 Claude，并受同样的日／月上限约束。</p>
+      <pre><code>python -m core.evals --llm anthropic --out evals/reports/&lt;名前&gt;.md
+python -m core.evals --llm anthropic --case damage-basic --out /tmp/one-case.md   # 只跑一个用例</code></pre>
+      <p>本页没有运行这条命令。评估指标的详细含义见 <a href="../../zh/07-traces-evals.html">执行轨迹与评估</a>。</p>
+    </details>
+
+    <h2>CI 如何运行同样的检查</h2>
+    <p>GitHub Actions 的工作流在 <code>.github/workflows/</code>，CI 不持有 API 密钥，LLM 全部用台本替代：</p>
+    <table>
+      <thead><tr><th>工作流・作业</th><th>触发</th><th>执行的命令</th></tr></thead>
+      <tbody>
+        <tr><td><code>test.yml</code> ・ <code>python</code></td><td>推送到 main、每个 PR</td><td><code>ruff check .</code> → <code>ruff format --check .</code> → <code>pytest -m "not e2e"</code>（Python 3.12）</td></tr>
+        <tr><td><code>test.yml</code> ・ <code>e2e</code></td><td>同上</td><td>Temurin 21 → <code>./gradlew bootJar --no-daemon</code> → <code>ECHOLAB_E2E_REQUIRED=1 pytest -m e2e</code></td></tr>
+        <tr><td><code>java.yml</code> ・ <code>check</code></td><td>修改 <code>services/calc-engine/</code>、<code>domains/wuwa/</code> 的黄金用例・数据・<code>domain.yaml</code> 时</td><td><code>./gradlew check --no-daemon</code> → <code>bootJar</code> → 确认 jar 存在 → 上传测试与覆盖率报告</td></tr>
+      </tbody>
+    </table>
+    <p>本地按本页的顺序跑完一遍，基本等同于 CI 的全部检查。提交前至少运行 <code>ruff check . &amp;&amp; ruff format --check . &amp;&amp; pytest -m "not e2e"</code>。</p>
+
+    <div class="related"><strong>遇到问题？</strong>见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

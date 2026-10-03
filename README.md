@@ -8,6 +8,8 @@
 [免責事項](DISCLAIMER.md)
 
 > **利用ガイド**（図解・アニメーション付き、日本語・英語・中国語）：<https://hexinlong9981.github.io/echolab/ja/>（ソース：[`docs/guide/`](docs/guide/)）
+>
+> **ローカル実行ガイド**（API キーなしで動かす手順から）：<https://hexinlong9981.github.io/echolab/local/ja/>
 
 ## これは何か
 

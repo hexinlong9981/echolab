@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run tests &amp; evals | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="06-tests-evals.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Verify</span><span>pytest</span><span>Gradle</span><span>Evals</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Run tests &amp; evals</h1>
+    <p class="lead">Run the same checks as CI on your own machine: Python linting and unit tests, end-to-end tests that use the jar, Java tests and static checks, and the numeric faithfulness evals. None of them need an API key.</p>
+
+    <div class="callout"><strong>About the output on this page</strong>All outputs and timings below come from real runs on a fresh clone of the repository (WSL2, Python 3.12, Temurin 21). The path has been shortened to <code>~/echolab</code>, and long outputs are cut with "…". Unless stated otherwise, commands are run from the repository root with the virtual environment activated (<code>source .venv/bin/activate</code>).</div>
+
+    <h2>Overview: command → what it checks → what it needs → rough time</h2>
+    <table>
+      <thead><tr><th>Command</th><th>What it checks</th><th>Needs</th><th>Measured time</th></tr></thead>
+      <tbody>
+        <tr><td><code>ruff check .</code></td><td>Python lint rules</td><td>Virtual environment</td><td>&lt; 0.1 s</td></tr>
+        <tr><td><code>ruff format --check .</code></td><td>Python formatting (check only, no changes)</td><td>Virtual environment</td><td>&lt; 0.1 s</td></tr>
+        <tr><td><code>pytest -m "not e2e"</code></td><td>Golden case format and reference implementation, gateway, verifier, agent, cost ledger, eval results matching the baseline, and more (294 tests)</td><td>Virtual environment</td><td>About 13 s</td></tr>
+        <tr><td><code>pytest -m e2e</code></td><td>Starts the real jar and, over MCP, checks all golden cases, parallel calls, invalid input, data references, and a scripted agent round trip (5 tests)</td><td>Virtual environment + JDK 21 + jar</td><td>About 31 s</td></tr>
+        <tr><td><code>./gradlew check</code> (in <code>services/calc-engine</code>)</td><td>Java unit, property and architecture tests (138 tests), Spotless, JaCoCo line coverage ≥ 90% (Error Prone at compile time)</td><td>JDK 21 (network on first run)</td><td>About 36 s (with the jar already built and Gradle cached)</td></tr>
+        <tr><td><code>./gradlew bootJar</code> (first time)</td><td>Builds the jar used by e2e and the CLI</td><td>JDK 21 + network</td><td>About 2 min (including downloading Gradle and dependencies); about 2 s afterwards</td></tr>
+        <tr><td><code>python -m core.evals --llm scripted --out &lt;file&gt;</code></td><td>Numeric faithfulness evals (8 cases, scripted mode)</td><td>Virtual environment</td><td>About 3 s</td></tr>
+      </tbody>
+    </table>
+    <p class="cmd-note">Times are from a single run on one machine and vary with the machine and cache state.</p>
+
+    <h2>1. Linting: ruff</h2>
+    <div class="term" data-title="bash — ruff">
+      <script type="application/json">[
+        {"cmd": "ruff check ."},
+        {"out": "All checks passed!", "cls": "hl"},
+        {"cmd": "ruff format --check ."},
+        {"out": "93 files already formatted", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The rules are in <code>[tool.ruff]</code> in <code>pyproject.toml</code> (line length 100, target Python 3.12). <code>ruff format .</code> (without <code>--check</code>) rewrites files in place; CI uses only <code>--check</code> and fails if any file is not formatted.</p>
+
+    <h2>2. Python tests (excluding end-to-end)</h2>
+    <div class="term" data-title="bash — pytest">
+      <script type="application/json">[
+        {"cmd": "time pytest -m \"not e2e\""},
+        {"out": "........................................................................ [ 24%]", "delay": 600},
+        {"out": "........................................................................ [ 48%]", "delay": 600},
+        {"out": "........................................................................ [ 73%]", "delay": 600},
+        {"out": "........................................................................ [ 97%]", "delay": 600},
+        {"out": "......                                                                   [100%]", "delay": 300},
+        {"out": "294 passed, 5 deselected in 11.76s", "cls": "hl"},
+        {"out": " "},
+        {"out": "real\t0m13.499s", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li>Neither Java nor Claude is used: the LLM is replaced by scripts or a stand-in for the SDK client, and the calc service by the Python reference implementation (the same as <code>--fake-backend</code>).</li>
+      <li><code>5 deselected</code> are the end-to-end tests excluded by <code>-m "not e2e"</code>.</li>
+      <li><code>tests/core/test_evals.py</code> runs the scripted-mode evals once and requires the result to match the committed <code>evals/reports/scripted-baseline.md</code>.</li>
+      <li>For what each test file covers, see <code>tests/README.en.md</code> in the repository.</li>
+    </ul>
+
+    <h2>3. End-to-end tests: pytest -m e2e</h2>
+    <p>The end-to-end tests start the real calc-engine jar as configured in <code>config/services.yaml</code>. First build the jar as described on <a href="04-java-service.html">page 4</a>, and make sure the tests can find JDK 21 (setting <code>JAVA_HOME</code> is enough):</p>
+    <div class="term" data-title="bash — e2e">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "time pytest -m e2e"},
+        {"out": "…", "cls": "dim"},
+        {"out": "collected 299 items / 294 deselected / 5 selected", "cls": "dim"},
+        {"out": " "},
+        {"out": "tests/e2e/test_mcp_e2e.py .....                                          [100%]", "delay": 2500},
+        {"out": " "},
+        {"out": "====================== 5 passed, 294 deselected in 30.07s ======================", "cls": "hl"},
+        {"out": " "},
+        {"out": "real\t0m31.410s", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>Without <code>java</code> or the jar, these tests are <strong>skipped</strong> by default (not counted as failures), and the skip message gives the reason:</p>
+    <div class="term" data-title="bash — without java or the jar">
+      <script type="application/json">[
+        {"cmd": "pytest -m e2e -rs"},
+        {"out": "sssss                                                                    [100%]"},
+        {"out": "=========================== short test summary info ============================", "cls": "dim"},
+        {"out": "SKIPPED [1] tests/e2e/test_mcp_e2e.py:67: java が見つかりません（PATH か JAVA_HOME を設定してください）", "cls": "warn"},
+        {"out": "…", "cls": "dim"},
+        {"out": "5 skipped, 294 deselected in 3.47s"},
+        {"cmd": "JAVA_HOME=$HOME/.local/jdk/21 pytest -m e2e -rs   # before the jar is built"},
+        {"out": "…", "cls": "dim"},
+        {"out": "SKIPPED [1] tests/e2e/test_mcp_e2e.py:148: jar がありません: ~/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar", "cls": "warn"},
+        {"out": "5 skipped, 294 deselected in 3.48s"}
+      ]</script>
+    </div>
+    <p>The skip reasons read "java not found (set PATH or JAVA_HOME)" and "jar not found: …".</p>
+    <p>With <code>ECHOLAB_E2E_REQUIRED=1</code>, missing prerequisites <strong>fail the tests instead of skipping them</strong>. The CI e2e job runs this way, so that "everything skipped" is not mistaken for a pass. In an environment without java:</p>
+    <div class="term" data-title="bash — ECHOLAB_E2E_REQUIRED=1">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_E2E_REQUIRED=1 pytest -m e2e"},
+        {"out": "…", "cls": "dim"},
+        {"out": "E           core.gateway.mcp_backend.ServiceStartError: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "…", "cls": "dim"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_golden_cases_through_mcp - core.gatewa...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_parallel_calls_right_after_start - cor...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_invalid_input_is_an_error_result - cor...", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_data_references_are_marked_unverified_and_noted", "cls": "err"},
+        {"out": "FAILED tests/e2e/test_mcp_e2e.py::test_scripted_agent_over_real_service - cor...", "cls": "err"},
+        {"out": "5 failed, 294 deselected in 5.45s", "cls": "err"}
+      ]</script>
+    </div>
+    <p>The error says that the executable <code>java</code> for service calc-engine was not found, and asks you to install JDK 21 and put <code>java</code> on PATH, or set <code>JAVA_HOME</code> so that <code>$JAVA_HOME/bin/java</code> exists. With everything in place, <code>ECHOLAB_E2E_REQUIRED=1 pytest -m e2e</code> gives the same result as above (5 passed, about 31 seconds in our run). Add this variable when you want to be sure your environment really ran the e2e tests rather than quietly skipping them.</p>
+
+    <h2>4. Java: ./gradlew check</h2>
+    <p>Run it in <code>services/calc-engine</code>. As with <code>bootJar</code>, the first run downloads Gradle and the dependencies.</p>
+    <div class="term" data-title="bash — gradlew check">
+      <script type="application/json">[
+        {"cmd": "cd services/calc-engine && time ./gradlew check"},
+        {"out": "> Task :compileJava UP-TO-DATE", "cls": "dim"},
+        {"out": "…", "cls": "dim"},
+        {"out": "> Task :compileTestJava", "delay": 900},
+        {"out": "> Task :testClasses"},
+        {"out": "> Task :test", "delay": 2500},
+        {"out": "> Task :jacocoTestCoverageVerification"},
+        {"out": "> Task :spotlessJavaCheck"},
+        {"out": "…", "cls": "dim"},
+        {"out": "> Task :spotlessCheck"},
+        {"out": "> Task :check"},
+        {"out": "> Task :jacocoTestReport"},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 35s", "cls": "hl"},
+        {"out": "11 actionable tasks: 9 executed, 2 up-to-date"},
+        {"out": " "},
+        {"out": "real\t0m35.548s", "cls": "dim"}
+      ]</script>
+    </div>
+    <table>
+      <thead><tr><th>Included check</th><th>What it does</th><th>This run</th></tr></thead>
+      <tbody>
+        <tr><td>Tests (<code>test</code>)</td><td>JUnit 5 unit tests, jqwik property tests, ArchUnit architecture tests; the golden cases in <code>domains/wuwa/golden</code> are shared with the Python reference implementation</td><td>12 test classes, 138 tests, all passed</td></tr>
+        <tr><td>Spotless</td><td>Formatting check for Java and the Gradle scripts (Kotlin). If formatting is off, <code>./gradlew spotlessApply</code> fixes it automatically</td><td>Passed</td></tr>
+        <tr><td>Error Prone</td><td>Static analysis at compile time, with <code>-Xlint:all -Werror</code> (warnings are errors). In the example above, <code>compileJava</code> had already run during <code>bootJar</code>, so it shows UP-TO-DATE</td><td>Passed</td></tr>
+        <tr><td>JaCoCo</td><td><code>jacocoTestCoverageVerification</code> requires line coverage ≥ 90% (excluding <code>McpServerApplication</code>, which only starts the server)</td><td>Line coverage 97.5% (635 of 651 lines)</td></tr>
+      </tbody>
+    </table>
+    <p>Reports (open them directly in a browser):</p>
+    <pre><code>services/calc-engine/build/reports/tests/test/index.html         # test results
+services/calc-engine/build/reports/jacoco/test/html/index.html   # coverage</code></pre>
+    <p>Without a local JDK, you can also run the same <code>check</code> with Docker; see the end of <a href="04-java-service.html">page 4</a>.</p>
+
+    <h2>5. Evals: numeric faithfulness</h2>
+    <p>The evals use 8 fixed cases (<code>evals/faithfulness/cases.yaml</code>) to check whether answers contain numbers without a source. In scripted mode they need no key and take a few seconds:</p>
+    <div class="term" data-title="bash — evals in scripted mode">
+      <script type="application/json">[
+        {"cmd": "python -m core.evals --llm scripted --out /tmp/echolab-eval.md"},
+        {"pause": 1500},
+        {"out": "# 評価レポート：数値の忠実度"},
+        {"out": " "},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（8 件）"},
+        {"out": " "},
+        {"out": "## 指標"},
+        {"out": " "},
+        {"out": "| 指標 | 値 |", "cls": "dim"},
+        {"out": "|---|---|", "cls": "dim"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |", "cls": "hl"},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 0.462（6 / 13） |"},
+        {"out": "| 合格したケース | 8 / 8 |", "cls": "hl"},
+        {"out": "| 費用の合計（USD） | 0.028120 |"},
+        {"out": "…（ケースごとの結果の表）…", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "0"}
+      ]</script>
+    </div>
+    <p>The report is titled "Eval report: numeric faithfulness" and lists the date (UTC), the LLM, the cases file (8 cases) and these metrics: faithfulness (the share of answers that contain no numbers without a source) 1.000; rejection rate (rejected drafts / drafts) 0.462 (6 / 13); passed cases 8 / 8; total cost (USD) 0.028120. 「…（ケースごとの結果の表）…」 stands for the omitted per-case results table.</p>
+    <ul>
+      <li>The report is printed to the screen and also written to the file given by <code>--out</code> (Markdown). The raw record of each case is saved in <code>evals/reports/raw/</code> (ignored by Git).</li>
+      <li>Metrics: a faithfulness of 1.000 means no answer contained a number without a source; the rejection rate of 0.462 is because some cases <strong>deliberately</strong> write failing drafts to confirm that the verifier rejects them.</li>
+      <li>In scripted mode, the cost (費用) is calculated from the fictitious usage written in the scripts; it only exercises the cost logic and is not real spending.</li>
+      <li>Apart from the date line, the output of our run matched the committed <code>evals/reports/scripted-baseline.md</code> exactly.</li>
+    </ul>
+    <details><summary>Running the evals with real Claude (incurs cost)</summary>
+      <p>Requires an API key and the Java service (see <a href="05-real-claude.html">page 5</a>). Every case calls Claude and is subject to the same daily and monthly caps.</p>
+      <pre><code>python -m core.evals --llm anthropic --out evals/reports/&lt;名前&gt;.md
+python -m core.evals --llm anthropic --case damage-basic --out /tmp/one-case.md   # run a single case</code></pre>
+      <p class="cmd-note"><code>&lt;名前&gt;</code> means "&lt;name&gt;": a file name of your choice.</p>
+      <p>These commands were not run for this page. For what the eval metrics mean in detail, see <a href="../../en/07-traces-evals.html">Traces and evals</a>.</p>
+    </details>
+
+    <h2>How CI runs the same checks</h2>
+    <p>The GitHub Actions workflows are in <code>.github/workflows/</code>. CI has no API key, and the LLM is always replaced by scripts:</p>
+    <table>
+      <thead><tr><th>Workflow ・ job</th><th>Trigger</th><th>Commands run</th></tr></thead>
+      <tbody>
+        <tr><td><code>test.yml</code> ・ <code>python</code></td><td>Pushes to main, every PR</td><td><code>ruff check .</code> → <code>ruff format --check .</code> → <code>pytest -m "not e2e"</code> (Python 3.12)</td></tr>
+        <tr><td><code>test.yml</code> ・ <code>e2e</code></td><td>Same as above</td><td>Temurin 21 → <code>./gradlew bootJar --no-daemon</code> → <code>ECHOLAB_E2E_REQUIRED=1 pytest -m e2e</code></td></tr>
+        <tr><td><code>java.yml</code> ・ <code>check</code></td><td>Changes to <code>services/calc-engine/</code>, or to the golden cases, data or <code>domain.yaml</code> in <code>domains/wuwa/</code></td><td><code>./gradlew check --no-daemon</code> → <code>bootJar</code> → confirm the jar exists → upload the test and coverage reports</td></tr>
+      </tbody>
+    </table>
+    <p>Running through this page locally, in order, covers essentially all of CI's checks. Before committing, run at least <code>ruff check . &amp;&amp; ruff format --check . &amp;&amp; pytest -m "not e2e"</code>.</p>
+
+    <div class="related"><strong>Having trouble?</strong> See <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

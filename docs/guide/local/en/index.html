@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home: choose how to run | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="index.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>Local run</span><span>Three paths</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Home: choose how to run</h1>
+    <p class="lead">Get EchoLab running on your own computer: fetch the code, set up a Python environment, then pick a path based on what you have (a JDK 21 or not, an Anthropic API key or not). The shortest path needs only Python and shows you a first answer with sources within a few minutes.</p>
+
+    <h2>What "running locally" means</h2>
+    <p>EchoLab has no server to deploy. "Running locally" means running <code>python -m core.agent "question"</code> from the repository root. That process does everything on your machine, in order: the LLM decides which tools to call → the tools calculate → the verifier checks the draft → the renderer fills in the numbers → the answer and the source table are printed. It also writes a trace to <code>.echolab/traces/</code> on your machine.</p>
+    <p>Two parts can be swapped out, and combining them gives three paths:</p>
+    <ul>
+      <li><strong>The LLM part</strong>: either a script written in advance (<code>--llm scripted --script script.yaml</code>; no network, no cost) or real Claude (the default, <code>--llm anthropic</code>).</li>
+      <li><strong>The calculation part</strong>: either the Python reference implementation used in tests (<code>--fake-backend</code>, calculated in the same process) or the real Java calc service, calc-engine (the CLI starts it as a subprocess according to <code>config/services.yaml</code> and talks to it over MCP stdio).</li>
+    </ul>
+    <p>Whichever path you choose, the gateway (tool allowlist, numbering of call IDs and source IDs), the compare tools, the numeric verifier, the renderer and the traces are the same real code.</p>
+
+    <h2>Which path to take</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  S["Done: code fetched&lt;br/&gt;Python venv + dependencies"] --&gt; K{"Do you have an&lt;br/&gt;Anthropic API key?"}
+  K -- No --&gt; J{"Is JDK 21 installed?"}
+  J -- No --&gt; A["Path A&lt;br/&gt;Scripted mode + Python stand-in&lt;br/&gt;Python only"]
+  J -- Yes --&gt; B["Path B&lt;br/&gt;Scripted mode + real Java calc service&lt;br/&gt;Python + JDK 21"]
+  K -- Yes --&gt; C["Path C&lt;br/&gt;Real Claude&lt;br/&gt;+ API key, cost caps"]
+  A -. JDK installed later .-&gt; B
+  B -. Key obtained later .-&gt; C
+      </pre>
+      <div class="caption">Figure 1: Choose a path based on what you have. You can move up from one path to the next without reinstalling anything</div>
+    </div>
+    <div class="callout"><strong>Tip: run path A once first, whichever path you end up on</strong>Path A does not depend on Java or the network (except when installing dependencies), so it is the quickest way to confirm that your Python environment and the code itself work. If something then breaks after switching to Java or real Claude, it is easy to tell which part is at fault.</div>
+
+    <h2>What each path actually runs</h2>
+    <table>
+      <thead><tr><th>Path</th><th>LLM part</th><th>Calculation part</th><th>Requires</th><th>Good for</th></tr></thead>
+      <tbody>
+        <tr><td><strong>A</strong> Scripted mode + Python stand-in</td><td>A script (YAML) returns pre-written tool calls and drafts in order</td><td>Python reference implementation (<code>tests/core/fakes.py</code>), calculated in the same process, no MCP</td><td>Python 3.12+</td><td>Trying the full flow for the first time; watching the verifier reject a draft (差し戻し, "sent back for rewriting"); experimenting with your own scripts</td></tr>
+        <tr><td><strong>B</strong> Scripted mode + Java service</td><td>Same as above</td><td>calc-engine (Java 21 + Spring Boot + Spring AI) as an MCP server, started by the CLI as a subprocess and called over stdio</td><td>Python 3.12+, JDK 21 (to build the jar)</td><td>Confirming that the Java calc service and MCP communication work on your machine; comparing against the results of A</td></tr>
+        <tr><td><strong>C</strong> Real Claude</td><td>The Claude API (model <code>claude-opus-5-5</code>) understands the question and decides which tools to call</td><td>Usually the Java service; add <code>--fake-backend</code> to use the Python stand-in instead</td><td>The above + an API key; incurs cost (default caps: $1 per day, $10 per month)</td><td>Asking questions freely, in your own words</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>Scripted mode does not "understand" the question</strong>In paths A and B, which tools are called and what the draft says are all written in the script and have nothing to do with the question text you type. Ask a different question with the same script and you get the same answer. Only path C really understands the question. See <a href="03-scripted.html">Run in scripted mode (no API key)</a>.</div>
+
+    <h2>The shortest path (path A)</h2>
+    <p>From fetching the code to seeing an answer takes four steps. Click "Next" to step through them, or "Auto-play".</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="clone">Get the code<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="venv">Python env<small>venv + pip</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="run">Run<small>scripted + fake</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="read">Read output<small>answer + sources</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["clone"], "packet": {"at": "clone", "text": "echolab/"}, "text": "Fetch the public repository with <code>git clone</code> and <code>cd echolab</code> into the repository root. All later commands run from here."},
+        {"on": ["a1", "venv"], "done": ["clone"], "packet": {"at": "venv", "text": ".venv/"}, "text": "Create a virtual environment with <code>python3 -m venv .venv</code>, then install dependencies with <code>pip install -r requirements-dev.txt</code> (the only step that needs the network)."},
+        {"on": ["a2", "run"], "done": ["clone", "venv"], "packet": {"at": "run", "text": "compare_builds.yaml"}, "text": "Run with the bundled script <code>core/agent/examples/compare_builds.yaml</code> and <code>--fake-backend</code>. No Java and no API key needed."},
+        {"on": ["a3", "read"], "done": ["clone", "venv", "run"], "packet": {"at": "read", "text": "answered"}, "text": "Read the output: every number in the answer can be traced in the source table below it; the final status line shows <code>answered</code> and 「差し戻し: 1 回」 (1 rejected draft)."}
+      ]</script>
+    </div>
+
+    <p>Below is a real session on a fresh Linux (WSL2) environment. Dependencies were installed with <code>-q</code>, which prints almost nothing on success. The path has been shortened to <code>~/echolab</code>.</p>
+    <div class="term" data-title="bash — shortest path">
+      <script type="application/json">[
+        {"cmd": "git clone https://github.com/hexinlong9981/echolab.git"},
+        {"out": "Cloning into 'echolab'..."},
+        {"cmd": "cd echolab"},
+        {"cmd": "python3 -m venv .venv"},
+        {"cmd": ".venv/bin/pip install -q -r requirements-dev.txt"},
+        {"out": "… (downloading and installing dependencies)", "cls": "dim", "delay": 900},
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063754Z-904935", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063754Z-904935.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The question and answer are in Japanese, because the bundled script is. The question asks which of two builds is stronger and by how much (build A: ATK 2000, skill multiplier 2.5, damage bonus 0.3, crit rate 0.6, crit damage 2.2, enemy DEF 1000, no RES shred; build B: ATK 1800, skill multiplier 3.0, damage bonus 0.2, crit rate 0.5, crit damage 2.5, enemy DEF 1200, RES shred 0.3; both with DEF constant 1600, DEF ignore 0, enemy RES 0.1). The answer says "Build B is stronger", gives the expected damage of A (6,192) and B (7,128), and the difference: 936 (15.1% more than A).</p>
+    <p>For how to read each part of the answer and the source table, see <a href="../../en/03-reading-answers.html">Reading the answers</a> in the user guide. The source table headers, the status line and error messages are in Japanese (the project's interface language): 「出典」 = sources, 「状態」 = status, 「差し戻し」 = rejected drafts, 「費用」 = cost, 「実行 ID」 = run ID, 「トレース」 = trace, 「未確認データ」 = unverified data. In scripted mode, the language of the answer text is set by the script; this bundled example is in Japanese.</p>
+
+    <h2>What each page covers</h2>
+    <div class="cards">
+      <a class="card" href="01-prerequisites.html" style="text-decoration:none"><h4>Prerequisites</h4><p>OS (including WSL2), Python, Git, JDK 21, Docker, an API key, and which path needs which.</p></a>
+      <a class="card" href="02-setup.html" style="text-decoration:none"><h4>Setup</h4><p>Clone, virtual environment, dependencies, confirming the install with tests, and a directory tour.</p></a>
+      <a class="card" href="03-scripted.html" style="text-decoration:none"><h4>Run in scripted mode (no API key)</h4><p>Path A: run the bundled example, read the status line, write a script of your own.</p></a>
+      <a class="card" href="04-java-service.html" style="text-decoration:none"><h4>Run with the Java calc service</h4><p>Path B: build the calc-engine jar and call the real Java calculations over MCP.</p></a>
+      <a class="card" href="05-real-claude.html" style="text-decoration:none"><h4>Run with real Claude</h4><p>Path C: set up an API key and cost caps, then ask freely.</p></a>
+      <a class="card" href="06-tests-evals.html" style="text-decoration:none"><h4>Run tests &amp; evals</h4><p>pytest, ruff, Java checks, end-to-end tests, faithfulness evals.</p></a>
+      <a class="card" href="07-troubleshooting.html" style="text-decoration:none"><h4>Troubleshooting local runs</h4><p>Common problems such as java not found, the wrong version, or no API key.</p></a>
+    </div>
+    <div class="callout"><strong>How this guide and the user guide divide the work</strong>This guide only covers "how to get it running on your own computer". For what you can ask, how to read answers and statuses, and every command option, see the <a href="../../en/index.html">EchoLab User Guide</a> (for example, the <a href="../../en/04-cli-reference.html">CLI reference</a>).</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

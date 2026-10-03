@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用 Java 计算服务运行 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="04-java-service.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>运行</span><span>JDK 21</span><span>calc-engine</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>使用 Java 计算服务运行</h1>
+    <p class="lead">去掉 <code>--fake-backend</code>，让 CLI 启动真正的计算服务 calc-engine（Java 21 + Spring Boot 的 MCP 服务器）。本页依次介绍：安装 JDK 21、构建 jar、CLI 如何启动服务、运行示例，以及只有 Java 服务才支持的「数据引用」。</p>
+
+    <div class="callout"><strong>关于本页的输出</strong>本页所有命令和输出都是在一份全新克隆的仓库上实际运行得到的（Linux／WSL2，Python 3.12，Temurin 21）。为便于阅读，仓库所在的长路径统一缩写为 <code>~/echolab</code>，用户名替换为 <code>user</code>，较长的输出用「…」省略了中间部分。耗时因机器和网络而异，仅供参考。</div>
+
+    <h2>台本模式的两种计算后端</h2>
+    <p>在 <a href="03-scripted.html">用脚本模式运行</a> 中，我们加了 <code>--fake-backend</code>：计算由 Python 的参照实现（<code>tests/core/fakes.py</code>）完成，不需要 Java。去掉它之后，CLI 会按 <code>config/services.yaml</code> 启动 Java 计算服务。两者对同一问题给出的数值相同，区别如下：</p>
+    <table>
+      <thead><tr><th></th><th><code>--fake-backend</code>（Python 参照实现）</th><th>不加（Java 计算服务）</th></tr></thead>
+      <tbody>
+        <tr><td>需要什么</td><td>只要 Python 环境</td><td>JDK 21 + 构建好的 jar</td></tr>
+        <tr><td>自带示例的耗时（实测）</td><td>约 3.2 秒</td><td>约 8.5 秒（多出的时间主要是 JVM 和 Spring 的启动）</td></tr>
+        <tr><td>数据引用（<code>banner</code>／<code>profile</code>）</td><td>不支持，工具报错</td><td>支持，并自动加「未確認」注记</td></tr>
+        <tr><td>用途</td><td>演示、单元测试、台本模式的评估</td><td>真实使用、端到端测试（<code>pytest -m e2e</code>）</td></tr>
+      </tbody>
+    </table>
+
+    <h2>1. 安装 JDK 21</h2>
+    <p>任何 JDK 21 发行版都可以。下面以 Eclipse Temurin 为例，用压缩包安装到用户目录，不需要 root 权限（x64 Linux／WSL2；其他平台请在 Adoptium 网站选择对应的包，macOS 也可以用 Homebrew 安装 <code>temurin@21</code>）。</p>
+    <pre><code>mkdir -p ~/.local/jdk
+curl -L -o /tmp/temurin21.tar.gz \
+  https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse
+tar -xzf /tmp/temurin21.tar.gz -C ~/.local/jdk        # 解压出 jdk-21.0.12.1+1 这样的目录（版本号会变）
+ln -sfn ~/.local/jdk/jdk-21.0.12.1+1 ~/.local/jdk/21  # 固定一个不带版本号的路径，方便升级
+echo 'export JAVA_HOME=$HOME/.local/jdk/21' &gt;&gt; ~/.bashrc
+export JAVA_HOME=$HOME/.local/jdk/21</code></pre>
+    <p class="cmd-note">下载的压缩包约 198 MB。写进 <code>~/.bashrc</code> 后，新开的终端会自动设置 <code>JAVA_HOME</code>。</p>
+    <div class="term" data-title="bash — 确认 JDK">
+      <script type="application/json">[
+        {"cmd": "$JAVA_HOME/bin/java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"}
+      ]</script>
+    </div>
+    <div class="callout ok"><strong>不必把 java 放进 PATH</strong>CLI 启动服务前会查找 <code>java</code>：PATH 上有就用 PATH 上的；PATH 上没有、但设置了 <code>JAVA_HOME</code>，就改用 <code>$JAVA_HOME/bin/java</code>（见 <code>core/gateway/mcp_backend.py</code> 的 <code>resolve_executable</code>）。Gradle Wrapper 同样读取 <code>JAVA_HOME</code>。所以只设置 <code>JAVA_HOME</code> 就够了。</div>
+    <div class="callout warn"><strong>注意顺序</strong>只有当 PATH 上<strong>找不到</strong> <code>java</code> 时，CLI 才会使用 <code>JAVA_HOME</code>。如果 PATH 上已经有一个旧版本的 <code>java</code>（例如 Java 8 或 17），CLI 会用它，服务启动失败。这时把 JDK 21 放到 PATH 最前面：<code>export PATH="$JAVA_HOME/bin:$PATH"</code>。实际的报错见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</div>
+
+    <h2>2. 构建 jar</h2>
+    <p>在仓库根目录下进入 <code>services/calc-engine</code>，用自带的 Gradle Wrapper 构建可执行 jar。<strong>第一次运行</strong>会下载 Gradle 本体（8.14.3）和所有依赖库，需要联网，实测约 2 分钟；之后只需几秒。</p>
+    <div class="term" data-title="bash — 第一次构建">
+      <script type="application/json">[
+        {"cmd": "cd services/calc-engine && ./gradlew bootJar"},
+        {"out": "Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip", "delay": 300},
+        {"out": ".............10%.............20%.............30%…………90%..............100%", "cls": "dim", "delay": 900},
+        {"out": " "},
+        {"out": "Welcome to Gradle 8.14.3!"},
+        {"out": "…", "cls": "dim"},
+        {"out": "Starting a Gradle Daemon (subsequent builds will be faster)", "cls": "dim"},
+        {"out": "> Task :compileJava", "delay": 1200},
+        {"out": "> Task :processResources"},
+        {"out": "> Task :classes"},
+        {"out": "> Task :resolveMainClassName"},
+        {"out": "> Task :bootJar", "delay": 500},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 2m 2s", "cls": "hl"},
+        {"out": "4 actionable tasks: 4 executed"},
+        {"cmd": "ls -lh build/libs/"},
+        {"out": "total 24M"},
+        {"out": "-rw-r--r-- 1 user user 24M Oct  3 15:38 calc-engine-mcp.jar", "cls": "hl"},
+        {"cmd": "./gradlew bootJar"},
+        {"out": "> Task :bootJar UP-TO-DATE", "cls": "dim", "delay": 600},
+        {"out": " "},
+        {"out": "BUILD SUCCESSFUL in 2s", "cls": "hl"},
+        {"out": "4 actionable tasks: 4 up-to-date"},
+        {"cmd": "cd ../.."}
+      ]</script>
+    </div>
+    <ul>
+      <li>产物是 <code>services/calc-engine/build/libs/calc-engine-mcp.jar</code>（约 24 MB，包含 Spring Boot 和所有依赖）。<code>config/services.yaml</code> 引用的正是这个路径。</li>
+      <li>Gradle 本体和依赖缓存在 <code>~/.gradle/</code>（可用 <code>GRADLE_USER_HOME</code> 改位置），不会写进仓库。<code>build/</code> 已被 Git 忽略。</li>
+      <li>编译时会运行 Error Prone，并启用 <code>-Xlint:all -Werror</code>：任何编译警告都会让构建失败。</li>
+      <li>修改 Java 代码后需要重新运行 <code>./gradlew bootJar</code>，CLI 不会自动重新构建。<code>domains/wuwa/data</code> 下的数据在运行时读取，修改数据不必重新构建。</li>
+    </ul>
+
+    <h2>3. CLI 如何启动计算服务</h2>
+    <p>启动方式写在 <code>config/services.yaml</code> 里，路径都相对于仓库根目录：</p>
+    <pre><code>schema_version: 1
+services:
+  calc-engine:
+    transport: stdio
+    command: ["java", "-jar", "services/calc-engine/build/libs/calc-engine-mcp.jar"]
+    env:
+      ECHOLAB_DATA_ROOT: domains</code></pre>
+    <p>每次运行 <code>python -m core.agent</code>（不加 <code>--fake-backend</code>）时，网关会把 jar 作为<strong>子进程</strong>启动，通过标准输入／输出用 MCP 协议通信；提问结束后进程随之退出。不监听任何网络端口。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  participant U as 你（终端）
+  participant C as CLI 与网关&lt;br/&gt;Python
+  participant J as calc-engine&lt;br/&gt;java -jar 子进程
+  U-&gt;&gt;C: python -m core.agent "问题" --llm scripted …
+  C-&gt;&gt;C: 读取 config/services.yaml
+  C-&gt;&gt;C: 检查 java 与 jar 是否存在&lt;br/&gt;缺少则以退出码 2 结束
+  C-&gt;&gt;J: 启动子进程（工作目录：仓库根目录）
+  C-&gt;&gt;J: MCP initialize（stdin／stdout）
+  J--&gt;&gt;C: 初始化完成
+  C-&gt;&gt;J: tools/list
+  J--&gt;&gt;C: damage_expected、echo_score、gacha_…
+  loop AI 请求调用工具时
+    C-&gt;&gt;J: tools/call（每次最多等 30 秒）
+    J--&gt;&gt;C: 结果 JSON（数值、未确认数据 ID）
+  end
+  C-&gt;&gt;J: 关闭会话，进程退出
+  C--&gt;&gt;U: 回答、出典表、状态行
+      </pre>
+      <div class="caption">图 1：一次提问中 CLI 与 Java 计算服务的交互（MCP over stdio）</div>
+    </div>
+    <ul>
+      <li><strong>先检查再启动</strong>：PATH 和 <code>JAVA_HOME</code> 都找不到 <code>java</code>，或 jar 不存在时，CLI 不会启动进程，而是打印一行 <code>エラー: …</code>（含修复方法）并以退出码 2 结束。</li>
+      <li><strong>标准输出只用于 MCP</strong>：服务不打印启动横幅，日志只写到标准错误，因此不会混进回答。</li>
+      <li><strong>环境变量</strong>：<code>env</code> 里的值是默认值；如果你的 shell 里已经设置了同名环境变量，以 shell 为准。</li>
+    </ul>
+    <p>Agent、网关、校验器之间的整体关系见 <a href="../../zh/05-how-it-works.html">工作原理</a>。</p>
+
+    <h2>4. 运行自带示例（不加 --fake-backend）</h2>
+    <p>回到仓库根目录，激活虚拟环境，运行与 <a href="03-scripted.html">第 3 页</a> 相同的命令，只是去掉 <code>--fake-backend</code>：</p>
+    <div class="term" data-title="bash — 使用 Java 计算服务">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "time python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 8},
+        {"pause": 2500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063930Z-2d2896", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063930Z-2d2896.jsonl", "cls": "dim"},
+        {"out": " "},
+        {"out": "real\t0m8.533s", "cls": "hl"},
+        {"out": "user\t0m15.412s"},
+        {"out": "sys\t0m1.589s"}
+      ]</script>
+    </div>
+    <p>回答和出典表与 <code>--fake-backend</code> 时完全相同（两个后端都把数值按小数 6 位返回）。同一台机器上，加 <code>--fake-backend</code> 运行约 3.2 秒，用 Java 服务约 8.5 秒——每次提问都会重新启动一次 JVM 和 Spring Boot，这部分占了多出来的时间；计算本身只需几毫秒。<code>user</code> 时间大于 <code>real</code>，是因为 JVM 启动时多线程并行工作。</p>
+    <div class="callout"><strong>台本模式 + Java 服务</strong>上面仍然是台本模式（<code>--llm scripted</code>）：AI 的回复来自台本，但每个数值都由 Java 服务真实计算。若计算结果与台本预期的不一致，后续步骤就会对不上。这种组合正是端到端测试使用的方式，见 <a href="06-tests-evals.html">运行测试与评估</a>。</div>
+
+    <h2>5. 只有 Java 服务支持的数据引用</h2>
+    <p>部分工具可以不直接给出参数，而是用 ID 引用仓库自带的示例数据（<code>domains/wuwa/data/v2.x/</code>）。两种写法只能二选一：</p>
+    <table>
+      <thead><tr><th>工具（MCP 名）</th><th>直接给出</th><th>引用数据</th><th>示例 ID</th></tr></thead>
+      <tbody>
+        <tr><td><code>gacha_probability_within</code>、<code>gacha_simulate</code></td><td><code>rules</code></td><td><code>banner</code></td><td><code>featured-character</code></td></tr>
+        <tr><td><code>echo_score</code></td><td><code>weights</code></td><td><code>profile</code></td><td><code>sample-crit-attacker</code></td></tr>
+      </tbody>
+    </table>
+    <p>仓库里只有一个示例台本，所以这里另写一个只有两步的小台本 <code>my-banner.yaml</code>（放在仓库根目录，不提交）：第 1 步用 <code>banner</code> 调用抽卡概率工具，第 2 步用占位符引用结果。</p>
+    <pre><code># 卡池数据引用的演示台本：用 banner 的 ID 代替直接给出规则
+turns:
+  - tool_uses:
+      - name: gacha_probability_within
+        input: {banner: featured-character, start_pity: 0, guaranteed: false, pulls: 80}
+  - text: 80 回以内に限定キャラクターを獲得できる確率は [[c1.probability|%1]] です。</code></pre>
+    <div class="term" data-title="bash — 引用卡池数据">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml"},
+        {"pause": 2500},
+        {"out": "80 回以内に限定キャラクターを獲得できる確率は 60.6% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.6058637851964593  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T063947Z-7e2378", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063947Z-7e2378.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li>示例数据标为 <code>verified: false</code>（未与游戏官方数据核对）。Java 服务把用到的未确认数据 ID（<code>gacha_rules:featured-character</code>）随结果一起返回，回答末尾<strong>自动</strong>加上注记「※ この回答の数値の一部は、未確認のサンプルデータに基づいています。」（部分数值基于未经确认的示例数据）。AI 不能省略这条注记。</li>
+      <li>出典表的「未確認データ」列写明具体是哪条数据。注记的含义见 <a href="../../zh/03-reading-answers.html">回答怎么读</a>。</li>
+    </ul>
+    <p>同一个台本加上 <code>--fake-backend</code> 会失败：Python 参照实现只接受直接给出的 <code>rules</code>，工具返回错误后，台本的步骤就对不上了。</p>
+    <div class="term" data-title="bash — 假服务不支持数据引用">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"80 回以内に限定キャラクターを獲得できる確率は？\" --llm scripted --script my-banner.yaml --fake-backend"},
+        {"pause": 800},
+        {"out": "エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: 台本の応答（2 件）を使い切った後に呼ばれました", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "grep -o '\"error\": \"[^\"]*\"' .echolab/traces/20261003T063950Z-3d2410.jsonl"},
+        {"out": "\"error\": \"入力が不正です: 'rules'\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>工具的输入说明（JSON Schema）里列有 <code>banner</code> 和 <code>profile</code>，所以使用真实 Claude 时，它也可能选择引用示例数据；要让这类问题得到回答，需要使用 Java 服务。</p>
+
+    <h2>6. 数据目录：ECHOLAB_DATA_ROOT</h2>
+    <p>Java 服务从 <code>$ECHOLAB_DATA_ROOT/wuwa/</code> 读取 <code>domain.yaml</code>，再按其中的 <code>data_dir</code> 找到数据文件。默认值是 <code>config/services.yaml</code> 中的 <code>domains</code>，相对于仓库根目录（子进程的工作目录）。想换一份数据（比如你核对过的版本）时，在 shell 里设置同名环境变量即可覆盖：</p>
+    <pre><code>ECHOLAB_DATA_ROOT=$PWD/domains python -m core.agent "…" --llm scripted --script my-banner.yaml   # 与默认相同
+ECHOLAB_DATA_ROOT=/path/to/my-data python -m core.agent "…"                                       # 目录下需要有 wuwa/domain.yaml</code></pre>
+    <p>目录不对时服务不会停止，而是把错误作为工具结果返回（真实 Claude 会看到这条错误并据此调整）。实测用 <code>ECHOLAB_DATA_ROOT=/tmp/echolab-nodata</code>（不存在的目录）运行上面的台本，台本的后续步骤对不上而以 <code>エラー: 台本どおりに進みませんでした…</code> 结束，轨迹里记录的工具错误是：</p>
+    <pre><code>"error": "gacha_probability_within: データファイルがありません: /tmp/echolab-nodata/wuwa/domain.yaml"</code></pre>
+    <p class="cmd-note">只有引用数据（<code>banner</code>／<code>profile</code>，或省略 <code>echo_score</code> 的 <code>max_roll</code>）时才会读这个目录；直接给出全部参数的计算不受影响。</p>
+
+    <h2>另一种方式：用 Docker 构建（可选）</h2>
+    <p>如果不想在本机安装 JDK，可以在官方 Gradle 镜像（内含 JDK 21）里构建和测试。以下命令取自 README，在 <code>services/calc-engine</code> 目录下运行：</p>
+    <pre><code>cd services/calc-engine
+docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
+  -v "$HOME/.gradle-echolab:/cache" -v "$(cd ../.. &amp;&amp; pwd):/w" -w /w/services/calc-engine \
+  gradle:8-jdk21 ./gradlew check</code></pre>
+    <table>
+      <thead><tr><th>部分</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td><code>--rm</code></td><td>运行结束后删除容器</td></tr>
+        <tr><td><code>-u "$(id -u):$(id -g)"</code></td><td>以你自己的用户身份运行，生成的 <code>build/</code> 不会属于 root</td></tr>
+        <tr><td><code>-e GRADLE_USER_HOME=/cache</code> 与 <code>-v "$HOME/.gradle-echolab:/cache"</code></td><td>把 Gradle 的下载缓存放在宿主机的 <code>~/.gradle-echolab</code>，第二次起不必重新下载</td></tr>
+        <tr><td><code>-v "$(cd ../.. &amp;&amp; pwd):/w"</code> 与 <code>-w /w/services/calc-engine</code></td><td>挂载整个仓库（测试要读取 <code>domains/wuwa</code> 的黄金用例和数据）并在 calc-engine 目录下执行</td></tr>
+        <tr><td><code>gradle:8-jdk21 ./gradlew check</code></td><td>运行测试和静态检查；把 <code>check</code> 换成 <code>bootJar</code> 就只构建 jar</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>注意</strong>Docker 只负责<strong>构建</strong>。CLI 运行时仍然在本机执行 <code>java -jar …</code>，所以要用 Java 服务回答问题，本机仍需要 JDK 21（构建出的 jar 可以直接使用）。本页的实测环境没有运行这条 Docker 命令；遇到 <code>permission denied … docker.sock</code> 时见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</div>
+
+    <div class="related"><strong>下一步</strong>：<a href="05-real-claude.html">使用真实 Claude 运行</a>，或 <a href="06-tests-evals.html">运行测试与评估</a>（包括使用 jar 的端到端测试）。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prerequisites | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="01-prerequisites.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>Environment</span><span>Python・JDK・WSL2</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Prerequisites</h1>
+    <p class="lead">First check which tools are on your computer. The shortest path, A, needs only Python 3.12+ and Git; JDK 21 and an API key are needed only for the paths that use them. This page lists what each item is for, how to check it, and real example output.</p>
+
+    <h2>What you need → which path needs it</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Used for</th><th>Path A<br>Script + Python stand-in</th><th>Path B<br>Script + Java service</th><th>Path C<br>Real Claude</th></tr></thead>
+      <tbody>
+        <tr><td>Linux / macOS / Windows (WSL2)</td><td>Runtime environment</td><td>Required</td><td>Required</td><td>Required</td></tr>
+        <tr><td>Python 3.12 or later</td><td>CLI, gateway, verifier, tests</td><td>Required</td><td>Required</td><td>Required</td></tr>
+        <tr><td>Git</td><td>Fetching the code</td><td>Required</td><td>Required</td><td>Required</td></tr>
+        <tr><td>Network</td><td>Downloading Python dependencies; downloading Gradle dependencies when building the jar; calling the Claude API</td><td>Install only</td><td>Install and first build</td><td>Always</td></tr>
+        <tr><td>JDK 21</td><td>Building and running the Java calc service, calc-engine</td><td>Not needed</td><td>Required</td><td>Usually required (not with <code>--fake-backend</code>)</td></tr>
+        <tr><td>Docker (optional)</td><td>Building and testing the Java code in a container without installing a JDK</td><td>Not needed</td><td>Optional</td><td>Optional</td></tr>
+        <tr><td>Anthropic API key</td><td>Calling Claude; incurs cost</td><td>Not needed</td><td>Not needed</td><td>Required</td></tr>
+      </tbody>
+    </table>
+    <p>The example output below comes from the environment used to write this guide (WSL2 on Windows, with Rocky Linux 10 as the Linux distribution). It is normal for your version numbers to differ, as long as they meet the requirements.</p>
+
+    <h2>Operating system</h2>
+    <ul>
+      <li><strong>Linux</strong>: any reasonably recent distribution works.</li>
+      <li><strong>macOS</strong>: the commands are the same as on Linux (run them in Terminal).</li>
+      <li><strong>Windows</strong>: use <strong>WSL2</strong> (Windows Subsystem for Linux) and do everything in this guide inside WSL's Linux.</li>
+    </ul>
+    <div class="callout warn"><strong>Windows users: run every command inside WSL and do not mix in Windows-side tools</strong>
+      In a WSL terminal, PATH includes Windows directories (<code>/mnt/c/…</code>) by default, so the Windows versions of <code>python.exe</code> and <code>git.exe</code> can also be found. They see the Windows file system and line-ending conventions and are not compatible with the commands in this guide. Make sure that:
+      <ul>
+        <li>Python, Git and the JDK are all installed <strong>inside WSL's Linux</strong>, and your commands never include <code>.exe</code>.</li>
+        <li>You clone the repository into your WSL home directory (such as <code>~/echolab</code>), not under <code>/mnt/c/…</code>. It is faster and avoids permission and line-ending problems.</li>
+        <li>You do not run this guide's commands in Windows PowerShell or Command Prompt.</li>
+      </ul>
+    </div>
+    <p>Confirm that you are inside WSL and not on the Windows side:</p>
+    <div class="term" data-title="bash — confirm WSL2">
+      <script type="application/json">[
+        {"cmd": "uname -sr"},
+        {"out": "Linux 6.6.87.2-microsoft-standard-WSL2", "cls": "hl"},
+        {"cmd": "command -v python.exe"},
+        {"out": "/mnt/c/Users/<username>/AppData/Local/Programs/Python/Python313/python.exe", "cls": "warn"},
+        {"out": "(↑ this is the Windows-side Python; do not use it)", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>If the output of <code>uname -sr</code> contains <code>microsoft-standard-WSL2</code>, you are in WSL2. The second command is only there to show that Windows programs are also on PATH (the user name has been replaced with <code>&lt;username&gt;</code>); this guide uses only the Linux commands without <code>.exe</code>.</p>
+
+    <h2>Python 3.12 or later</h2>
+    <p>The project targets Python 3.12 (ruff's <code>target-version = "py312"</code> in <code>pyproject.toml</code>). All output in this guide was produced with Python 3.12.11. You also need the standard library's <code>venv</code> (to create the virtual environment).</p>
+    <div class="term" data-title="bash — check Python">
+      <script type="application/json">[
+        {"cmd": "python3 --version"},
+        {"out": "Python 3.12.11", "cls": "hl"},
+        {"cmd": "python3 -c \"import sys; print(sys.version_info >= (3, 12))\""},
+        {"out": "True", "cls": "hl"},
+        {"cmd": "python3 -c \"import venv, ensurepip; print('ok')\""},
+        {"out": "ok"}
+      ]</script>
+    </div>
+    <ul>
+      <li>If the second command prints <code>False</code>, the system <code>python3</code> is too old. Check whether a separate <code>python3.12</code> is installed (<code>python3.12 --version</code>); if so, replace <code>python3</code> with <code>python3.12</code> in the later commands. If not, install 3.12 or later with your distribution's package manager or the python.org installer.</li>
+      <li>If the third command raises <code>ModuleNotFoundError</code>: some Linux distributions ship <code>venv</code> / <code>ensurepip</code> as a separate package (usually named something like <code>python3.12-venv</code>). Install it.</li>
+    </ul>
+
+    <h2>Git</h2>
+    <div class="term" data-title="bash — check Git">
+      <script type="application/json">[
+        {"cmd": "git --version"},
+        {"out": "git version 2.47.3", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>Git is only used for <code>git clone</code>, so any version will do. The repository is public, so cloning does not require a GitHub account.</p>
+
+    <h2>JDK 21 (path B, and path C when using the Java service)</h2>
+    <p>The calc service calc-engine is written in Java 21. Building the jar needs a <strong>JDK</strong> (not just a JRE), and running it needs Java 21. Any distribution works; Eclipse Temurin is used as the example here.</p>
+    <p>The CLI looks for <code>java</code> in this order: first <code>java</code> on PATH, then <code>$JAVA_HOME/bin/java</code> if none is found. So <strong>you do not have to put Java on PATH; setting <code>JAVA_HOME</code> is enough</strong>. The <code>./gradlew</code> used for building also reads <code>JAVA_HOME</code>.</p>
+    <p>For example: download the Temurin 21 Linux x64 archive from Adoptium, extract it into <code>~/.local/jdk</code>, and create a version-free link <code>~/.local/jdk/21</code> (below is a real session in an empty home directory):</p>
+    <div class="term" data-title="bash — install JDK 21 (archive)">
+      <script type="application/json">[
+        {"cmd": "mkdir -p ~/.local/jdk"},
+        {"cmd": "tar -xzf OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz -C ~/.local/jdk"},
+        {"cmd": "ls ~/.local/jdk"},
+        {"out": "jdk-21.0.12.1+1"},
+        {"cmd": "ln -s ~/.local/jdk/jdk-21.0.12.1+1 ~/.local/jdk/21"},
+        {"cmd": "export JAVA_HOME=~/.local/jdk/21"},
+        {"cmd": "\"$JAVA_HOME/bin/java\" -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS", "cls": "hl"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"},
+        {"cmd": "\"$JAVA_HOME/bin/javac\" -version"},
+        {"out": "javac 21.0.12.1", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>What to look for: the first line says <code>version "21.…"</code>, and <code>javac</code> runs too (so it is a JDK). <code>export JAVA_HOME=…</code> only applies to the current terminal; to make it permanent, add that line to <code>~/.bashrc</code> (or your shell's config file). Installing through your distribution's package manager or the macOS installer also works, as long as <code>java -version</code> shows 21.</p>
+    <div class="callout"><strong>No java on PATH is fine</strong>In this guide's environment, <code>command -v java || echo "no java on PATH"</code> prints <code>no java on PATH</code>; everything runs on <code>JAVA_HOME</code> alone. Conversely, if there is an <strong>older</strong> <code>java</code> on PATH (Java 8, for example), the CLI uses it first, and a jar built with Java 21 will not run on an older Java. In that case, put JDK 21 at the front of PATH. See <a href="07-troubleshooting.html">Troubleshooting local runs</a>.</div>
+
+    <h2>Docker (optional)</h2>
+    <p>If you would rather not install a JDK, the README gives commands for building and testing the Java code in a <code>gradle:8-jdk21</code> container (running <code>./gradlew check</code> in <code>services/calc-engine</code>). For details, see <a href="04-java-service.html">Run with the Java calc service</a>.</p>
+    <div class="term" data-title="bash — check Docker">
+      <script type="application/json">[
+        {"cmd": "docker --version"},
+        {"out": "Docker version 29.8.2, build 7fc2dff", "cls": "hl"}
+      ]</script>
+    </div>
+    <div class="callout warn"><strong><code>docker --version</code> only checks the client</strong>You also need to be able to reach the Docker engine. In this guide's environment, when the current user lacks access, <code>docker version</code> prints <code>permission denied while trying to connect to the docker API at unix:///var/run/docker.sock</code>. In that case, add the user to the <code>docker</code> group (or follow the instructions for your Docker installation). On Windows with Docker Desktop, also enable WSL integration for your WSL distribution in its settings.</div>
+    <p>Note: the container is only for <strong>building and testing</strong>. In path B, the CLI starts the calc service on your machine with <code>java -jar …</code>, so actually running the Java service still requires Java 21 on your machine.</p>
+
+    <h2>Anthropic API key (path C only)</h2>
+    <p>You need one only to have real Claude answer. Paths A and B make no API calls over the network and incur no cost. Check whether a key is set (without printing it):</p>
+    <div class="term" data-title="bash — check the API key">
+      <script type="application/json">[
+        {"cmd": "test -n \"$ANTHROPIC_API_KEY\" && echo set || echo \"not set\""},
+        {"out": "not set", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>For how to set it, the cost caps (default $1 per day, $10 per month) and what happens without a key, see <a href="05-real-claude.html">Run with real Claude</a>.</p>
+    <div class="callout bad"><strong>Never write the key into a file in the repository</strong>Set it only as an environment variable. <code>.gitignore</code> already excludes files such as <code>.env</code> and <code>*.key</code>, but the safest approach is to never put the key in the working directory at all.</div>
+
+    <h2>Checklist</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Command</th><th>Expected result</th></tr></thead>
+      <tbody>
+        <tr><td>Python version</td><td><code>python3 --version</code></td><td><code>Python 3.12.x</code> or later</td></tr>
+        <tr><td>venv available</td><td><code>python3 -c "import venv, ensurepip; print('ok')"</code></td><td><code>ok</code></td></tr>
+        <tr><td>Git</td><td><code>git --version</code></td><td>A version number</td></tr>
+        <tr><td>JDK 21 (paths B/C)</td><td><code>"$JAVA_HOME/bin/java" -version</code></td><td><code>version "21.…"</code></td></tr>
+        <tr><td>API key (path C)</td><td><code>test -n "$ANTHROPIC_API_KEY" &amp;&amp; echo set || echo "not set"</code></td><td><code>set</code></td></tr>
+      </tbody>
+    </table>
+    <p>Once you are ready, go on to <a href="02-setup.html">Setup</a>.</p>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

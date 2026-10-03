@@ -10,6 +10,8 @@
 [免责声明](DISCLAIMER.zh-CN.md)
 
 > **使用说明**（附图解和动画，日语・英语・中文）：<https://hexinlong9981.github.io/echolab/zh/>（源文件：[`docs/guide/`](docs/guide/)）
+>
+> **本地运行指南**（从无需 API 密钥的方式开始）：<https://hexinlong9981.github.io/echolab/local/zh/>
 
 ## 这是什么
 

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首页・选择运行方式 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="index.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>本地运行</span><span>三种路线</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>首页・选择运行方式</h1>
+    <p class="lead">在自己的电脑上把 EchoLab 跑起来：取得代码、建好 Python 环境，然后按手头的条件（有没有 JDK 21、有没有 Anthropic API 密钥）选一条路线。最短的路线只需要 Python，几分钟就能看到第一个带出典的回答。</p>
+
+    <h2>「在本地运行」指的是什么</h2>
+    <p>EchoLab 没有需要部署的服务器。所谓「本地运行」，就是在仓库根目录用命令行执行 <code>python -m core.agent "问题"</code>：这个进程在你的电脑上依次完成「LLM 决定调用哪些工具 → 工具计算 → 校验器核对草稿 → 渲染器填入数字 → 打印回答和出典表」，并把执行轨迹写到本机的 <code>.echolab/traces/</code>。</p>
+    <p>其中有两个部分可以替换，组合起来就是三条路线：</p>
+    <ul>
+      <li><strong>LLM 部分</strong>：可以是事先写好的脚本（<code>--llm scripted --script 脚本.yaml</code>，不联网、不花钱），也可以是真实的 Claude（默认的 <code>--llm anthropic</code>）。</li>
+      <li><strong>计算部分</strong>：可以是测试用的 Python 参考实现（<code>--fake-backend</code>，在同一个进程里计算），也可以是真实的 Java 计算服务 calc-engine（CLI 按 <code>config/services.yaml</code> 把它作为子进程启动，经 MCP 的 stdio 通信）。</li>
+    </ul>
+    <p>无论选哪条路线，网关（工具许可列表、调用 ID 与出典 ID 的编号）、比较工具、数值校验器、渲染器和执行轨迹都是同一套真实代码。</p>
+
+    <h2>选哪条路线</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  S["已完成：取得代码&lt;br/&gt;Python 虚拟环境 + 依赖"] --&gt; K{"有 Anthropic&lt;br/&gt;API 密钥吗？"}
+  K -- 没有 --&gt; J{"装了 JDK 21 吗？"}
+  J -- 没有 --&gt; A["路线 A&lt;br/&gt;脚本模式 + Python 替身&lt;br/&gt;只要 Python"]
+  J -- 有 --&gt; B["路线 B&lt;br/&gt;脚本模式 + 真实的 Java 计算服务&lt;br/&gt;Python + JDK 21"]
+  K -- 有 --&gt; C["路线 C&lt;br/&gt;真实 Claude&lt;br/&gt;+ API 密钥、费用上限"]
+  A -. 之后装了 JDK .-&gt; B
+  B -. 之后有了密钥 .-&gt; C
+      </pre>
+      <div class="caption">图 1：按手头的条件选择路线。三条路线可以依次升级，不需要重新安装</div>
+    </div>
+    <div class="callout"><strong>建议：不管最终走哪条路线，都先跑一次路线 A</strong>路线 A 不依赖 Java 和网络（安装依赖时除外），能最快确认 Python 环境和代码本身没有问题。之后再换成 Java 或真实 Claude，出了问题也容易判断是哪一部分。</div>
+
+    <h2>三条路线实际运行的是什么</h2>
+    <table>
+      <thead><tr><th>路线</th><th>LLM 部分</th><th>计算部分</th><th>需要</th><th>适合做什么</th></tr></thead>
+      <tbody>
+        <tr><td><strong>A</strong> 脚本模式 + Python 替身</td><td>脚本（YAML）按顺序返回写好的工具调用和草稿</td><td>Python 参考实现（<code>tests/core/fakes.py</code>），同一进程内计算，不走 MCP</td><td>Python 3.12+</td><td>第一次体验完整流程；观察校验器「差し戻し」（退回重写）；自己写脚本做实验</td></tr>
+        <tr><td><strong>B</strong> 脚本模式 + Java 服务</td><td>同上</td><td>calc-engine（Java 21 + Spring Boot + Spring AI）作为 MCP 服务器，CLI 以子进程启动、经 stdio 调用</td><td>Python 3.12+、JDK 21（构建 jar）</td><td>确认 Java 计算服务和 MCP 通信在你的机器上正常工作；对照 A 的结果</td></tr>
+        <tr><td><strong>C</strong> 真实 Claude</td><td>Claude API（模型 <code>claude-opus-5-5</code>），自己理解问题、决定调用哪些工具</td><td>通常是 Java 服务；也可以加 <code>--fake-backend</code> 用 Python 替身</td><td>以上 + API 密钥；会产生费用（默认上限每天 1 美元、每月 10 美元）</td><td>用自己的话自由提问</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><strong>脚本模式不「理解」问题</strong>路线 A、B 中，调用哪些工具、写什么草稿全都写在脚本里，与你输入的问题文字无关。换一个问题，用同一个脚本仍会得到同样的回答。能真正理解问题的只有路线 C。详见 <a href="03-scripted.html">用脚本模式运行</a>。</div>
+
+    <h2>最短路线（路线 A）</h2>
+    <p>从取得代码到看到回答，一共四步。点「下一步」逐步查看，或点「自动播放」。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="clone">取得代码<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="venv">Python 环境<small>venv + pip</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="run">运行<small>scripted + fake</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="read">读输出<small>回答 + 出典表</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["clone"], "packet": {"at": "clone", "text": "echolab/"}, "text": "用 <code>git clone</code> 取得公开仓库，并 <code>cd echolab</code> 进入仓库根目录。之后的命令都在这里执行。"},
+        {"on": ["a1", "venv"], "done": ["clone"], "packet": {"at": "venv", "text": ".venv/"}, "text": "<code>python3 -m venv .venv</code> 建虚拟环境，再 <code>pip install -r requirements-dev.txt</code> 安装依赖（只有这一步需要联网）。"},
+        {"on": ["a2", "run"], "done": ["clone", "venv"], "packet": {"at": "run", "text": "compare_builds.yaml"}, "text": "用自带的脚本 <code>core/agent/examples/compare_builds.yaml</code> 和 <code>--fake-backend</code> 运行。不需要 Java，也不需要 API 密钥。"},
+        {"on": ["a3", "read"], "done": ["clone", "venv", "run"], "packet": {"at": "read", "text": "answered"}, "text": "读输出：回答正文里的每个数字都能在下方的出典表里找到来源；最后的状态行显示 <code>answered</code> 和「差し戻し: 1 回」。"}
+      ]</script>
+    </div>
+
+    <p>下面是在一台全新的 Linux（WSL2）环境里实际执行的记录。安装依赖时用了 <code>-q</code>，成功时几乎不输出。路径已缩写为 <code>~/echolab</code>。</p>
+    <div class="term" data-title="bash — 最短路线">
+      <script type="application/json">[
+        {"cmd": "git clone https://github.com/hexinlong9981/echolab.git"},
+        {"out": "Cloning into 'echolab'..."},
+        {"cmd": "cd echolab"},
+        {"cmd": "python3 -m venv .venv"},
+        {"cmd": ".venv/bin/pip install -q -r requirements-dev.txt"},
+        {"out": "…（下载并安装依赖）", "cls": "dim", "delay": 900},
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063754Z-904935", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063754Z-904935.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>回答和出典表的每一项怎么读，见使用说明的 <a href="../../zh/03-reading-answers.html">回答怎么读</a>。出典表的表头、状态行和报错信息是日文（项目的界面语言）；回答正文的语言在脚本模式下由脚本决定，这个自带示例是日文。</p>
+
+    <h2>各页内容</h2>
+    <div class="cards">
+      <a class="card" href="01-prerequisites.html" style="text-decoration:none"><h4>准备环境</h4><p>操作系统（含 WSL2）、Python、Git、JDK 21、Docker、API 密钥，以及哪条路线需要哪些。</p></a>
+      <a class="card" href="02-setup.html" style="text-decoration:none"><h4>安装与设置</h4><p>克隆、虚拟环境、安装依赖、用测试确认安装成功、目录导览。</p></a>
+      <a class="card" href="03-scripted.html" style="text-decoration:none"><h4>用脚本模式运行</h4><p>路线 A：运行自带示例，读懂状态行，自己写一个脚本。</p></a>
+      <a class="card" href="04-java-service.html" style="text-decoration:none"><h4>使用 Java 计算服务运行</h4><p>路线 B：构建 calc-engine 的 jar，经 MCP 调用真实的 Java 计算。</p></a>
+      <a class="card" href="05-real-claude.html" style="text-decoration:none"><h4>使用真实 Claude 运行</h4><p>路线 C：设置 API 密钥和费用上限，自由提问。</p></a>
+      <a class="card" href="06-tests-evals.html" style="text-decoration:none"><h4>运行测试与评估</h4><p>pytest、ruff、Java 的检查、端到端测试、忠实度评估。</p></a>
+      <a class="card" href="07-troubleshooting.html" style="text-decoration:none"><h4>本地运行的故障排除</h4><p>找不到 java、版本不对、没有密钥等常见问题。</p></a>
+    </div>
+    <div class="callout"><strong>本指南与「使用说明」的分工</strong>本指南只讲「怎么在自己的电脑上跑起来」。能问什么问题、回答和状态怎么读、命令的全部选项，请看 <a href="../../zh/index.html">EchoLab 使用说明</a>（例如 <a href="../../zh/04-cli-reference.html">命令参考</a>）。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

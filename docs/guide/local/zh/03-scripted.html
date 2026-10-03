@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用脚本模式运行（无需 API 密钥） | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="03-scripted.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>运行</span><span>路线 A</span><span>--llm scripted</span><span>--fake-backend</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>用脚本模式运行（无需 API 密钥）</h1>
+    <p class="lead">脚本模式用一个 YAML 文件代替 Claude：调用哪些工具、写什么草稿都事先写好。工具的计算、校验器、渲染器和执行轨迹都是真实的代码。本页运行自带示例、解释状态行，然后自己写一个脚本并实际运行。</p>
+    <p>本页的终端记录都是实际运行得到的；仓库所在的路径已缩写为 <code>~/echolab</code>。</p>
+
+    <h2>什么是模拟的，什么是真实的</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  Q["问题&lt;br/&gt;（命令行参数）"] --&gt; AG["Agent 循环&lt;br/&gt;core/agent"]
+  S["脚本 YAML&lt;br/&gt;代替 Claude"] &lt;--&gt; AG
+  AG --&gt; GW["网关&lt;br/&gt;许可列表・编号"]
+  GW --&gt; F["计算服务&lt;br/&gt;Python 替身或 Java"]
+  GW --&gt; CMP["比较工具&lt;br/&gt;compare.*"]
+  AG --&gt; V["校验器&lt;br/&gt;+ 渲染器"]
+  V --&gt; OUT["回答 + 出典表"]
+  AG -.-&gt; T["执行轨迹&lt;br/&gt;.echolab/traces/"]
+  style S stroke-dasharray: 6 4
+      </pre>
+      <div class="caption">图 1：脚本模式只替换了虚线框（LLM）。加 <code>--fake-backend</code> 时，计算服务换成同一进程里的 Python 替身；其余全部是真实代码</div>
+    </div>
+    <table>
+      <thead><tr><th>部分</th><th>脚本模式 + <code>--fake-backend</code>（路线 A）</th></tr></thead>
+      <tbody>
+        <tr><td>LLM</td><td><strong>模拟</strong>：<code>core/agent/llm/scripted.py</code> 按顺序返回脚本里的每一轮。不联网，不读你的问题</td></tr>
+        <tr><td>计算</td><td><strong>替身</strong>：<code>tests/core/fakes.py</code> 用 Python 参考实现计算，结果和 Java 一样按小数 6 位（HALF_EVEN）返回。只提供 <code>damage.expected</code>、<code>echo.score</code>、<code>gacha.probability_within</code> 三个工具（没有 <code>gacha.simulate</code>），也不按 JSON Schema 检查这三个工具的输入</td></tr>
+        <tr><td>网关</td><td>真实：只开放 <code>domain.yaml</code> 声明的工具，按调用顺序编号 <code>c1</code>、<code>c2</code>…</td></tr>
+        <tr><td>比较工具</td><td>真实：<code>compare.diff</code>、<code>compare.ratio</code>（核心代码，不经计算服务）</td></tr>
+        <tr><td>校验器・渲染器</td><td>真实：检查草稿里的每个数字，不合格就「差し戻し」（退回重写）；通过后把占位符换成数字</td></tr>
+        <tr><td>执行轨迹</td><td>真实：写到 <code>.echolab/traces/&lt;运行 ID&gt;.jsonl</code></td></tr>
+        <tr><td>费用</td><td>用脚本里写的虚构用量计算，记在用完即删的临时台账里；不写 <code>.echolab/costs.jsonl</code></td></tr>
+      </tbody>
+    </table>
+    <p>去掉 <code>--fake-backend</code>，计算就换成真实的 Java 服务（路线 B，见 <a href="04-java-service.html">使用 Java 计算服务运行</a>），脚本不用改。</p>
+
+    <h2>运行自带示例</h2>
+    <p>自带的脚本 <code>core/agent/examples/compare_builds.yaml</code> 比较两套配装（ビルド A・B）的期待伤害。问题是日文的，与脚本内容对应：</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063754Z-904935", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T063754Z-904935.jsonl", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "0"}
+      ]</script>
+    </div>
+
+    <h3>状态行怎么读</h3>
+    <table>
+      <thead><tr><th>项目</th><th>本例的值</th><th>含义</th></tr></thead>
+      <tbody>
+        <tr><td><code>状態</code></td><td><code>answered</code></td><td>草稿通过了校验，给出了带数字的回答。另一个常见值是 <code>fallback</code>：多次退回仍不合格，只给不含数字的固定回答</td></tr>
+        <tr><td><code>差し戻し</code></td><td><code>1 回</code></td><td>被校验器退回的草稿数。这个脚本<strong>故意</strong>让第 1 版草稿自己写了差值「936」，所以被退回 1 次</td></tr>
+        <tr><td><code>費用</code></td><td><code>$0.0000</code></td><td>本次运行的费用。这个脚本没有写 <code>usage</code>，所以是 0；脚本模式下这个金额本来就是虚构的</td></tr>
+        <tr><td><code>実行 ID</code></td><td><code>20261003T063754Z-904935</code></td><td>运行的编号（UTC 时间 + 随机后缀），也是轨迹文件名</td></tr>
+        <tr><td><code>トレース</code></td><td>…<code>.jsonl</code></td><td>执行轨迹的位置</td></tr>
+      </tbody>
+    </table>
+    <p>退出码：<code>0</code> 回答成功，<code>1</code> 未能回答（<code>fallback</code> 等），<code>2</code> 设置或用法错误。回答正文和出典表的详细读法见使用说明的 <a href="../../zh/03-reading-answers.html">回答怎么读</a>。</p>
+
+    <h3>这个脚本里发生了什么</h3>
+    <p>脚本有 4 轮。点「下一步」逐轮查看：</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="script">脚本<small>代替 LLM</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="gw">网关 + 工具<small>编号 c1, c2…</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="ver">校验器<small>检查数字</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">渲染器<small>填入数字</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["script", "a1", "gw"], "packet": {"at": "gw", "text": "c1.total, c2.total"}, "text": "第 1 轮：同时调用两次 <code>damage_expected</code>（A 和 B 的参数）。网关按顺序编号，结果成为出典 <code>c1.total</code>、<code>c2.total</code> 等。"},
+        {"on": ["script", "a2", "ver"], "done": ["gw"], "fail": ["ver"], "packet": {"at": "ver", "text": "936 → 退回"}, "text": "第 2 轮：草稿「ビルド B の方が [[c2.total|0]] で、A より 936 高いです。」里的 <code>936</code> 没有出处（问题里也没有），校验器退回，并告诉 LLM「差和比请用比较工具计算」。"},
+        {"on": ["script", "a1", "gw"], "done": [], "packet": {"at": "gw", "text": "c3.diff, c4.change"}, "text": "第 3 轮（<code>expect: 差し戻し</code>：确认上一条消息确实是退回通知）：调用 <code>compare_diff</code> 和 <code>compare_ratio</code>，得到 <code>c3.diff</code>、<code>c4.ratio</code>、<code>c4.change</code>。"},
+        {"on": ["script", "a2", "ver"], "done": ["gw", "ver"], "packet": {"at": "ver", "text": "通过"}, "text": "第 4 轮：草稿里的数字全部写成占位符，例如 <code>[[c3.diff|0]]</code>、<code>[[c4.change|%1]]</code>，校验通过。"},
+        {"on": ["a3", "out"], "done": ["gw", "ver"], "packet": {"at": "out", "text": "936 / 15.1%"}, "text": "渲染器按出典把占位符换成数字：<code>936.000000</code> → <code>936</code>，<code>0.151163</code> → <code>15.1%</code>。出典表只列出回答里引用的 4 个出典。"}
+      ]</script>
+    </div>
+
+    <h2>问题的文字不会被「理解」</h2>
+    <p>脚本模式不看问题的内容。用同一个脚本问「こんにちは」（你好），得到的回答与上面完全相同：</p>
+    <div class="term" data-title="bash — 换一个问题">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"こんにちは\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"pause": 400},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": "…", "cls": "dim"},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T063757Z-65c118", "cls": "warn"}
+      ]</script>
+    </div>
+    <p>问题主要在两处起作用：被写进执行轨迹；校验器允许回答引用<strong>问题里出现过的数字</strong>。所以脚本的草稿里如果直接写了数字，换了问题之后校验结果可能不同。想让系统真正理解问题，需要 <a href="05-real-claude.html">真实 Claude</a>。</p>
+
+    <h2>自己写脚本</h2>
+    <h3>脚本的格式</h3>
+    <p>格式由 <code>core/agent/llm/scripted.py</code> 定义。文件的顶层是 <code>turns:</code>（也可以直接是一个列表），每个元素是 LLM 的一轮回应，按顺序使用：</p>
+    <table>
+      <thead><tr><th>键</th><th>是否必需</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>tool_uses</code></td><td>可省略</td><td>这一轮要调用的工具列表，每项是 <code>{name, input}</code>（<code>id</code> 可省略，自动生成）。同一轮里的多个调用并行执行。有 <code>tool_uses</code> 时，这一轮的 <code>stop_reason</code> 默认为 <code>tool_use</code></td></tr>
+        <tr><td><code>text</code></td><td>可省略</td><td>没有 <code>tool_uses</code> 时，这就是交给校验器的<strong>回答草稿</strong>（模板），数字用占位符引用</td></tr>
+        <tr><td><code>expect</code></td><td>可省略</td><td>上一条发给 LLM 的消息里必须包含的字符串。例如 <code>expect: 差し戻し</code> 确认上一版草稿确实被退回了；不符合时运行以错误结束</td></tr>
+        <tr><td><code>usage</code></td><td>可省略</td><td>虚构的 token 用量，如 <code>{input_tokens: 1200, output_tokens: 80}</code>，也可写 <code>cache_creation_input_tokens</code>、<code>cache_read_input_tokens</code>。默认全为 0，用于演示费用计算</td></tr>
+        <tr><td><code>stop_reason</code></td><td>可省略</td><td>默认按有无 <code>tool_uses</code> 决定；也可以写 <code>refusal</code>、<code>max_tokens</code> 来模拟这些情况</td></tr>
+      </tbody>
+    </table>
+    <p><strong>工具名</strong>写成「线上的名字」，即把点换成下划线：</p>
+    <table>
+      <thead><tr><th>脚本里写</th><th>工具</th><th>出典的字段（例）</th></tr></thead>
+      <tbody>
+        <tr><td><code>damage_expected</code></td><td><code>damage.expected</code></td><td><code>total</code>、<code>base</code>、<code>bonus_multiplier</code>、<code>crit_multiplier</code>、<code>defense_multiplier</code>、<code>resistance_multiplier</code></td></tr>
+        <tr><td><code>echo_score</code></td><td><code>echo.score</code></td><td><code>score</code>、<code>percent_of_ideal</code></td></tr>
+        <tr><td><code>gacha_probability_within</code></td><td><code>gacha.probability_within</code></td><td><code>probability</code></td></tr>
+        <tr><td><code>compare_diff</code></td><td><code>compare.diff</code></td><td><code>diff</code></td></tr>
+        <tr><td><code>compare_ratio</code></td><td><code>compare.ratio</code></td><td><code>ratio</code>、<code>change</code></td></tr>
+      </tbody>
+    </table>
+    <p><strong>出典 ID</strong> 是「调用编号.字段」：整个运行中第 1 次工具调用是 <code>c1</code>，第 2 次是 <code>c2</code>……（出错的调用也占一个号）。比较工具的输入写出典 ID，如 <code>{a: c2.total, b: c1.total}</code>。</p>
+    <p><strong>占位符</strong>有三种写法（整数部分每 3 位加逗号，四舍六入五成双）：</p>
+    <table>
+      <thead><tr><th>写法</th><th>效果</th><th>例</th></tr></thead>
+      <tbody>
+        <tr><td><code>[[c1.total]]</code></td><td>最多 2 位小数，去掉末尾的 0</td><td><code>6192.000000</code> → <code>6,192</code></td></tr>
+        <tr><td><code>[[c1.total|1]]</code></td><td>固定 N 位小数</td><td><code>6192.000000</code> → <code>6,192.0</code></td></tr>
+        <tr><td><code>[[c4.change|%1]]</code></td><td>乘 100，N 位小数，加 <code>%</code></td><td><code>0.151163</code> → <code>15.1%</code></td></tr>
+      </tbody>
+    </table>
+    <p>草稿里占位符以外的数字，只允许三类：问题里出现过的数字、行首的列表编号（如 <code>1.</code>）、10 以下的整数后面紧跟量词（日语的「つ・点・種類・位・番目」、中文的「个・种・项・条・步」、英语的 ways・points・steps・options 等名词；数字与量词之间最多一个空格）。</p>
+    <div class="callout"><strong>参考范例</strong><code>evals/faithfulness/cases.yaml</code> 里的每个评估用例都有一段同样格式的 <code>turns</code>（涵盖期待伤害、声骸评分、抽卡概率、比较工具），可以照着改。那里的 <code>fake_unverified</code>、<code>expect.status</code> 等键只给评估程序用，CLI 不读。工具的输入可以参考 <code>domains/wuwa/golden/*.yaml</code> 里各用例的 <code>input</code>。</div>
+
+    <h3>示例：抽卡概率</h3>
+    <p>下面写一个新脚本：用 <code>domains/wuwa/golden/gacha.yaml</code> 里的玩具规则（数值是说明用的，不是游戏官方数值），计算 10 抽和 20 抽以内抽到限定角色的概率。为了演示退回，第 2 轮故意写一个自己估算的数字。脚本放在仓库外的 <code>~/echolab-scripts/</code>，不需要加进仓库。</p>
+    <pre><code># 自己写的脚本：用玩具规则计算抽卡概率（规则数值是说明用的，不是游戏官方数值）
+turns:
+  # 第 1 轮：并行调用两次工具（10 抽以内、20 抽以内）
+  - tool_uses:
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 10
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 20
+    usage: {input_tokens: 2000, output_tokens: 150}
+  # 第 2 轮：故意写一个自己估算的数字（73%），会被校验器退回
+  - text: 10 抽以内抽到限定角色的概率大约是 73%。
+    usage: {input_tokens: 400, output_tokens: 40}
+  # 第 3 轮：只用占位符引用工具结果，通过校验
+  - expect: 差し戻し
+    text: |-
+      按你给的规则：
+      - 10 抽以内抽到限定角色的概率：[[c1.probability|%1]]
+      - 20 抽以内抽到限定角色的概率：[[c2.probability|%1]]
+    usage: {input_tokens: 600, output_tokens: 80}</code></pre>
+    <p class="cmd-note">~/echolab-scripts/gacha_toy.yaml</p>
+    <p>运行时把规则也写进问题里（脚本不读问题，但校验器会把问题里的数字当作可引用的数字）：</p>
+    <div class="term" data-title="bash — 运行自己的脚本">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"按这个规则：基础概率 0.1，从第 5 抽起每抽概率增加 0.1，第 10 抽必出五星，五星中限定角色占 0.5，歪了之后下一个五星必是限定。从 0 抽开始、没有大保底，10 抽和 20 抽以内抽到限定角色的概率各是多少？\" --llm scripted --script ../echolab-scripts/gacha_toy.yaml --fake-backend", "speed": 8},
+        {"pause": 500},
+        {"out": "按你给的规则：", "cls": "hl"},
+        {"out": "- 10 抽以内抽到限定角色的概率：73.4%", "cls": "hl"},
+        {"out": "- 20 抽以内抽到限定角色的概率：100.0%", "cls": "hl"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------", "cls": "dim"},
+        {"out": "c1.probability  0.7344054712000005  gacha.probability_within  -"},
+        {"out": "c2.probability  1.0                 gacha.probability_within  -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0174　実行 ID: 20261003T064259Z-407367", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064259Z-407367.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li><code>c1.probability</code> 的原始值 <code>0.7344054712000005</code> 与黄金用例 gacha-001 的期待值 <code>0.7344054712</code> 一致（概率是浮点数，按最短表示原样返回，不像期待伤害那样取 6 位小数）。<code>[[c1.probability|%1]]</code> 把它渲染成 <code>73.4%</code>。</li>
+      <li>20 抽是硬保底的两倍，又有「歪了之后必是限定」，所以必定抽到：<code>1.0</code> → <code>100.0%</code>。</li>
+      <li>草稿里的「10 抽」「20 抽」没有被退回，因为 10 和 20 都出现在问题里。</li>
+      <li><code>費用: $0.0174</code> 来自脚本里虚构的 <code>usage</code>：输入合计 3,000 tokens × 4 美元/百万 + 输出合计 270 tokens × 20 美元/百万（<code>config/budget.yaml</code> 中 <code>claude-opus-5-5</code> 的价格）。这只是演示费用的计算方式，没有任何实际费用，也不写入 <code>.echolab/costs.jsonl</code>。</li>
+    </ul>
+
+    <h3>看一看被退回的草稿</h3>
+    <p>被退回的第 1 版草稿记录在执行轨迹的 <code>verdict</code>（判定）事件里：</p>
+    <div class="term" data-title="bash — 查看判定">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -c \"import json,sys; [print(e['draft'], e['ok'], e['problems']) for e in map(json.loads, open(sys.argv[1])) if e['event'] == 'verdict']\" .echolab/traces/20261003T064259Z-407367.jsonl", "speed": 8},
+        {"out": "1 False ['数値「73%」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。']", "cls": "err"},
+        {"out": "2 True []", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>第 1 版的问题：「数值『73%』没有出处。工具的结果请用 [[出典ID]] 引用，差和比请用比较工具计算（可以引用问题中的数值）」。这段话会作为退回通知发回给 LLM，所以第 3 轮的 <code>expect: 差し戻し</code> 能匹配上。</p>
+
+    <h3>一直写数字会怎样</h3>
+    <p>如果每版草稿都直接写数字，退回到上限后运行以 <code>fallback</code> 结束：不给出任何数字，退出码为 1。下面的脚本 <code>~/echolab-scripts/always_bad.yaml</code> 在工具调用之后连续三轮都写「概率大约是 73%。」：</p>
+    <pre><code># 每一版草稿都直接写数字：校验永远不通过
+turns:
+  - tool_uses:
+      - name: gacha_probability_within
+        input:
+          rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+          start_pity: 0
+          guaranteed: false
+          pulls: 10
+  - text: 概率大约是 73%。
+  - text: 概率大约是 73%。
+  - text: 概率大约是 73%。</code></pre>
+    <div class="term" data-title="bash — 全部草稿被退回">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"按这个规则：…（与上例相同）…各是多少？\" --llm scripted --script ../echolab-scripts/always_bad.yaml --fake-backend", "speed": 10},
+        {"pause": 500},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "cls": "warn"},
+        {"out": ""},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": ""},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T064303Z-29d3cb", "cls": "err"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064303Z-29d3cb.jsonl", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "1"}
+      ]</script>
+    </div>
+    <p>命令中的「…（与上例相同）…」是为了版面而省略的，实际运行时输入的是完整的问题。固定回答的意思是：「抱歉，无法写出能确认计算结果出处的回答，因此不给出含数字的回答。请把条件写得更具体后再问一次。」——宁可不给数字，也不给没有出处的数字。</p>
+
+    <h3>写脚本时常见的错误</h3>
+    <table>
+      <thead><tr><th>现象（实际输出）</th><th>原因</th></tr></thead>
+      <tbody>
+        <tr><td><code>エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: 台本の応答（2 件）を使い切った後に呼ばれました</code>，退出码 2</td><td>脚本的轮数不够：例如最后一版草稿被退回了，程序还要下一轮，但脚本已经用完。检查草稿里是否有没出处的数字，或补上后续的轮</td></tr>
+        <tr><td><code>エラー: 台本が見つかりません: ../my/nope.yaml</code>，退出码 2</td><td><code>--script</code> 的路径不对。相对路径以当前目录为准</td></tr>
+        <tr><td><code>エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。</code>，退出码 2</td><td>忘了加 <code>--fake-backend</code>，CLI 就去启动 Java 计算服务。路线 A 请加上 <code>--fake-backend</code>；想用 Java 见 <a href="04-java-service.html">下一页</a></td></tr>
+      </tbody>
+    </table>
+    <p>加 <code>--debug</code> 可以看到完整的回溯信息。更多问题见 <a href="07-troubleshooting.html">本地运行的故障排除</a>。</p>
+
+    <div class="callout ok"><strong>下一步</strong>想用真实的 Java 计算服务，去 <a href="04-java-service.html">使用 Java 计算服务运行</a>；想用自己的话提问，去 <a href="05-real-claude.html">使用真实 Claude 运行</a>；想把脚本批量跑成评估，去 <a href="06-tests-evals.html">运行测试与评估</a>。</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

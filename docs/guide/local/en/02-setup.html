@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup | EchoLab Local Run Guide</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="02-setup.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>git clone</span><span>venv</span><span>pytest</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Setup</h1>
+    <p class="lead">Fetch the code, create a Python virtual environment, install dependencies, and confirm the install with the tests. All three paths need the steps on this page, which take a few minutes (mostly spent downloading dependencies).</p>
+    <p>All terminal sessions on this page were recorded in a fresh clone; for readability, the path of the clone has been shortened to <code>~/echolab</code>.</p>
+
+    <h2>Overall steps</h2>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="clone">Clone<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="venv">Virtual env<small>python3 -m venv</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="pip">Dependencies<small>pip install</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="test">Verify<small>pytest</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="ready">Ready<small>pick a path</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["clone"], "packet": {"at": "clone", "text": "echolab/"}, "text": "<code>git clone</code> the public repository and <code>cd echolab</code>. Run every later command from the <strong>repository root</strong>: <code>python -m core.agent</code> can only find the <code>core</code> package from there."},
+        {"on": ["a1", "venv"], "done": ["clone"], "packet": {"at": "venv", "text": ".venv/"}, "text": "<code>python3 -m venv .venv</code> creates an isolated Python environment inside the repository, so dependencies do not go into the system Python. <code>.venv/</code> is already ignored by Git."},
+        {"on": ["a2", "pip"], "done": ["clone", "venv"], "packet": {"at": "pip", "text": "requirements-dev.txt"}, "text": "<code>pip install -r requirements-dev.txt</code>: the runtime packages anthropic, mcp, pyyaml and jsonschema, plus the development tools pytest, pytest-asyncio and ruff."},
+        {"on": ["a3", "test"], "done": ["clone", "venv", "pip"], "packet": {"at": "test", "text": "294 passed"}, "text": "<code>pytest -m \"not e2e\"</code> runs every test that does not need Java. If they all pass, the Python side is installed correctly."},
+        {"on": ["a4", "ready"], "done": ["clone", "venv", "pip", "test"], "text": "All set. Next, go to <a href=\"03-scripted.html\">Run in scripted mode (no API key)</a> (path A), or to the Java or real Claude pages as needed."}
+      ]</script>
+    </div>
+
+    <h2>1. Clone the repository</h2>
+    <div class="term" data-title="bash — clone">
+      <script type="application/json">[
+        {"cmd": "git clone https://github.com/hexinlong9981/echolab.git"},
+        {"out": "Cloning into 'echolab'..."},
+        {"cmd": "cd echolab"},
+        {"cmd": "ls"},
+        {"out": "config               docs            README.en.md          services"},
+        {"out": "core                 domains         README.md             tests"},
+        {"out": "DISCLAIMER.en.md     evals           README.zh-CN.md"},
+        {"out": "DISCLAIMER.md        LICENSE         requirements-dev.txt"},
+        {"out": "DISCLAIMER.zh-CN.md  pyproject.toml  requirements.txt"}
+      ]</script>
+    </div>
+    <p>Windows users: run this in a WSL terminal and clone into your WSL home directory (see <a href="01-prerequisites.html">Prerequisites</a>).</p>
+
+    <h2>2. Create a virtual environment and install dependencies</h2>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "python3 -m venv .venv"},
+        {"cmd": ".venv/bin/python --version"},
+        {"out": "Python 3.12.11"},
+        {"cmd": ".venv/bin/pip install -r requirements-dev.txt"},
+        {"out": "… (downloading and installing dependencies)", "cls": "dim", "delay": 900},
+        {"out": "Successfully installed annotated-types-0.8.0 anthropic-1.11.0 anyio-4.15.1 … ruff-0.16.10 … uvicorn-0.54.0", "cls": "hl"},
+        {"cmd": ".venv/bin/pip list | grep -i -E '^(anthropic|mcp|pyyaml|jsonschema|pytest|pytest-asyncio|ruff) '"},
+        {"out": "anthropic                 1.11.0"},
+        {"out": "jsonschema                4.26.0"},
+        {"out": "mcp                       1.30.0"},
+        {"out": "pytest                    8.4.2"},
+        {"out": "pytest-asyncio            1.4.0"},
+        {"out": "PyYAML                    6.0.3"},
+        {"out": "ruff                      0.16.10"}
+      ]</script>
+    </div>
+    <p>A final <code>[notice] A new release of pip is available</code> line may also appear; you can ignore it. What gets installed, and why:</p>
+    <table>
+      <thead><tr><th>Package</th><th>From</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><code>anthropic</code></td><td>requirements.txt</td><td>Anthropic's official Python SDK, for calling the Claude API (path C). It makes no network calls in scripted mode</td></tr>
+        <tr><td><code>mcp</code></td><td>requirements.txt</td><td>MCP client: starts the Java calc service as a subprocess and talks to it over stdio (paths B/C)</td></tr>
+        <tr><td><code>pyyaml</code></td><td>requirements.txt</td><td>Reads <code>domain.yaml</code>, <code>config/*.yaml</code>, scripts and golden cases</td></tr>
+        <tr><td><code>jsonschema</code></td><td>requirements.txt</td><td>The gateway validates tool inputs against JSON Schema; tests validate data files</td></tr>
+        <tr><td><code>pytest</code>, <code>pytest-asyncio</code></td><td>requirements-dev.txt</td><td>Run the tests under <code>tests/</code> (many of them async)</td></tr>
+        <tr><td><code>ruff</code></td><td>requirements-dev.txt</td><td>Linting</td></tr>
+      </tbody>
+    </table>
+    <p>The first line of <code>requirements-dev.txt</code> is <code>-r requirements.txt</code>, so installing it includes every runtime dependency. If you only want to run the CLI and not the tests, installing <code>requirements.txt</code> is enough.</p>
+
+    <h3>Activating the virtual environment (optional)</h3>
+    <p>The commands above are written as <code>.venv/bin/python</code> and <code>.venv/bin/pip</code>, so they work without activation. If that is too much typing, activate the environment once in each new terminal; after that, <code>python</code> points to the Python inside the virtual environment:</p>
+    <div class="term" data-title="bash — activate">
+      <script type="application/json">[
+        {"cmd": "source .venv/bin/activate"},
+        {"cmd": "which python"},
+        {"out": "~/echolab/.venv/bin/python", "cls": "hl"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR] [--debug]"},
+        {"out": "                            question"},
+        {"out": ""},
+        {"out": "出典付きで質問に答える", "cls": "hl"},
+        {"out": "…", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The help text 「出典付きで質問に答える」 means "Answer questions with sources". For what each option means, see the <a href="../../en/04-cli-reference.html">CLI reference</a> in the user guide. The rest of this guide writes commands as <code>.venv/bin/python …</code>; after activation, <code>python …</code> does the same thing.</p>
+
+    <h2>3. Confirm the install with the tests</h2>
+    <p>Run every test that does not need Java. <code>-m "not e2e"</code> excludes the end-to-end tests that start the Java calc service (the jar), so this step needs only Python.</p>
+    <div class="term" data-title="bash — tests">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/pytest -m \"not e2e\""},
+        {"out": "........................................................................ [ 24%]"},
+        {"out": "........................................................................ [ 48%]"},
+        {"out": "........................................................................ [ 73%]"},
+        {"out": "........................................................................ [ 97%]"},
+        {"out": "......                                                                   [100%]"},
+        {"out": "294 passed, 5 deselected in 11.88s", "cls": "hl"},
+        {"cmd": ".venv/bin/ruff check ."},
+        {"out": "All checks passed!", "cls": "hl"}
+      ]</script>
+    </div>
+    <ul>
+      <li><code>294 passed</code>: everything passed. The number of tests changes as the repository is updated; what matters is that there is no <code>failed</code> or <code>error</code>.</li>
+      <li><code>5 deselected</code>: the end-to-end tests excluded by <code>-m "not e2e"</code>. They need a built jar; see <a href="06-tests-evals.html">Run tests &amp; evals</a> for how to run them.</li>
+    </ul>
+    <div class="callout"><strong>Why no <code>-q</code></strong>The pytest settings in <code>pyproject.toml</code> already contain <code>addopts = "-q"</code>. Adding <code>-q</code> on the command line makes it the even quieter <code>-qq</code>: running <code>pytest -q -m "not e2e"</code> prints only the progress dots and no final <code>294 passed, …</code> line. To see the summary line, leave out <code>-q</code> as shown above.</div>
+
+    <h2>4. Directory tour</h2>
+    <p>Only the parts you will touch when running are listed:</p>
+    <table>
+      <thead><tr><th>Location</th><th>Contents</th><th>When you need it</th></tr></thead>
+      <tbody>
+        <tr><td><code>core/</code></td><td>The domain-independent core (Python): <code>agent/</code> (the CLI, the conversation loop and the LLM implementations), <code>gateway/</code> (tool allowlist, schema validation, numbering, cost caps), <code>compare/</code> (compare tools), <code>verifier/</code> (verifier and renderer), <code>trace/</code>, <code>evals/</code></td><td>Every run. <code>core/agent/examples/compare_builds.yaml</code> is the bundled example script</td></tr>
+        <tr><td><code>services/calc-engine/</code></td><td>The Java 21 calculation library and MCP server (a Gradle project with <code>./gradlew</code>)</td><td>Paths B/C: the jar is built here (<code>build/libs/calc-engine-mcp.jar</code>)</td></tr>
+        <tr><td><code>domains/wuwa/</code></td><td>The domain pack: <code>domain.yaml</code> (declares the available tools), <code>golden/</code> (golden cases), <code>data/v2.x/</code> (sample data), <code>prompts/</code> (system prompt)</td><td>Read on every run. The inputs in <code>golden/</code> are a useful reference when writing scripts</td></tr>
+        <tr><td><code>config/</code></td><td><code>services.yaml</code> (how to start the calc service), <code>budget.yaml</code> (cost caps and price table)</td><td>Paths B/C; the cost caps for path C</td></tr>
+        <tr><td><code>evals/</code></td><td><code>faithfulness/cases.yaml</code> (faithfulness eval cases, which also make good example scripts), <code>reports/</code> (aggregated reports)</td><td>When running evals</td></tr>
+        <tr><td><code>tests/</code></td><td>pytest tests; <code>tests/core/fakes.py</code> is the Python stand-in used by <code>--fake-backend</code></td><td>When running tests; path A</td></tr>
+        <tr><td><code>docs/</code></td><td>Architecture notes, ADRs (architecture decision records), and the sources of the user guide and this guide</td><td>When you want to understand the design</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. Where runtime files go</h2>
+    <p>All files produced at run time go into <code>.echolab/</code> under the repository root. Like <code>.venv/</code>, it is excluded by <code>.gitignore</code> and does not show up in <code>git status</code>.</p>
+    <table>
+      <thead><tr><th>File</th><th>Contents</th><th>When it is written</th></tr></thead>
+      <tbody>
+        <tr><td><code>.echolab/traces/&lt;run ID&gt;.jsonl</code></td><td>The trace of one question: the question, LLM calls, tool calls, verification verdicts, the answer</td><td>Every run (all paths)</td></tr>
+        <tr><td><code>.echolab/costs.jsonl</code></td><td>Cost ledger: usage and amount of each Claude call, used to enforce the daily and monthly caps</td><td>Only in path C (<code>--llm anthropic</code>). Usage in scripted mode is fictitious; it is recorded in a temporary ledger that is deleted after each run, and this file is not written</td></tr>
+      </tbody>
+    </table>
+    <div class="term" data-title="bash — after a run">
+      <script type="application/json">[
+        {"cmd": "ls .echolab/traces"},
+        {"out": "20261003T063754Z-904935.jsonl"},
+        {"out": "20261003T063757Z-65c118.jsonl"},
+        {"out": "…", "cls": "dim"},
+        {"cmd": "git check-ignore -v .echolab .venv"},
+        {"out": ".gitignore:42:.echolab/\t.echolab"},
+        {"out": ".gitignore:18:.venv/\t.venv"},
+        {"cmd": "git status --short"},
+        {"out": "(no output: the working tree is clean)", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>For how to read traces, see <a href="../../en/07-traces-evals.html">Traces &amp; evals</a> in the user guide. To clear the history, just delete the files under <code>.echolab/traces/</code>.</p>
+
+    <div class="callout ok"><strong>Setup complete</strong>Next: <a href="03-scripted.html">Run in scripted mode (no API key)</a>.</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

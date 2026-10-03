@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用真实 Claude 运行 | EchoLab 本地运行指南</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../assets/local.css">
+  <script defer src="../assets/local.js"></script>
+</head>
+<body data-page="05-real-claude.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>运行</span><span>Claude API</span><span>费用上限</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>使用真实 Claude 运行</h1>
+    <p class="lead">不加 <code>--llm</code> 时，CLI 默认调用 Claude API（模型 <code>claude-opus-5-5</code>），由 Claude 理解你的问题、选择计算工具并组织回答。本页说明如何准备 API 密钥、费用上限如何保护你，以及哪些数据会离开你的电脑。</p>
+
+    <div class="callout"><strong>关于本页的输出</strong>本页的实测环境<strong>没有</strong>设置 API 密钥，所以下面只展示两种真实输出：没有凭据时，和达到费用上限时。本页不展示真实 Claude 的回答；回答的格式与台本模式相同，读法见 <a href="../../zh/03-reading-answers.html">回答怎么读</a>。路径缩写为 <code>~/echolab</code>。</div>
+
+    <h2>一次真实运行的生命周期</h2>
+    <p>下面的动画按代码中的处理顺序（<code>core/agent/loop.py</code>）<strong>概念性地</strong>演示一次提问；它不是某次真实运行的回放，没有展示真实的 Claude 输出。</p>
+    <div class="flow-anim" data-cols="3">
+      <div class="stage">
+        <div class="node" data-id="q">提问<small>CLI</small></div>
+        <div class="node" data-id="bud">费用检查<small>台账与上限</small></div>
+        <div class="node" data-id="cl">Claude<small>claude-opus-5-5</small></div>
+        <div class="node" data-id="tool">工具<small>网关 → 计算服务</small></div>
+        <div class="node" data-id="ver">校验器<small>核对数字来源</small></div>
+        <div class="node" data-id="ans">回答<small>渲染与轨迹</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["q"], "packet": {"at": "q", "text": "问题"}, "text": "<b>你提问。</b>CLI 生成运行 ID，打开网关（默认启动 Java 计算服务），并在 <code>.echolab/traces/</code> 新建本次的轨迹文件。（概念演示）"},
+        {"on": ["bud"], "done": ["q"], "text": "<b>每次调用 Claude 之前</b>，先把台账 <code>.echolab/costs.jsonl</code> 中今天（UTC）和本月（UTC）的合计与上限比较。已达上限就<strong>不调用</strong> Claude，以 <code>budget_exceeded</code> 结束。"},
+        {"on": ["cl"], "done": ["q", "bud"], "packet": {"at": "cl", "text": "问题 + 工具定义"}, "text": "<b>调用 Claude。</b>发送系统提示、工具定义和对话内容。凭据在这一步才使用：没有或无效时以 <code>llm_error</code> 结束。返回后按价格表计算本次费用，追加到台账。"},
+        {"on": ["tool"], "done": ["q", "bud", "cl"], "packet": {"at": "tool", "text": "c1.total …"}, "text": "<b>Claude 请求调用工具。</b>网关只放行 <code>domain.yaml</code> 声明的工具，按 JSON Schema 检查输入，再交给计算服务；结果带上出典 ID（如 <code>c1.total</code>）交回 Claude。之后再次经过费用检查、调用 Claude。"},
+        {"on": ["ver"], "done": ["q", "bud", "cl", "tool"], "packet": {"at": "ver", "text": "[[c1.total|0]]"}, "text": "<b>Claude 写出带占位符的回答模板</b>，校验器检查每个数字是否有出处。不合格就退回（差し戻し）给 Claude 重写——这又是一次 Claude 调用，同样先做费用检查。"},
+        {"on": ["ans"], "done": ["q", "bud", "cl", "tool", "ver"], "text": "<b>合格后</b>，渲染器按出典 ID 填入数值，CLI 输出回答、出典表和状态行（<code>状態: answered … 費用: $…</code>）。退回 3 次仍不合格则以 <code>fallback</code> 结束，不给数字。"}
+      ]</script>
+    </div>
+
+    <h2>1. 获取 API 密钥</h2>
+    <ol>
+      <li>登录 Anthropic 的 Claude Console（<code>https://platform.claude.com/</code>，旧地址 <code>console.anthropic.com</code> 会跳转过来）。</li>
+      <li>在 <strong>Settings → API keys</strong> 创建一个密钥，复制以 <code>sk-ant-</code> 开头的字符串。密钥只显示一次。</li>
+      <li>API 按用量计费，需要在 Console 的计费设置中准备额度。EchoLab 自身另有费用上限（见下文），两者独立。</li>
+    </ol>
+
+    <h2>2. 让 CLI 找到凭据</h2>
+    <p>CLI 使用 Anthropic 官方 Python SDK，按 SDK 的默认顺序查找凭据。常用两种方式：</p>
+    <pre><code># 方式 A：环境变量（只对当前终端有效）
+export ANTHROPIC_API_KEY=sk-ant-...（你的密钥）
+
+# 方式 B：用 Anthropic 的 CLI 登录，SDK 会读取它保存的配置
+ant auth login</code></pre>
+    <div class="callout warn"><strong>不要把密钥写进仓库</strong>本仓库是公开的。<code>.gitignore</code> 已经忽略了 <code>.env</code> 和 <code>.env.*</code>，但 <strong>CLI 不会自动读取 <code>.env</code></strong>。如果你想把密钥放在 <code>.env</code> 里，需要自己加载：<code>set -a; . ./.env; set +a</code>。提交前可以用 <code>git status</code> 和 <code>git check-ignore -v .env</code> 确认它没有被跟踪。</div>
+
+    <h2>3. 先确认费用上限</h2>
+    <p>每次调用 Claude 之前都会检查费用台账。默认值在 <code>config/budget.yaml</code>：</p>
+    <table>
+      <thead><tr><th>设置</th><th>默认值</th><th>用环境变量覆盖</th></tr></thead>
+      <tbody>
+        <tr><td>每日上限 <code>caps_usd.daily</code></td><td>1.00 美元（UTC 换日，北京时间 8:00）</td><td><code>ECHOLAB_DAILY_USD</code></td></tr>
+        <tr><td>每月上限 <code>caps_usd.monthly</code></td><td>10.00 美元（UTC 换月）</td><td><code>ECHOLAB_MONTHLY_USD</code></td></tr>
+        <tr><td>台账 <code>ledger</code></td><td><code>.echolab/costs.jsonl</code>（已被 Git 忽略）</td><td><code>ECHOLAB_LEDGER</code></td></tr>
+        <tr><td>价格表 <code>pricing_usd_per_mtok</code></td><td><code>claude-opus-5-5</code>：输入 4.00、输出 20.00 美元／百万 token</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <p>第一次试用时，可以先把上限调低：</p>
+    <pre><code>export ECHOLAB_DAILY_USD=0.20
+export ECHOLAB_MONTHLY_USD=2.00</code></pre>
+    <p>只有 <code>--llm anthropic</code> 会写入真实台账；台本模式只使用每次运行专用的临时台账。费用的计算方式和台账的每行格式见 <a href="../../zh/06-cost-and-safety.html">成本上限与数据可信度</a>。</p>
+
+    <h2>4. 提问</h2>
+    <p>在仓库根目录、激活虚拟环境后运行（不写 <code>--llm</code> 即为 <code>anthropic</code>）。默认会启动 Java 计算服务，需要先完成 <a href="04-java-service.html">第 4 页</a>；暂时没有 Java 时可加 <code>--fake-backend</code>，但那样无法回答需要引用示例数据的问题。</p>
+    <pre><code>export JAVA_HOME=$HOME/.local/jdk/21
+python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？"</code></pre>
+    <p>以下是<strong>没有设置凭据</strong>时运行这条命令的真实输出：</p>
+    <div class="term" data-title="bash — 没有凭据（实测）">
+      <script type="application/json">[
+        {"cmd": "time python -m core.agent \"攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？\"", "speed": 10},
+        {"pause": 2500},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T064052Z-3030ff", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064052Z-3030ff.jsonl", "cls": "dim"},
+        {"out": " "},
+        {"out": "real\t0m8.370s", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "1"},
+        {"cmd": "grep -o '\"event\": \"llm_error\".*' .echolab/traces/20261003T064052Z-3030ff.jsonl"},
+        {"out": "\"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"},
+        {"cmd": "ls .echolab/"},
+        {"out": "traces"}
+      ]</script>
+    </div>
+    <ul>
+      <li>回答的意思是：找不到 Claude API 的认证信息，无法回答；请设置 <code>ANTHROPIC_API_KEY</code>（或 <code>ant auth login</code>），或使用不需要密钥的台本模式。</li>
+      <li>状态 <code>llm_error</code>，退出码 1，费用 0。没有发生 API 调用，所以台账 <code>costs.jsonl</code> 也没有被创建（<code>.echolab/</code> 下只有 <code>traces</code>）。</li>
+      <li>8 秒左右的耗时主要是 Java 服务的启动：网关先打开，然后才轮到 Claude 调用。</li>
+      <li>凭据无效、限流、网络错误等其他 <code>llm_error</code> 的区分方法见 <a href="../../zh/08-troubleshooting.html">故障排除与 FAQ</a> 的 ③。</li>
+    </ul>
+    <p>设置好凭据后，同一条命令会输出 Claude 的回答、出典表和状态行 <code>状態: answered … 費用: $…</code>，费用同时追加到 <code>.echolab/costs.jsonl</code>。</p>
+
+    <h2>5. 达到上限时会怎样</h2>
+    <p>费用检查发生在<strong>调用 Claude 之前</strong>，也在使用凭据之前（<code>core/agent/loop.py</code> 的 <code>_call_llm</code> 先执行 <code>budget.check()</code>）。所以可以在不花钱、也不需要密钥的情况下复现：把每日上限设为 0，并把台账指向一个临时文件，以免碰到真实台账。</p>
+    <div class="term" data-title="bash — 复现费用上限（实测）">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_DAILY_USD=0 ECHOLAB_LEDGER=/tmp/echolab-test-ledger.jsonl python -m core.agent \"攻撃力 2000、…（同上）…のときの期待ダメージは？\" --fake-backend", "speed": 12},
+        {"pause": 800},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 0 USD / 上限 0 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T064101Z-e1e459", "cls": "warn"},
+        {"out": "トレース: ~/echolab/.echolab/traces/20261003T064101Z-e1e459.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"event\": \"[a-z_]*\"' .echolab/traces/20261003T064101Z-e1e459.jsonl"},
+        {"out": "\"event\": \"question\""},
+        {"out": "\"event\": \"budget_exceeded\"", "cls": "hl"},
+        {"out": "\"event\": \"answer\""},
+        {"cmd": "ls /tmp/echolab-test-ledger.jsonl"},
+        {"out": "ls: cannot access '/tmp/echolab-test-ledger.jsonl': No such file or directory", "cls": "dim"}
+      ]</script>
+    </div>
+    <ul>
+      <li>即使没有凭据，结果也是 <code>budget_exceeded</code> 而不是 <code>llm_error</code>：上限检查在前，Claude 根本没有被调用。轨迹里没有 <code>llm_call</code> 或 <code>llm_error</code> 事件。</li>
+      <li>回答说明了是哪一个上限（今日＝日次）、已用额／上限、何时恢复，以及修改方法。把 <code>ECHOLAB_MONTHLY_USD=0</code> 时，回答换成「今月（UTC）のコストが月次の上限に達したため…」。</li>
+      <li>临时台账文件没有被创建：没有发生调用，就没有要记的账。</li>
+      <li>如果在一次提问的中途达到上限（例如工具调用之后的第二次 Claude 调用前），同样以 <code>budget_exceeded</code> 结束，已经产生的费用会如实记入台账。</li>
+    </ul>
+
+    <h2>6. 哪些数据会被发送</h2>
+    <table>
+      <thead><tr><th></th><th>台本模式 <code>--llm scripted</code></th><th>真实 Claude <code>--llm anthropic</code></th></tr></thead>
+      <tbody>
+        <tr><td>访问外部网络</td><td>不访问</td><td>只访问 Claude API</td></tr>
+        <tr><td>发送的内容</td><td>无</td><td>系统提示、工具定义（输入 schema）、<strong>你的问题原文</strong>、Claude 之前的回复、工具结果（出典 ID 与数值）、校验器的退回意见</td></tr>
+        <tr><td>留在本机的内容</td><td colspan="2">计算（Java 子进程或 Python 参照实现）、示例数据、执行轨迹 <code>.echolab/traces/</code>、费用台账 <code>.echolab/costs.jsonl</code></td></tr>
+      </tbody>
+    </table>
+    <p>问题原文会原样发送，也会原样写入本机轨迹。不要在问题里写与计算无关的个人信息。数据流向图见 <a href="../../zh/06-cost-and-safety.html">成本上限与数据可信度</a>。</p>
+
+    <h2>安全使用的小建议</h2>
+    <div class="cards">
+      <div class="card"><h4>密钥只放在环境里</h4><p>用 <code>export</code> 或 <code>ant auth login</code>，不要写进代码、配置文件或命令历史会被分享的脚本里。</p></div>
+      <div class="card"><h4>先用台本模式</h4><p>环境、Java 服务都确认无误后，再切换到真实 Claude，避免为排查环境问题付费。</p></div>
+      <div class="card"><h4>上限先调低</h4><p>首次试用把 <code>ECHOLAB_DAILY_USD</code> 设成较小的值，熟悉后再恢复默认。</p></div>
+      <div class="card"><h4>分享轨迹前先检查</h4><p>轨迹包含问题原文和每一版草稿。<code>.echolab/</code> 已被 Git 忽略，不会被意外提交。</p></div>
+      <div class="card"><h4>密钥泄露时</h4><p>立即在 Console 中删除该密钥并创建新的；仅仅从文件里删掉是不够的。</p></div>
+    </div>
+
+    <div class="related"><strong>相关</strong>：<a href="../../zh/04-cli-reference.html">CLI 参考</a>（参数、状态与退出码）・<a href="../../zh/06-cost-and-safety.html">成本上限与数据可信度</a>・<a href="06-tests-evals.html">运行测试与评估</a>（含用真实 Claude 跑评估的命令）</div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>
