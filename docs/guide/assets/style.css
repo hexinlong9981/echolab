@@ -160,9 +160,13 @@ ruby.furi rt {
 ruby.furi rp { display: none; }
 html:lang(ja) body { line-height: 2.15; }
 html:lang(ja) nav.side li a { line-height: 1.9; }
-html.no-furi ruby.furi rt { display: none; }
-html.no-furi body { line-height: 1.75; }
+html.no-furi ruby.furi:not(.eng) rt { display: none; }
+html.no-furi.no-eng body { line-height: 1.75; }
 #furi-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; margin-right: 8px; }
 /* 枠の小さい要素（バッジ・タグ・手順アニメーションの節点）は、ルビがあるときだけ上に余白を取り、ルビを枠の内側に収める */
-html:lang(ja):not(.no-furi) :is(.badge, .tags span):has(ruby.furi) { line-height: 2.2; padding-top: 5px; padding-bottom: 1px; }
-html:lang(ja):not(.no-furi) .flow-anim .node:has(ruby.furi) { padding-top: 18px; }
+html:lang(ja):not(.no-furi.no-eng) :is(.badge, .tags span):has(ruby.furi) { line-height: 2.2; padding-top: 5px; padding-bottom: 1px; }
+html:lang(ja):not(.no-furi.no-eng) .flow-anim .node:has(ruby.furi) { padding-top: 18px; }
+/* カタカナの上の英語（ruby.furi.eng）：同じ赤字。英字向けのフォントにする */
+ruby.furi.eng rt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: .5em; letter-spacing: 0; }
+html.no-eng ruby.furi.eng rt { display: none; }
+#eng-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; margin-right: 8px; }
