@@ -26,22 +26,22 @@ const UI = {
 
 const GROUPS = {
   start: { ja: "はじめに", en: "Getting started", zh: "开始" },
-  use: { ja: "使い方", en: "Using EchoLab", zh: "使用" },
+  use: { ja: "<ruby class=\"furi\">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>い<ruby class=\"furi\">方<rp>(</rp><rt>かた</rt><rp>)</rp></ruby>", en: "Using EchoLab", zh: "使用" },
   understand: { ja: "しくみ", en: "How it works", zh: "理解" },
-  advanced: { ja: "応用", en: "Advanced", zh: "进阶" },
+  advanced: { ja: "<ruby class=\"furi\">応<rp>(</rp><rt>おう</rt><rp>)</rp></ruby><ruby class=\"furi\">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>", en: "Advanced", zh: "进阶" },
 };
 
 const PAGES = [
   { file: "index.html", group: "start", ja: "トップ・EchoLab とは", en: "Home: what is EchoLab", zh: "首页・EchoLab 是什么" },
-  { file: "01-quickstart.html", group: "start", ja: "インストールと最初の質問", en: "Install & first question", zh: "安装与第一次提问" },
-  { file: "02-what-to-ask.html", group: "use", ja: "何を聞けるか：機能一覧", en: "What you can ask", zh: "能问什么：功能一览" },
-  { file: "03-reading-answers.html", group: "use", ja: "回答の読み方", en: "Reading the answers", zh: "回答怎么读" },
+  { file: "01-quickstart.html", group: "start", ja: "インストールと<ruby class=\"furi\">最<rp>(</rp><rt>さい</rt><rp>)</rp></ruby><ruby class=\"furi\">初<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby>の<ruby class=\"furi\">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class=\"furi\">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>", en: "Install & first question", zh: "安装与第一次提问" },
+  { file: "02-what-to-ask.html", group: "use", ja: "<ruby class=\"furi\">何<rp>(</rp><rt>なん</rt><rp>)</rp></ruby>を<ruby class=\"furi\">聞<rp>(</rp><rt>き</rt><rp>)</rp></ruby>けるか：<ruby class=\"furi\">機<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class=\"furi\">能<rp>(</rp><rt>のう</rt><rp>)</rp></ruby><ruby class=\"furi\">一<rp>(</rp><rt>いち</rt><rp>)</rp></ruby><ruby class=\"furi\">覧<rp>(</rp><rt>らん</rt><rp>)</rp></ruby>", en: "What you can ask", zh: "能问什么：功能一览" },
+  { file: "03-reading-answers.html", group: "use", ja: "<ruby class=\"furi\">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class=\"furi\">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>の<ruby class=\"furi\">読<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>み<ruby class=\"furi\">方<rp>(</rp><rt>かた</rt><rp>)</rp></ruby>", en: "Reading the answers", zh: "回答怎么读" },
   { file: "04-cli-reference.html", group: "use", ja: "コマンドリファレンス", en: "CLI reference", zh: "命令参考" },
-  { file: "05-how-it-works.html", group: "understand", ja: "裏側で起きていること（アニメーション）", en: "What happens behind the scenes (animated)", zh: "背后发生了什么（动画）" },
-  { file: "06-cost-and-safety.html", group: "understand", ja: "コストの上限とデータの確かさ", en: "Cost caps & data trust", zh: "成本上限与数据可信度" },
-  { file: "07-traces-evals.html", group: "advanced", ja: "実行トレースと評価", en: "Traces & evals", zh: "执行轨迹与评估" },
+  { file: "05-how-it-works.html", group: "understand", ja: "<ruby class=\"furi\">裏<rp>(</rp><rt>うら</rt><rp>)</rp></ruby><ruby class=\"furi\">側<rp>(</rp><rt>がわ</rt><rp>)</rp></ruby>で<ruby class=\"furi\">起<rp>(</rp><rt>お</rt><rp>)</rp></ruby>きていること（アニメーション）", en: "What happens behind the scenes (animated)", zh: "背后发生了什么（动画）" },
+  { file: "06-cost-and-safety.html", group: "understand", ja: "コストの<ruby class=\"furi\">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class=\"furi\">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>とデータの<ruby class=\"furi\">確<rp>(</rp><rt>たし</rt><rp>)</rp></ruby>かさ", en: "Cost caps & data trust", zh: "成本上限与数据可信度" },
+  { file: "07-traces-evals.html", group: "advanced", ja: "<ruby class=\"furi\">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class=\"furi\">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>トレースと<ruby class=\"furi\">評<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class=\"furi\">価<rp>(</rp><rt>か</rt><rp>)</rp></ruby>", en: "Traces & evals", zh: "执行轨迹与评估" },
   { file: "08-troubleshooting.html", group: "advanced", ja: "トラブルシューティングと FAQ", en: "Troubleshooting & FAQ", zh: "故障排除与 FAQ" },
-  { file: "09-roadmap.html", group: "advanced", ja: "今後の機能（ロードマップ）", en: "Roadmap", zh: "今后的功能（路线图）" },
+  { file: "09-roadmap.html", group: "advanced", ja: "<ruby class=\"furi\">今<rp>(</rp><rt>こん</rt><rp>)</rp></ruby><ruby class=\"furi\">後<rp>(</rp><rt>ご</rt><rp>)</rp></ruby>の<ruby class=\"furi\">機<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class=\"furi\">能<rp>(</rp><rt>のう</rt><rp>)</rp></ruby>（ロードマップ）", en: "Roadmap", zh: "今后的功能（路线图）" },
 ];
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -98,6 +98,52 @@ function buildHeader(current) {
   } else {
     header.appendChild(sw);
   }
+}
+
+// 日本語版：ふりがなの表示切り替え（既定は表示。選択は保存する）
+function setupFurigana() {
+  if (LANG !== "ja") return;
+  let off = false;
+  try { off = localStorage.getItem("furigana") === "off"; } catch {}
+  document.documentElement.classList.toggle("no-furi", off);
+  const header = document.querySelector("header.top");
+  const theme = document.querySelector("#theme-toggle");
+  if (!header || !theme) return;
+  const btn = document.createElement("button");
+  btn.id = "furi-toggle";
+  btn.type = "button";
+  const label = () => (btn.textContent = off ? "ふりがな：なし" : "ふりがな：あり");
+  label();
+  btn.addEventListener("click", () => {
+    off = !off;
+    document.documentElement.classList.toggle("no-furi", off);
+    try { localStorage.setItem("furigana", off ? "off" : "on"); } catch {}
+    label();
+    spaceRuby();
+  });
+  header.insertBefore(btn, theme);
+}
+
+// ルビは CSS で漢字の真上に浮かせている。隣り合う漢字のルビが重なるときだけ、その 2 字の間を必要な分だけ空ける
+// （仮名の上にはみ出すのはかまわない）。重なりは幅だけで決まる（両側のルビが漢字からはみ出す量の半分ずつの和）ので、
+// 先に幅をまとめて測り、まとめて書き込む（何度も再レイアウトさせない）。
+function spaceRuby(root = document) {
+  const rubies = [...root.querySelectorAll("ruby.furi")];
+  if (!rubies.length) return;
+  if (document.documentElement.classList.contains("no-furi")) {
+    rubies.forEach((r) => (r.style.marginLeft = ""));
+    return;
+  }
+  const excess = rubies.map((r) => {
+    const rt = r.querySelector("rt");
+    return rt ? Math.max(0, (rt.getBoundingClientRect().width - r.getBoundingClientRect().width) / 2) : 0;
+  });
+  rubies.forEach((r, i) => {
+    const prev = r.previousSibling;
+    const adjacent = prev && prev.nodeType === 1 && prev.matches("ruby.furi");
+    const need = adjacent ? excess[i - 1] + excess[i] : 0;
+    r.style.marginLeft = need > 0 ? `${need + 1}px` : "";
+  });
 }
 
 function currentTheme() {
@@ -243,6 +289,7 @@ function setupFlows() {
         if (at) at.insertAdjacentHTML("beforeend", `<span class="packet">${esc(s.packet.text)}</span>`);
       }
       cap.innerHTML = `<span class="step-no">${i + 1} / ${steps.length}</span>${s.text}`;
+      if (LANG === "ja") spaceRuby(cap); // 説明文のルビの間隔を整える
       bar.style.width = `${((i + 1) / steps.length) * 100}%`;
     }
     function stop() { clearInterval(timer); timer = null; playBtn.textContent = T.auto; }
@@ -263,6 +310,8 @@ function setupFlows() {
 
 setupThemeToggle();
 buildHeader(document.body.dataset.page);
+setupFurigana();
+if (LANG === "ja") (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => spaceRuby());
 buildNav(document.body.dataset.page);
 setupTerminals();
 setupFlows();

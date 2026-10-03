@@ -1,84 +1,80 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>インストールと最初の質問 | EchoLab 利用ガイド</title>
-  <link rel="stylesheet" href="../assets/style.css">
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>インストールと最初の質問 | EchoLab 利用ガイド</title>
+<link href="../assets/style.css" rel="stylesheet"/>
+<style>
     /* このページ専用：狭い画面で幅の広い要素（表・アニメーション）がページ全体を押し広げないようにする */
     .flow-anim { overflow-x: auto; }
     @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
   </style>
-  <script defer src="../assets/guide.js"></script>
+<script defer="" src="../assets/guide.js"></script>
 </head>
 <body data-page="01-quickstart.html">
 <div class="layout">
-  <nav class="side"></nav>
-  <main>
-    <header class="top"><span class="tags"><span>はじめに</span><span>インストール</span><span>API キー不要</span></span><button id="theme-toggle">ライト／ダーク</button></header>
-    <h1>インストールと最初の質問</h1>
-    <p class="lead">順番に進めます。まず API キーなしでデモを動かし、次に実際の Java 計算サービスにつなぎ、最後に（任意で）実際の Claude につないで自由に質問します。</p>
-
-    <h2>用意するもの</h2>
-    <table>
-      <thead><tr><th>項目</th><th>要件</th><th>必要になるとき</th></tr></thead>
-      <tbody>
-        <tr><td>OS</td><td>Linux、または Windows の WSL2（このガイドの出力はすべて WSL2 上の Linux で実際に実行して得たものです）</td><td>常に</td></tr>
-        <tr><td>Python</td><td>3.12（プロジェクトは <code>py312</code> 前提。検証には Python 3.12.11 を使用）</td><td>常に</td></tr>
-        <tr><td>git</td><td>コードの取得に使います</td><td>常に</td></tr>
-        <tr><td>JDK</td><td>21（検証には Temurin 21.0.12.1 を使用）</td><td>ステップ 4：実際の Java 計算サービスを使うとき</td></tr>
-        <tr><td>Anthropic の認証情報</td><td><code>ANTHROPIC_API_KEY</code> または <code>ant auth login</code></td><td>ステップ 5（任意）：実際の Claude に自分の質問へ答えさせるとき</td></tr>
-        <tr><td>ネットワーク</td><td>Python と Gradle の依存パッケージのダウンロード、実際の Claude を使うときの Anthropic API へのアクセス</td><td>インストール時、ステップ 5</td></tr>
-      </tbody>
-    </table>
-
-    <h2>どの手順で進めるか</h2>
-    <div class="diagram">
-      <pre class="mermaid">
+<nav class="side"></nav>
+<main>
+<header class="top"><span class="tags"><span>はじめに</span><span>インストール</span><span>API キー<ruby class="furi">不<rp>(</rp><rt>ふ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby></span></span><button id="theme-toggle">ライト／ダーク</button></header>
+<h1>インストールと<ruby class="furi">最<rp>(</rp><rt>さい</rt><rp>)</rp></ruby><ruby class="furi">初<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby>の<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby></h1>
+<p class="lead"><ruby class="furi">順<rp>(</rp><rt>じゅん</rt><rp>)</rp></ruby><ruby class="furi">番<rp>(</rp><rt>ばん</rt><rp>)</rp></ruby>に<ruby class="furi">進<rp>(</rp><rt>すす</rt><rp>)</rp></ruby>めます。まず API キーなしでデモを<ruby class="furi">動<rp>(</rp><rt>うご</rt><rp>)</rp></ruby>かし、<ruby class="furi">次<rp>(</rp><rt>つぎ</rt><rp>)</rp></ruby>に<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Java <ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスにつなぎ、<ruby class="furi">最<rp>(</rp><rt>さい</rt><rp>)</rp></ruby><ruby class="furi">後<rp>(</rp><rt>ご</rt><rp>)</rp></ruby>に（<ruby class="furi">任<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>で）<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude につないで<ruby class="furi">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">由<rp>(</rp><rt>ゆう</rt><rp>)</rp></ruby>に<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>します。</p>
+<h2><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>するもの</h2>
+<table>
+<thead><tr><th><ruby class="furi">項<rp>(</rp><rt>こう</rt><rp>)</rp></ruby><ruby class="furi">目<rp>(</rp><rt>もく</rt><rp>)</rp></ruby></th><th><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby><ruby class="furi">件<rp>(</rp><rt>けん</rt><rp>)</rp></ruby></th><th><ruby class="furi">必<rp>(</rp><rt>ひつ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>になるとき</th></tr></thead>
+<tbody>
+<tr><td>OS</td><td>Linux、または Windows の WSL2（このガイドの<ruby class="furi">出<rp>(</rp><rt>しゅつ</rt><rp>)</rp></ruby><ruby class="furi">力<rp>(</rp><rt>りょく</rt><rp>)</rp></ruby>はすべて WSL2 <ruby class="furi">上<rp>(</rp><rt>うえ</rt><rp>)</rp></ruby>の Linux で<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>に<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>して<ruby class="furi">得<rp>(</rp><rt>え</rt><rp>)</rp></ruby>たものです）</td><td><ruby class="furi">常<rp>(</rp><rt>つね</rt><rp>)</rp></ruby>に</td></tr>
+<tr><td>Python</td><td>3.12（プロジェクトは <code>py312</code> <ruby class="furi">前<rp>(</rp><rt>ぜん</rt><rp>)</rp></ruby><ruby class="furi">提<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>。<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby>には Python 3.12.11 を<ruby class="furi">使<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>）</td><td><ruby class="furi">常<rp>(</rp><rt>つね</rt><rp>)</rp></ruby>に</td></tr>
+<tr><td>git</td><td>コードの<ruby class="furi">取<rp>(</rp><rt>しゅ</rt><rp>)</rp></ruby><ruby class="furi">得<rp>(</rp><rt>とく</rt><rp>)</rp></ruby>に<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>います</td><td><ruby class="furi">常<rp>(</rp><rt>つね</rt><rp>)</rp></ruby>に</td></tr>
+<tr><td>JDK</td><td>21（<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby>には Temurin 21.0.12.1 を<ruby class="furi">使<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>）</td><td>ステップ 4：<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Java <ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスを<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>うとき</td></tr>
+<tr><td>Anthropic の<ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby></td><td><code>ANTHROPIC_API_KEY</code> または <code>ant auth login</code></td><td>ステップ 5（<ruby class="furi">任<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>）：<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude に<ruby class="furi">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">分<rp>(</rp><rt>ぶん</rt><rp>)</rp></ruby>の<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>へ<ruby class="furi">答<rp>(</rp><rt>こた</rt><rp>)</rp></ruby>えさせるとき</td></tr>
+<tr><td>ネットワーク</td><td>Python と Gradle の<ruby class="furi">依<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">存<rp>(</rp><rt>ぞん</rt><rp>)</rp></ruby>パッケージのダウンロード、<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude を<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>うときの Anthropic API へのアクセス</td><td>インストール<ruby class="furi">時<rp>(</rp><rt>とき</rt><rp>)</rp></ruby>、ステップ 5</td></tr>
+</tbody>
+</table>
+<h2>どの<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">順<rp>(</rp><rt>じゅん</rt><rp>)</rp></ruby>で<ruby class="furi">進<rp>(</rp><rt>すす</rt><rp>)</rp></ruby>めるか</h2>
+<div class="diagram">
+<pre class="mermaid">
 flowchart TD
-  A["ステップ 1–2 を完了&lt;br/&gt;コード取得・依存パッケージ"] --> B["ステップ 3：API キーなしのデモ&lt;br/&gt;--llm scripted --fake-backend"]
-  B --> C{"JDK 21 は&lt;br/&gt;入っている？"}
-  C -- いいえ --> C1["--fake-backend のまま使う&lt;br/&gt;（Java の代わりに Python の参照実装）"]
-  C -- はい --> D["ステップ 4：jar をビルド&lt;br/&gt;--fake-backend を外す"]
-  D --> E{"API キーは&lt;br/&gt;ある？"}
-  C1 --> E
-  E -- いいえ --> F["台本（scripted）のみ実行可&lt;br/&gt;回答の内容は台本で決まる"]
-  E -- はい --> G["ステップ 5：コストの上限を設定&lt;br/&gt;--llm scripted を外して自由に質問"]
+  A["ステップ 1–2 を完了&lt;br/&gt;コード取得・依存パッケージ"] --&gt; B["ステップ 3：API キーなしのデモ&lt;br/&gt;--llm scripted --fake-backend"]
+  B --&gt; C{"JDK 21 は&lt;br/&gt;入っている？"}
+  C -- いいえ --&gt; C1["--fake-backend のまま使う&lt;br/&gt;（Java の代わりに Python の参照実装）"]
+  C -- はい --&gt; D["ステップ 4：jar をビルド&lt;br/&gt;--fake-backend を外す"]
+  D --&gt; E{"API キーは&lt;br/&gt;ある？"}
+  C1 --&gt; E
+  E -- いいえ --&gt; F["台本（scripted）のみ実行可&lt;br/&gt;回答の内容は台本で決まる"]
+  E -- はい --&gt; G["ステップ 5：コストの上限を設定&lt;br/&gt;--llm scripted を外して自由に質問"]
       </pre>
-      <div class="caption">図 1：インストール手順の選び方。API キーがなくても、ツールによる計算・検証・出典の表はひととおり体験できます</div>
-    </div>
-
-    <h3>インストール全体の流れ（アニメーション）</h3>
-    <div class="flow-anim" data-cols="9">
-      <div class="stage">
-        <div class="node" data-id="get">コードの取得<small>git clone</small></div>
-        <div class="arrow" data-id="a1">→</div>
-        <div class="node" data-id="py">Python 環境<small>venv + pip</small></div>
-        <div class="arrow" data-id="a2">→</div>
-        <div class="node" data-id="demo">キーなしデモ<small>scripted + fake</small></div>
-        <div class="arrow" data-id="a3">→</div>
-        <div class="node" data-id="java">Java サービス<small>JDK 21 + jar</small></div>
-        <div class="arrow" data-id="a4">→</div>
-        <div class="node" data-id="claude">実際の Claude<small>任意</small></div>
-      </div>
-      <script type="application/json">[
-        {"on": ["get"], "packet": {"at": "get", "text": "echolab/"}, "text": "コードを取得し、リポジトリのルートに移動します。以降のコマンドはすべて<strong>リポジトリのルート</strong>で実行します（<code>python -m core.agent</code> はここからでないと <code>core</code> パッケージを見つけられません）。"},
-        {"on": ["a1", "py"], "done": ["get"], "packet": {"at": "py", "text": ".venv"}, "text": "Python 3.12 で仮想環境を作り、<code>requirements.txt</code>（anthropic、mcp、pyyaml、jsonschema）をインストールします。"},
-        {"on": ["a2", "demo"], "done": ["get", "py"], "packet": {"at": "demo", "text": "answered"}, "text": "付属の台本 <code>compare_builds.yaml</code> と試験用の計算サービスで、最初の質問を実行します。Java も API キーも要りません。"},
-        {"on": ["a3", "java"], "done": ["get", "py", "demo"], "packet": {"at": "java", "text": "calc-engine-mcp.jar"}, "text": "JDK 21 をインストールし、計算サービスの jar をビルドします。<code>--fake-backend</code> を外すと、CLI が jar を子プロセスとして自動で起動します。"},
-        {"on": ["a4", "claude"], "done": ["get", "py", "demo", "java"], "packet": {"at": "claude", "text": "ANTHROPIC_API_KEY"}, "text": "（任意）認証情報とコストの上限を設定し、<code>--llm scripted</code> を外すと、実際の Claude がどんな質問にも答えます。"}
-      ]</script>
-    </div>
-
-    <h2>ステップ 1：コードを取得する</h2>
-    <pre><code>git clone https://github.com/hexinlong9981/echolab.git
+<div class="caption"><ruby class="furi">図<rp>(</rp><rt>ず</rt><rp>)</rp></ruby> 1：インストール<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">順<rp>(</rp><rt>じゅん</rt><rp>)</rp></ruby>の<ruby class="furi">選<rp>(</rp><rt>えら</rt><rp>)</rp></ruby>び<ruby class="furi">方<rp>(</rp><rt>かた</rt><rp>)</rp></ruby>。API キーがなくても、ツールによる<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>・<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby>・<ruby class="furi">出<rp>(</rp><rt>しゅっ</rt><rp>)</rp></ruby><ruby class="furi">典<rp>(</rp><rt>てん</rt><rp>)</rp></ruby>の<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby>はひととおり<ruby class="furi">体<rp>(</rp><rt>たい</rt><rp>)</rp></ruby><ruby class="furi">験<rp>(</rp><rt>けん</rt><rp>)</rp></ruby>できます</div>
+</div>
+<h3>インストール<ruby class="furi">全<rp>(</rp><rt>ぜん</rt><rp>)</rp></ruby><ruby class="furi">体<rp>(</rp><rt>たい</rt><rp>)</rp></ruby>の<ruby class="furi">流<rp>(</rp><rt>なが</rt><rp>)</rp></ruby>れ（アニメーション）</h3>
+<div class="flow-anim" data-cols="9">
+<div class="stage">
+<div class="node" data-id="get">コードの<ruby class="furi">取<rp>(</rp><rt>しゅ</rt><rp>)</rp></ruby><ruby class="furi">得<rp>(</rp><rt>とく</rt><rp>)</rp></ruby><small>git clone</small></div>
+<div class="arrow" data-id="a1">→</div>
+<div class="node" data-id="py">Python <ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby><small>venv + pip</small></div>
+<div class="arrow" data-id="a2">→</div>
+<div class="node" data-id="demo">キーなしデモ<small>scripted + fake</small></div>
+<div class="arrow" data-id="a3">→</div>
+<div class="node" data-id="java">Java サービス<small>JDK 21 + jar</small></div>
+<div class="arrow" data-id="a4">→</div>
+<div class="node" data-id="claude"><ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude<small><ruby class="furi">任<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby></small></div>
+</div>
+<script type="application/json">[
+      {"on": ["get"], "packet": {"at": "get", "text": "echolab/"}, "text": "コードを<ruby class=\"furi\">取<rp>(</rp><rt>しゅ</rt><rp>)</rp></ruby><ruby class=\"furi\">得<rp>(</rp><rt>とく</rt><rp>)</rp></ruby>し、リポジトリのルートに<ruby class=\"furi\">移<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class=\"furi\">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>します。<ruby class=\"furi\">以<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class=\"furi\">降<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>のコマンドはすべて<strong>リポジトリのルート</strong>で<ruby class=\"furi\">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class=\"furi\">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>します（<code>python -m core.agent</code> はここからでないと <code>core</code> パッケージを<ruby class=\"furi\">見<rp>(</rp><rt>み</rt><rp>)</rp></ruby>つけられません）。"},
+      {"on": ["a1", "py"], "done": ["get"], "packet": {"at": "py", "text": ".venv"}, "text": "Python 3.12 で<ruby class=\"furi\">仮<rp>(</rp><rt>か</rt><rp>)</rp></ruby><ruby class=\"furi\">想<rp>(</rp><rt>そう</rt><rp>)</rp></ruby><ruby class=\"furi\">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class=\"furi\">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby>を<ruby class=\"furi\">作<rp>(</rp><rt>つく</rt><rp>)</rp></ruby>り、<code>requirements.txt</code>（anthropic、mcp、pyyaml、jsonschema）をインストールします。"},
+      {"on": ["a2", "demo"], "done": ["get", "py"], "packet": {"at": "demo", "text": "answered"}, "text": "<ruby class=\"furi\">付<rp>(</rp><rt>ふ</rt><rp>)</rp></ruby><ruby class=\"furi\">属<rp>(</rp><rt>ぞく</rt><rp>)</rp></ruby>の<ruby class=\"furi\">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class=\"furi\">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby> <code>compare_builds.yaml</code> と<ruby class=\"furi\">試<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class=\"furi\">験<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class=\"furi\">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>の<ruby class=\"furi\">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class=\"furi\">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスで、<ruby class=\"furi\">最<rp>(</rp><rt>さい</rt><rp>)</rp></ruby><ruby class=\"furi\">初<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby>の<ruby class=\"furi\">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class=\"furi\">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>を<ruby class=\"furi\">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class=\"furi\">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>します。Java も API キーも<ruby class=\"furi\">要<rp>(</rp><rt>い</rt><rp>)</rp></ruby>りません。"},
+      {"on": ["a3", "java"], "done": ["get", "py", "demo"], "packet": {"at": "java", "text": "calc-engine-mcp.jar"}, "text": "JDK 21 をインストールし、<ruby class=\"furi\">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class=\"furi\">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスの jar をビルドします。<code>--fake-backend</code> を<ruby class=\"furi\">外<rp>(</rp><rt>はず</rt><rp>)</rp></ruby>すと、CLI が jar を<ruby class=\"furi\">子<rp>(</rp><rt>こ</rt><rp>)</rp></ruby>プロセスとして<ruby class=\"furi\">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class=\"furi\">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>で<ruby class=\"furi\">起<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class=\"furi\">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>します。"},
+      {"on": ["a4", "claude"], "done": ["get", "py", "demo", "java"], "packet": {"at": "claude", "text": "ANTHROPIC_API_KEY"}, "text": "（<ruby class=\"furi\">任<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class=\"furi\">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>）<ruby class=\"furi\">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class=\"furi\">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class=\"furi\">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class=\"furi\">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>とコストの<ruby class=\"furi\">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class=\"furi\">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>を<ruby class=\"furi\">設<rp>(</rp><rt>せっ</rt><rp>)</rp></ruby><ruby class=\"furi\">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>し、<code>--llm scripted</code> を<ruby class=\"furi\">外<rp>(</rp><rt>はず</rt><rp>)</rp></ruby>すと、<ruby class=\"furi\">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class=\"furi\">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude がどんな<ruby class=\"furi\">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class=\"furi\">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>にも<ruby class=\"furi\">答<rp>(</rp><rt>こた</rt><rp>)</rp></ruby>えます。"}
+    ]</script>
+</div>
+<h2>ステップ 1：コードを<ruby class="furi">取<rp>(</rp><rt>しゅ</rt><rp>)</rp></ruby><ruby class="furi">得<rp>(</rp><rt>とく</rt><rp>)</rp></ruby>する</h2>
+<pre><code>git clone https://github.com/hexinlong9981/echolab.git
 cd echolab</code></pre>
-
-    <h2>ステップ 2：Python の仮想環境と依存パッケージ</h2>
-    <p>CLI を使うだけなら、<code>requirements.txt</code> のインストールで足ります（<code>requirements-dev.txt</code> には pytest や ruff などの開発用ツールが追加で入っています）。</p>
-    <div class="term" data-title="bash — ~/echolab">
-      <script type="application/json">[
+<h2>ステップ 2：Python の<ruby class="furi">仮<rp>(</rp><rt>か</rt><rp>)</rp></ruby><ruby class="furi">想<rp>(</rp><rt>そう</rt><rp>)</rp></ruby><ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby>と<ruby class="furi">依<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">存<rp>(</rp><rt>ぞん</rt><rp>)</rp></ruby>パッケージ</h2>
+<p>CLI を<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>うだけなら、<code>requirements.txt</code> のインストールで<ruby class="furi">足<rp>(</rp><rt>た</rt><rp>)</rp></ruby>ります（<code>requirements-dev.txt</code> には pytest や ruff などの<ruby class="furi">開<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">発<rp>(</rp><rt>はつ</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>ツールが<ruby class="furi">追<rp>(</rp><rt>つい</rt><rp>)</rp></ruby><ruby class="furi">加<rp>(</rp><rt>か</rt><rp>)</rp></ruby>で<ruby class="furi">入<rp>(</rp><rt>はい</rt><rp>)</rp></ruby>っています）。</p>
+<div class="term" data-title="bash — ~/echolab">
+<script type="application/json">[
         {"cmd": "python3.12 -m venv .venv"},
         {"cmd": ".venv/bin/pip install -q -r requirements.txt"},
         {"out": "…（依存パッケージをダウンロードしてインストール。-q のためほとんど出力されません）", "cls": "dim", "delay": 900},
@@ -97,17 +93,16 @@ cd echolab</code></pre>
         {"out": "出典付きで質問に答える", "cls": "hl"},
         {"out": "…", "cls": "dim"}
       ]</script>
-    </div>
-    <p>ヘルプが表示されればインストールは成功です。新しいターミナルを開いたら、まずリポジトリのルートで <code>source .venv/bin/activate</code> を実行してください。以下の <code>python</code> はすべて仮想環境の Python を指します。</p>
-
-    <h2>ステップ 3：最初の質問（API キーも Java も不要）</h2>
-    <p>次の 2 つのオプションで、デモを手元だけで完結させます。</p>
-    <ul>
-      <li><code>--llm scripted --script 台本.yaml</code>：実際の AI を呼ばず、台本ファイルに書かれた手順どおりに AI の役を「演じ」ます。</li>
-      <li><code>--fake-backend</code>：Java 計算サービスを起動せず、試験用の Python の参照実装で計算します。</li>
-    </ul>
-    <div class="term" data-title="bash — 最初の質問">
-      <script type="application/json">[
+</div>
+<p>ヘルプが<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class="furi">示<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>されればインストールは<ruby class="furi">成<rp>(</rp><rt>せい</rt><rp>)</rp></ruby><ruby class="furi">功<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>です。<ruby class="furi">新<rp>(</rp><rt>あたら</rt><rp>)</rp></ruby>しいターミナルを<ruby class="furi">開<rp>(</rp><rt>ひら</rt><rp>)</rp></ruby>いたら、まずリポジトリのルートで <code>source .venv/bin/activate</code> を<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>してください。<ruby class="furi">以<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">下<rp>(</rp><rt>か</rt><rp>)</rp></ruby>の <code>python</code> はすべて<ruby class="furi">仮<rp>(</rp><rt>か</rt><rp>)</rp></ruby><ruby class="furi">想<rp>(</rp><rt>そう</rt><rp>)</rp></ruby><ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby>の Python を<ruby class="furi">指<rp>(</rp><rt>さ</rt><rp>)</rp></ruby>します。</p>
+<h2>ステップ 3：<ruby class="furi">最<rp>(</rp><rt>さい</rt><rp>)</rp></ruby><ruby class="furi">初<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby>の<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>（API キーも Java も<ruby class="furi">不<rp>(</rp><rt>ふ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>）</h2>
+<p><ruby class="furi">次<rp>(</rp><rt>つぎ</rt><rp>)</rp></ruby>の 2 つのオプションで、デモを<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">元<rp>(</rp><rt>もと</rt><rp>)</rp></ruby>だけで<ruby class="furi">完<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">結<rp>(</rp><rt>けつ</rt><rp>)</rp></ruby>させます。</p>
+<ul>
+<li><code>--llm scripted --script 台本.yaml</code>：<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の AI を<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>ばず、<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>ファイルに<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>かれた<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">順<rp>(</rp><rt>じゅん</rt><rp>)</rp></ruby>どおりに AI の<ruby class="furi">役<rp>(</rp><rt>やく</rt><rp>)</rp></ruby>を「<ruby class="furi">演<rp>(</rp><rt>えん</rt><rp>)</rp></ruby>じ」ます。</li>
+<li><code>--fake-backend</code>：Java <ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスを<ruby class="furi">起<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>せず、<ruby class="furi">試<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class="furi">験<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>の Python の<ruby class="furi">参<rp>(</rp><rt>さん</rt><rp>)</rp></ruby><ruby class="furi">照<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">装<rp>(</rp><rt>そう</rt><rp>)</rp></ruby>で<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>します。</li>
+</ul>
+<div class="term" data-title="bash — 最初の質問">
+<script type="application/json">[
         {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
         {"pause": 600},
         {"out": "ビルド B の方が強いです。", "cls": "hl"},
@@ -126,19 +121,18 @@ cd echolab</code></pre>
         {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "warn"},
         {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
       ]</script>
-    </div>
-    <div class="callout warn"><strong>台本モードの回答はあらかじめ決まっています</strong>台本モードはデモ用です。AI がどのツールを呼び、どんな下書きを書くかは台本で決まっていて、入力した質問とは関係ありません。たとえば質問を「こんにちは」に変えても、同じ台本なら上と同じ回答が返ります。質問を本当に「理解」させるには、ステップ 5 の実際の Claude が必要です。</div>
-    <p><code>差し戻し: 1 回</code> に注目してください。この台本では、1 回目の下書きにわざと自分で計算した数字（936）を書かせています。それが検証器に差し戻され、2 回目に比較ツールを使って書き直したことで合格しています。</p>
-
-    <h2>ステップ 4：実際の Java 計算サービスにつなぐ</h2>
-    <p><code>--fake-backend</code> を外すと、CLI は <code>config/services.yaml</code> に従い、<code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code> を子プロセスとして起動します。そのため JDK 21 とビルド済みの jar が必要です。</p>
-    <ol>
-      <li>JDK 21 をインストールします（ディストリビューションのパッケージでも Temurin のアーカイブでもかまいません）。以下の例では <code>$HOME/.local/jdk/21</code> に展開しています。</li>
-      <li><code>JAVA_HOME</code> を設定します。<strong><code>java</code> が PATH になくても</strong>、<code>JAVA_HOME</code> が JDK を指していれば、CLI は <code>$JAVA_HOME/bin/java</code> を使います。</li>
-      <li><code>services/calc-engine</code> で jar をビルドします（初回は Gradle と依存ライブラリをダウンロードするため、ネットワーク接続が必要です）。</li>
-    </ol>
-    <div class="term" data-title="bash — 計算サービスのビルド">
-      <script type="application/json">[
+</div>
+<div class="callout warn"><strong><ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>モードの<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>はあらかじめ<ruby class="furi">決<rp>(</rp><rt>き</rt><rp>)</rp></ruby>まっています</strong><ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>モードはデモ<ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>です。AI がどのツールを<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>び、どんな<ruby class="furi">下<rp>(</rp><rt>した</rt><rp>)</rp></ruby><ruby class="furi">書<rp>(</rp><rt>が</rt><rp>)</rp></ruby>きを<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>くかは<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>で<ruby class="furi">決<rp>(</rp><rt>き</rt><rp>)</rp></ruby>まっていて、<ruby class="furi">入<rp>(</rp><rt>にゅう</rt><rp>)</rp></ruby><ruby class="furi">力<rp>(</rp><rt>りょく</rt><rp>)</rp></ruby>した<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>とは<ruby class="furi">関<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">係<rp>(</rp><rt>けい</rt><rp>)</rp></ruby>ありません。たとえば<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>を「こんにちは」に<ruby class="furi">変<rp>(</rp><rt>か</rt><rp>)</rp></ruby>えても、<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じ<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>なら<ruby class="furi">上<rp>(</rp><rt>うえ</rt><rp>)</rp></ruby>と<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じ<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>が<ruby class="furi">返<rp>(</rp><rt>かえ</rt><rp>)</rp></ruby>ります。<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>を<ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby><ruby class="furi">当<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>に「<ruby class="furi">理<rp>(</rp><rt>り</rt><rp>)</rp></ruby><ruby class="furi">解<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>」させるには、ステップ 5 の<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude が<ruby class="furi">必<rp>(</rp><rt>ひつ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>です。</div>
+<p><code>差し戻し: 1 回</code> に<ruby class="furi">注<rp>(</rp><rt>ちゅう</rt><rp>)</rp></ruby><ruby class="furi">目<rp>(</rp><rt>もく</rt><rp>)</rp></ruby>してください。この<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>では、1 <ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">目<rp>(</rp><rt>め</rt><rp>)</rp></ruby>の<ruby class="furi">下<rp>(</rp><rt>した</rt><rp>)</rp></ruby><ruby class="furi">書<rp>(</rp><rt>が</rt><rp>)</rp></ruby>きにわざと<ruby class="furi">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">分<rp>(</rp><rt>ぶん</rt><rp>)</rp></ruby>で<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>した<ruby class="furi">数<rp>(</rp><rt>すう</rt><rp>)</rp></ruby><ruby class="furi">字<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>（936）を<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>かせています。それが<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">器<rp>(</rp><rt>き</rt><rp>)</rp></ruby>に<ruby class="furi">差<rp>(</rp><rt>さ</rt><rp>)</rp></ruby>し<ruby class="furi">戻<rp>(</rp><rt>もど</rt><rp>)</rp></ruby>され、2 <ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">目<rp>(</rp><rt>め</rt><rp>)</rp></ruby>に<ruby class="furi">比<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby><ruby class="furi">較<rp>(</rp><rt>かく</rt><rp>)</rp></ruby>ツールを<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>って<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>き<ruby class="furi">直<rp>(</rp><rt>なお</rt><rp>)</rp></ruby>したことで<ruby class="furi">合<rp>(</rp><rt>ごう</rt><rp>)</rp></ruby><ruby class="furi">格<rp>(</rp><rt>かく</rt><rp>)</rp></ruby>しています。</p>
+<h2>ステップ 4：<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Java <ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスにつなぐ</h2>
+<p><code>--fake-backend</code> を<ruby class="furi">外<rp>(</rp><rt>はず</rt><rp>)</rp></ruby>すと、CLI は <code>config/services.yaml</code> に<ruby class="furi">従<rp>(</rp><rt>したが</rt><rp>)</rp></ruby>い、<code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code> を<ruby class="furi">子<rp>(</rp><rt>こ</rt><rp>)</rp></ruby>プロセスとして<ruby class="furi">起<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>します。そのため JDK 21 とビルド<ruby class="furi">済<rp>(</rp><rt>ず</rt><rp>)</rp></ruby>みの jar が<ruby class="furi">必<rp>(</rp><rt>ひつ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>です。</p>
+<ol>
+<li>JDK 21 をインストールします（ディストリビューションのパッケージでも Temurin のアーカイブでもかまいません）。<ruby class="furi">以<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">下<rp>(</rp><rt>か</rt><rp>)</rp></ruby>の<ruby class="furi">例<rp>(</rp><rt>れい</rt><rp>)</rp></ruby>では <code>$HOME/.local/jdk/21</code> に<ruby class="furi">展<rp>(</rp><rt>てん</rt><rp>)</rp></ruby><ruby class="furi">開<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>しています。</li>
+<li><code>JAVA_HOME</code> を<ruby class="furi">設<rp>(</rp><rt>せっ</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>します。<strong><code>java</code> が PATH になくても</strong>、<code>JAVA_HOME</code> が JDK を<ruby class="furi">指<rp>(</rp><rt>さ</rt><rp>)</rp></ruby>していれば、CLI は <code>$JAVA_HOME/bin/java</code> を<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>います。</li>
+<li><code>services/calc-engine</code> で jar をビルドします（<ruby class="furi">初<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby><ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>は Gradle と<ruby class="furi">依<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">存<rp>(</rp><rt>ぞん</rt><rp>)</rp></ruby>ライブラリをダウンロードするため、ネットワーク<ruby class="furi">接<rp>(</rp><rt>せつ</rt><rp>)</rp></ruby><ruby class="furi">続<rp>(</rp><rt>ぞく</rt><rp>)</rp></ruby>が<ruby class="furi">必<rp>(</rp><rt>ひつ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>です）。</li>
+</ol>
+<div class="term" data-title="bash — 計算サービスのビルド">
+<script type="application/json">[
         {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
         {"cmd": "$JAVA_HOME/bin/java -version"},
         {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
@@ -150,10 +144,10 @@ cd echolab</code></pre>
         {"out": "calc-engine-mcp.jar"},
         {"cmd": "cd ../.."}
       ]</script>
-    </div>
-    <p>続いて、同じ質問と台本で、<code>--fake-backend</code> を付けずにもう一度質問します。Java のプロセスを起動するため、検証環境では 1 回の実行に約 9 秒かかりました。</p>
-    <div class="term" data-title="bash — Java 計算サービスを使う">
-      <script type="application/json">[
+</div>
+<p><ruby class="furi">続<rp>(</rp><rt>つづ</rt><rp>)</rp></ruby>いて、<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じ<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>と<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>で、<code>--fake-backend</code> を<ruby class="furi">付<rp>(</rp><rt>つ</rt><rp>)</rp></ruby>けずにもう<ruby class="furi">一<rp>(</rp><rt>いち</rt><rp>)</rp></ruby><ruby class="furi">度<rp>(</rp><rt>ど</rt><rp>)</rp></ruby><ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>します。Java のプロセスを<ruby class="furi">起<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>するため、<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby>では 1 <ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>の<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>に<ruby class="furi">約<rp>(</rp><rt>やく</rt><rp>)</rp></ruby> 9 <ruby class="furi">秒<rp>(</rp><rt>びょう</rt><rp>)</rp></ruby>かかりました。</p>
+<div class="term" data-title="bash — Java 計算サービスを使う">
+<script type="application/json">[
         {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、…（同上）…敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 14},
         {"pause": 2000},
         {"out": "ビルド B の方が強いです。", "cls": "hl"},
@@ -172,22 +166,21 @@ cd echolab</code></pre>
         {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031434Z-0b1739", "cls": "warn"},
         {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031434Z-0b1739.jsonl", "cls": "dim"}
       ]</script>
-    </div>
-    <p>回答も出典の表もステップ 3 とまったく同じです。試験用の計算サービスも Java のサービスと同じく、期待ダメージなどの数値を小数点以下 6 桁（銀行丸め HALF_EVEN）で返します（例：<code>6192.000000</code>）。コマンド中の「…（同上）…」は省略を表しています。実際には質問を省略せずに入力してください。</p>
-    <div class="callout bad"><strong><code>エラー: サービス calc-engine の実行ファイル java が見つかりません。</code> と表示されたら</strong>PATH 上に <code>java</code> がなく、<code>JAVA_HOME</code> も設定されていません。<code>jar がありません</code> と表示された場合は、jar がまだビルドされていません。どちらの場合も CLI は Java を起動する前に止まり、原因と直し方を表示して終了コード 2 で終わります。<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>もご覧ください。</div>
-
-    <h2>ステップ 5（任意）：実際の Claude を使う</h2>
-    <p><code>--llm</code> を指定しないときの既定値は <code>anthropic</code> で、実際の Claude（モデル <code>claude-opus-5-5</code>）を呼びます。この場合は自由に質問でき、どのツールを呼ぶかは Claude が自分で判断します。</p>
-    <h3>5-1 認証情報を用意する</h3>
-    <p>認証情報は、Anthropic 公式 Python SDK の既定の順序で探されます。いちばん簡単なのは次の 2 つです。</p>
-    <pre><code># 方法 A：環境変数
+</div>
+<p><ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>も<ruby class="furi">出<rp>(</rp><rt>しゅっ</rt><rp>)</rp></ruby><ruby class="furi">典<rp>(</rp><rt>てん</rt><rp>)</rp></ruby>の<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby>もステップ 3 とまったく<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じです。<ruby class="furi">試<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class="furi">験<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>の<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>サービスも Java のサービスと<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じく、<ruby class="furi">期<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">待<rp>(</rp><rt>たい</rt><rp>)</rp></ruby>ダメージなどの<ruby class="furi">数<rp>(</rp><rt>すう</rt><rp>)</rp></ruby><ruby class="furi">値<rp>(</rp><rt>ち</rt><rp>)</rp></ruby>を<ruby class="furi">小<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">数<rp>(</rp><rt>すう</rt><rp>)</rp></ruby><ruby class="furi">点<rp>(</rp><rt>てん</rt><rp>)</rp></ruby><ruby class="furi">以<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">下<rp>(</rp><rt>か</rt><rp>)</rp></ruby> 6 <ruby class="furi">桁<rp>(</rp><rt>けた</rt><rp>)</rp></ruby>（<ruby class="furi">銀<rp>(</rp><rt>ぎん</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby><ruby class="furi">丸<rp>(</rp><rt>まる</rt><rp>)</rp></ruby>め HALF_EVEN）で<ruby class="furi">返<rp>(</rp><rt>かえ</rt><rp>)</rp></ruby>します（<ruby class="furi">例<rp>(</rp><rt>れい</rt><rp>)</rp></ruby>：<code>6192.000000</code>）。コマンド<ruby class="furi">中<rp>(</rp><rt>ちゅう</rt><rp>)</rp></ruby>の「…（<ruby class="furi">同<rp>(</rp><rt>どう</rt><rp>)</rp></ruby><ruby class="furi">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby>）…」は<ruby class="furi">省<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">略<rp>(</rp><rt>りゃく</rt><rp>)</rp></ruby>を<ruby class="furi">表<rp>(</rp><rt>あらわ</rt><rp>)</rp></ruby>しています。<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>には<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>を<ruby class="furi">省<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">略<rp>(</rp><rt>りゃく</rt><rp>)</rp></ruby>せずに<ruby class="furi">入<rp>(</rp><rt>にゅう</rt><rp>)</rp></ruby><ruby class="furi">力<rp>(</rp><rt>りょく</rt><rp>)</rp></ruby>してください。</p>
+<div class="callout bad"><strong><code>エラー: サービス calc-engine の実行ファイル java が見つかりません。</code> と<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class="furi">示<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>されたら</strong>PATH <ruby class="furi">上<rp>(</rp><rt>うえ</rt><rp>)</rp></ruby>に <code>java</code> がなく、<code>JAVA_HOME</code> も<ruby class="furi">設<rp>(</rp><rt>せっ</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>されていません。<code>jar がありません</code> と<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class="furi">示<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>された<ruby class="furi">場<rp>(</rp><rt>ば</rt><rp>)</rp></ruby><ruby class="furi">合<rp>(</rp><rt>あい</rt><rp>)</rp></ruby>は、jar がまだビルドされていません。どちらの<ruby class="furi">場<rp>(</rp><rt>ば</rt><rp>)</rp></ruby><ruby class="furi">合<rp>(</rp><rt>あい</rt><rp>)</rp></ruby>も CLI は Java を<ruby class="furi">起<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">動<rp>(</rp><rt>どう</rt><rp>)</rp></ruby>する<ruby class="furi">前<rp>(</rp><rt>まえ</rt><rp>)</rp></ruby>に<ruby class="furi">止<rp>(</rp><rt>と</rt><rp>)</rp></ruby>まり、<ruby class="furi">原<rp>(</rp><rt>げん</rt><rp>)</rp></ruby><ruby class="furi">因<rp>(</rp><rt>いん</rt><rp>)</rp></ruby>と<ruby class="furi">直<rp>(</rp><rt>なお</rt><rp>)</rp></ruby>し<ruby class="furi">方<rp>(</rp><rt>かた</rt><rp>)</rp></ruby>を<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class="furi">示<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>して<ruby class="furi">終<rp>(</rp><rt>しゅう</rt><rp>)</rp></ruby><ruby class="furi">了<rp>(</rp><rt>りょう</rt><rp>)</rp></ruby>コード 2 で<ruby class="furi">終<rp>(</rp><rt>お</rt><rp>)</rp></ruby>わります。<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>もご<ruby class="furi">覧<rp>(</rp><rt>らん</rt><rp>)</rp></ruby>ください。</div>
+<h2>ステップ 5（<ruby class="furi">任<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>）：<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude を<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>う</h2>
+<p><code>--llm</code> を<ruby class="furi">指<rp>(</rp><rt>し</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>しないときの<ruby class="furi">既<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby><ruby class="furi">値<rp>(</rp><rt>あたい</rt><rp>)</rp></ruby>は <code>anthropic</code> で、<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude（モデル <code>claude-opus-5-5</code>）を<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>びます。この<ruby class="furi">場<rp>(</rp><rt>ば</rt><rp>)</rp></ruby><ruby class="furi">合<rp>(</rp><rt>あい</rt><rp>)</rp></ruby>は<ruby class="furi">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">由<rp>(</rp><rt>ゆう</rt><rp>)</rp></ruby>に<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>でき、どのツールを<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>ぶかは Claude が<ruby class="furi">自<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">分<rp>(</rp><rt>ぶん</rt><rp>)</rp></ruby>で<ruby class="furi">判<rp>(</rp><rt>はん</rt><rp>)</rp></ruby><ruby class="furi">断<rp>(</rp><rt>だん</rt><rp>)</rp></ruby>します。</p>
+<h3>5-1 <ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>を<ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby><ruby class="furi">意<rp>(</rp><rt>い</rt><rp>)</rp></ruby>する</h3>
+<p><ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>は、Anthropic <ruby class="furi">公<rp>(</rp><rt>こう</rt><rp>)</rp></ruby><ruby class="furi">式<rp>(</rp><rt>しき</rt><rp>)</rp></ruby> Python SDK の<ruby class="furi">既<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>の<ruby class="furi">順<rp>(</rp><rt>じゅん</rt><rp>)</rp></ruby><ruby class="furi">序<rp>(</rp><rt>じょ</rt><rp>)</rp></ruby>で<ruby class="furi">探<rp>(</rp><rt>さが</rt><rp>)</rp></ruby>されます。いちばん<ruby class="furi">簡<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">単<rp>(</rp><rt>たん</rt><rp>)</rp></ruby>なのは<ruby class="furi">次<rp>(</rp><rt>つぎ</rt><rp>)</rp></ruby>の 2 つです。</p>
+<pre><code># 方法 A：環境変数
 export ANTHROPIC_API_KEY=sk-ant-...（ご自分のキー）
 
 # 方法 B：Anthropic の CLI でログイン（SDK がその保存した設定を読み込みます）
 ant auth login</code></pre>
-    <p>認証情報がないまま実行するとどうなるでしょうか。実際の出力を下に示します。CLI は異常終了せず、状態 <code>llm_error</code>・終了コード 1 で終わり、回答に原因（認証情報がないこと）と対処法がそのまま書かれます。</p>
-    <div class="term" data-title="bash — 認証情報なし">
-      <script type="application/json">[
+<p><ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>がないまま<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>するとどうなるでしょうか。<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の<ruby class="furi">出<rp>(</rp><rt>しゅつ</rt><rp>)</rp></ruby><ruby class="furi">力<rp>(</rp><rt>りょく</rt><rp>)</rp></ruby>を<ruby class="furi">下<rp>(</rp><rt>した</rt><rp>)</rp></ruby>に<ruby class="furi">示<rp>(</rp><rt>しめ</rt><rp>)</rp></ruby>します。CLI は<ruby class="furi">異<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">常<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">終<rp>(</rp><rt>しゅう</rt><rp>)</rp></ruby><ruby class="furi">了<rp>(</rp><rt>りょう</rt><rp>)</rp></ruby>せず、<ruby class="furi">状<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">態<rp>(</rp><rt>たい</rt><rp>)</rp></ruby> <code>llm_error</code>・<ruby class="furi">終<rp>(</rp><rt>しゅう</rt><rp>)</rp></ruby><ruby class="furi">了<rp>(</rp><rt>りょう</rt><rp>)</rp></ruby>コード 1 で<ruby class="furi">終<rp>(</rp><rt>お</rt><rp>)</rp></ruby>わり、<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>に<ruby class="furi">原<rp>(</rp><rt>げん</rt><rp>)</rp></ruby><ruby class="furi">因<rp>(</rp><rt>いん</rt><rp>)</rp></ruby>（<ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>がないこと）と<ruby class="furi">対<rp>(</rp><rt>たい</rt><rp>)</rp></ruby><ruby class="furi">処<rp>(</rp><rt>しょ</rt><rp>)</rp></ruby><ruby class="furi">法<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>がそのまま<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>かれます。</p>
+<div class="term" data-title="bash — 認証情報なし">
+<script type="application/json">[
         {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
         {"pause": 500},
         {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
@@ -200,30 +193,27 @@ ant auth login</code></pre>
         {"cmd": "grep llm_error .echolab/traces/20261003T030610Z-028cc3.jsonl | head -1"},
         {"out": "{\"ts\": \"2026-10-03T03:06:10.811+00:00\", \"run_id\": \"20261003T030610Z-028cc3\", \"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"}
       ]</script>
-    </div>
-    <div class="callout"><strong>回答は原因ごとに変わります</strong><code>llm_error</code> の回答は、SDK の例外の種類に応じて案内が変わります。認証情報がない、または認証に失敗した（HTTP 401/403）ときは <code>ANTHROPIC_API_KEY</code> の設定か <code>ant auth login</code> を案内します。レート制限・過負荷・ネットワークの問題のときに限り「時間をおいてお試しください」と案内します。それ以外の API エラーでは、トレースを確認するよう案内します。トレースの <code>llm_error</code> の行には、分類 <code>kind</code> と SDK の元のエラーメッセージが記録されます。</div>
-
-    <h3>5-2 先にコストの上限を設定する</h3>
-    <p>CLI は Claude を呼ぶ前に毎回、費用の台帳（既定は <code>.echolab/costs.jsonl</code>）を確認します。既定の上限は <code>config/budget.yaml</code> にあり、<strong>1 日 1.00 ドル・1 か月 10.00 ドル</strong>です。日付は UTC で区切ります（日本時間では毎日 9:00 に日付が変わります）。初めて試すときは、一時的にもっと低くしておくこともできます。</p>
-    <pre><code>export ECHOLAB_DAILY_USD=0.20     # 今日は最大 0.20 ドル
+</div>
+<div class="callout"><strong><ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>は<ruby class="furi">原<rp>(</rp><rt>げん</rt><rp>)</rp></ruby><ruby class="furi">因<rp>(</rp><rt>いん</rt><rp>)</rp></ruby>ごとに<ruby class="furi">変<rp>(</rp><rt>か</rt><rp>)</rp></ruby>わります</strong><code>llm_error</code> の<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>は、SDK の<ruby class="furi">例<rp>(</rp><rt>れい</rt><rp>)</rp></ruby><ruby class="furi">外<rp>(</rp><rt>がい</rt><rp>)</rp></ruby>の<ruby class="furi">種<rp>(</rp><rt>しゅ</rt><rp>)</rp></ruby><ruby class="furi">類<rp>(</rp><rt>るい</rt><rp>)</rp></ruby>に<ruby class="furi">応<rp>(</rp><rt>おう</rt><rp>)</rp></ruby>じて<ruby class="furi">案<rp>(</rp><rt>あん</rt><rp>)</rp></ruby><ruby class="furi">内<rp>(</rp><rt>ない</rt><rp>)</rp></ruby>が<ruby class="furi">変<rp>(</rp><rt>か</rt><rp>)</rp></ruby>わります。<ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">情<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">報<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>がない、または<ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby>に<ruby class="furi">失<rp>(</rp><rt>しっ</rt><rp>)</rp></ruby><ruby class="furi">敗<rp>(</rp><rt>ぱい</rt><rp>)</rp></ruby>した（HTTP 401/403）ときは <code>ANTHROPIC_API_KEY</code> の<ruby class="furi">設<rp>(</rp><rt>せっ</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>か <code>ant auth login</code> を<ruby class="furi">案<rp>(</rp><rt>あん</rt><rp>)</rp></ruby><ruby class="furi">内<rp>(</rp><rt>ない</rt><rp>)</rp></ruby>します。レート<ruby class="furi">制<rp>(</rp><rt>せい</rt><rp>)</rp></ruby><ruby class="furi">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>・<ruby class="furi">過<rp>(</rp><rt>か</rt><rp>)</rp></ruby><ruby class="furi">負<rp>(</rp><rt>ふ</rt><rp>)</rp></ruby><ruby class="furi">荷<rp>(</rp><rt>か</rt><rp>)</rp></ruby>・ネットワークの<ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby><ruby class="furi">題<rp>(</rp><rt>だい</rt><rp>)</rp></ruby>のときに<ruby class="furi">限<rp>(</rp><rt>かぎ</rt><rp>)</rp></ruby>り「<ruby class="furi">時<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">間<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>をおいてお<ruby class="furi">試<rp>(</rp><rt>ため</rt><rp>)</rp></ruby>しください」と<ruby class="furi">案<rp>(</rp><rt>あん</rt><rp>)</rp></ruby><ruby class="furi">内<rp>(</rp><rt>ない</rt><rp>)</rp></ruby>します。それ<ruby class="furi">以<rp>(</rp><rt>い</rt><rp>)</rp></ruby><ruby class="furi">外<rp>(</rp><rt>がい</rt><rp>)</rp></ruby>の API エラーでは、トレースを<ruby class="furi">確<rp>(</rp><rt>かく</rt><rp>)</rp></ruby><ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby>するよう<ruby class="furi">案<rp>(</rp><rt>あん</rt><rp>)</rp></ruby><ruby class="furi">内<rp>(</rp><rt>ない</rt><rp>)</rp></ruby>します。トレースの <code>llm_error</code> の<ruby class="furi">行<rp>(</rp><rt>ぎょう</rt><rp>)</rp></ruby>には、<ruby class="furi">分<rp>(</rp><rt>ぶん</rt><rp>)</rp></ruby><ruby class="furi">類<rp>(</rp><rt>るい</rt><rp>)</rp></ruby> <code>kind</code> と SDK の<ruby class="furi">元<rp>(</rp><rt>もと</rt><rp>)</rp></ruby>のエラーメッセージが<ruby class="furi">記<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">録<rp>(</rp><rt>ろく</rt><rp>)</rp></ruby>されます。</div>
+<h3>5-2 <ruby class="furi">先<rp>(</rp><rt>さき</rt><rp>)</rp></ruby>にコストの<ruby class="furi">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>を<ruby class="furi">設<rp>(</rp><rt>せっ</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>する</h3>
+<p>CLI は Claude を<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>ぶ<ruby class="furi">前<rp>(</rp><rt>まえ</rt><rp>)</rp></ruby>に<ruby class="furi">毎<rp>(</rp><rt>まい</rt><rp>)</rp></ruby><ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>、<ruby class="furi">費<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>の<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">帳<rp>(</rp><rt>ちょう</rt><rp>)</rp></ruby>（<ruby class="furi">既<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>は <code>.echolab/costs.jsonl</code>）を<ruby class="furi">確<rp>(</rp><rt>かく</rt><rp>)</rp></ruby><ruby class="furi">認<rp>(</rp><rt>にん</rt><rp>)</rp></ruby>します。<ruby class="furi">既<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">定<rp>(</rp><rt>てい</rt><rp>)</rp></ruby>の<ruby class="furi">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>は <code>config/budget.yaml</code> にあり、<strong>1 <ruby class="furi">日<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby> 1.00 ドル・1 か<ruby class="furi">月<rp>(</rp><rt>げつ</rt><rp>)</rp></ruby> 10.00 ドル</strong>です。<ruby class="furi">日<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby><ruby class="furi">付<rp>(</rp><rt>づけ</rt><rp>)</rp></ruby>は UTC で<ruby class="furi">区<rp>(</rp><rt>く</rt><rp>)</rp></ruby><ruby class="furi">切<rp>(</rp><rt>ぎ</rt><rp>)</rp></ruby>ります（<ruby class="furi">日<rp>(</rp><rt>にっ</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ぽん</rt><rp>)</rp></ruby><ruby class="furi">時<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">間<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>では<ruby class="furi">毎<rp>(</rp><rt>まい</rt><rp>)</rp></ruby><ruby class="furi">日<rp>(</rp><rt>にち</rt><rp>)</rp></ruby> 9:00 に<ruby class="furi">日<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby><ruby class="furi">付<rp>(</rp><rt>づけ</rt><rp>)</rp></ruby>が<ruby class="furi">変<rp>(</rp><rt>か</rt><rp>)</rp></ruby>わります）。<ruby class="furi">初<rp>(</rp><rt>はじ</rt><rp>)</rp></ruby>めて<ruby class="furi">試<rp>(</rp><rt>ため</rt><rp>)</rp></ruby>すときは、<ruby class="furi">一<rp>(</rp><rt>いち</rt><rp>)</rp></ruby><ruby class="furi">時<rp>(</rp><rt>じ</rt><rp>)</rp></ruby><ruby class="furi">的<rp>(</rp><rt>てき</rt><rp>)</rp></ruby>にもっと<ruby class="furi">低<rp>(</rp><rt>ひく</rt><rp>)</rp></ruby>くしておくこともできます。</p>
+<pre><code>export ECHOLAB_DAILY_USD=0.20     # 今日は最大 0.20 ドル
 export ECHOLAB_MONTHLY_USD=2.00   # 今月は最大 2.00 ドル</code></pre>
-    <p>上限に達すると Claude は呼ばれず、状態 <code>budget_exceeded</code> で終了します。費用の計算方法と台帳の形式は<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>をご覧ください。</p>
-
-    <h3>5-3 質問する</h3>
-    <pre><code>python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージを、明細つきで教えて。"</code></pre>
-    <p>（このガイドの検証環境には API キーがないため、実際の Claude の回答は載せていません。回答の形式は上の台本モードと同じです。）計算に必要なパラメータは、できるだけすべて質問に書いてください。ツールが計算に使えるのは、質問で与えた数値か、プロジェクト付属のサンプルデータだけです。</p>
-    <div class="callout"><strong>プライバシー</strong>質問、システムプロンプト、ツールの計算結果が Anthropic に送信されるのは、<code>anthropic</code> モードのときだけです。台本モードは完全に手元で動きます。各実行のトレースは手元の <code>.echolab/traces/</code> に保存されます。</div>
-
-    <div class="related"><strong>次に読む</strong>
-      <ul>
-        <li><a href="02-what-to-ask.html">何を聞けるか：機能一覧</a>：どんな計算ツールがあり、質問をどう書けばよいか。</li>
-        <li><a href="03-reading-answers.html">回答の読み方</a>：出典の表と状態の行の各項目。</li>
-        <li><a href="04-cli-reference.html">コマンドリファレンス</a>：すべてのオプションと環境変数。</li>
-        <li>エラーが出たら：<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>。</li>
-      </ul>
-    </div>
-    <div class="pager"></div>
-  </main>
+<p><ruby class="furi">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>に<ruby class="furi">達<rp>(</rp><rt>たっ</rt><rp>)</rp></ruby>すると Claude は<ruby class="furi">呼<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>ばれず、<ruby class="furi">状<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">態<rp>(</rp><rt>たい</rt><rp>)</rp></ruby> <code>budget_exceeded</code> で<ruby class="furi">終<rp>(</rp><rt>しゅう</rt><rp>)</rp></ruby><ruby class="furi">了<rp>(</rp><rt>りょう</rt><rp>)</rp></ruby>します。<ruby class="furi">費<rp>(</rp><rt>ひ</rt><rp>)</rp></ruby><ruby class="furi">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>の<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby><ruby class="furi">方<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby><ruby class="furi">法<rp>(</rp><rt>ほう</rt><rp>)</rp></ruby>と<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">帳<rp>(</rp><rt>ちょう</rt><rp>)</rp></ruby>の<ruby class="furi">形<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">式<rp>(</rp><rt>しき</rt><rp>)</rp></ruby>は<a href="06-cost-and-safety.html">コストの<ruby class="furi">上<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">限<rp>(</rp><rt>げん</rt><rp>)</rp></ruby>とデータの<ruby class="furi">確<rp>(</rp><rt>たし</rt><rp>)</rp></ruby>かさ</a>をご<ruby class="furi">覧<rp>(</rp><rt>らん</rt><rp>)</rp></ruby>ください。</p>
+<h3>5-3 <ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>する</h3>
+<pre><code>python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージを、明細つきで教えて。"</code></pre>
+<p>（このガイドの<ruby class="furi">検<rp>(</rp><rt>けん</rt><rp>)</rp></ruby><ruby class="furi">証<rp>(</rp><rt>しょう</rt><rp>)</rp></ruby><ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby>には API キーがないため、<ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">際<rp>(</rp><rt>さい</rt><rp>)</rp></ruby>の Claude の<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>は<ruby class="furi">載<rp>(</rp><rt>の</rt><rp>)</rp></ruby>せていません。<ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>の<ruby class="furi">形<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">式<rp>(</rp><rt>しき</rt><rp>)</rp></ruby>は<ruby class="furi">上<rp>(</rp><rt>うえ</rt><rp>)</rp></ruby>の<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>モードと<ruby class="furi">同<rp>(</rp><rt>おな</rt><rp>)</rp></ruby>じです。）<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>に<ruby class="furi">必<rp>(</rp><rt>ひつ</rt><rp>)</rp></ruby><ruby class="furi">要<rp>(</rp><rt>よう</rt><rp>)</rp></ruby>なパラメータは、できるだけすべて<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>に<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>いてください。ツールが<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>に<ruby class="furi">使<rp>(</rp><rt>つか</rt><rp>)</rp></ruby>えるのは、<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>で<ruby class="furi">与<rp>(</rp><rt>あた</rt><rp>)</rp></ruby>えた<ruby class="furi">数<rp>(</rp><rt>すう</rt><rp>)</rp></ruby><ruby class="furi">値<rp>(</rp><rt>ち</rt><rp>)</rp></ruby>か、プロジェクト<ruby class="furi">付<rp>(</rp><rt>ふ</rt><rp>)</rp></ruby><ruby class="furi">属<rp>(</rp><rt>ぞく</rt><rp>)</rp></ruby>のサンプルデータだけです。</p>
+<div class="callout"><strong>プライバシー</strong><ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>、システムプロンプト、ツールの<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby><ruby class="furi">結<rp>(</rp><rt>けっ</rt><rp>)</rp></ruby><ruby class="furi">果<rp>(</rp><rt>か</rt><rp>)</rp></ruby>が Anthropic に<ruby class="furi">送<rp>(</rp><rt>そう</rt><rp>)</rp></ruby><ruby class="furi">信<rp>(</rp><rt>しん</rt><rp>)</rp></ruby>されるのは、<code>anthropic</code> モードのときだけです。<ruby class="furi">台<rp>(</rp><rt>だい</rt><rp>)</rp></ruby><ruby class="furi">本<rp>(</rp><rt>ほん</rt><rp>)</rp></ruby>モードは<ruby class="furi">完<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">全<rp>(</rp><rt>ぜん</rt><rp>)</rp></ruby>に<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">元<rp>(</rp><rt>もと</rt><rp>)</rp></ruby>で<ruby class="furi">動<rp>(</rp><rt>うご</rt><rp>)</rp></ruby>きます。<ruby class="furi">各<rp>(</rp><rt>かく</rt><rp>)</rp></ruby><ruby class="furi">実<rp>(</rp><rt>じっ</rt><rp>)</rp></ruby><ruby class="furi">行<rp>(</rp><rt>こう</rt><rp>)</rp></ruby>のトレースは<ruby class="furi">手<rp>(</rp><rt>て</rt><rp>)</rp></ruby><ruby class="furi">元<rp>(</rp><rt>もと</rt><rp>)</rp></ruby>の <code>.echolab/traces/</code> に<ruby class="furi">保<rp>(</rp><rt>ほ</rt><rp>)</rp></ruby><ruby class="furi">存<rp>(</rp><rt>ぞん</rt><rp>)</rp></ruby>されます。</div>
+<div class="related"><strong><ruby class="furi">次<rp>(</rp><rt>つぎ</rt><rp>)</rp></ruby>に<ruby class="furi">読<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>む</strong>
+<ul>
+<li><a href="02-what-to-ask.html"><ruby class="furi">何<rp>(</rp><rt>なん</rt><rp>)</rp></ruby>を<ruby class="furi">聞<rp>(</rp><rt>き</rt><rp>)</rp></ruby>けるか：<ruby class="furi">機<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class="furi">能<rp>(</rp><rt>のう</rt><rp>)</rp></ruby><ruby class="furi">一<rp>(</rp><rt>いち</rt><rp>)</rp></ruby><ruby class="furi">覧<rp>(</rp><rt>らん</rt><rp>)</rp></ruby></a>：どんな<ruby class="furi">計<rp>(</rp><rt>けい</rt><rp>)</rp></ruby><ruby class="furi">算<rp>(</rp><rt>さん</rt><rp>)</rp></ruby>ツールがあり、<ruby class="furi">質<rp>(</rp><rt>しつ</rt><rp>)</rp></ruby><ruby class="furi">問<rp>(</rp><rt>もん</rt><rp>)</rp></ruby>をどう<ruby class="furi">書<rp>(</rp><rt>か</rt><rp>)</rp></ruby>けばよいか。</li>
+<li><a href="03-reading-answers.html"><ruby class="furi">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby><ruby class="furi">答<rp>(</rp><rt>とう</rt><rp>)</rp></ruby>の<ruby class="furi">読<rp>(</rp><rt>よ</rt><rp>)</rp></ruby>み<ruby class="furi">方<rp>(</rp><rt>かた</rt><rp>)</rp></ruby></a>：<ruby class="furi">出<rp>(</rp><rt>しゅっ</rt><rp>)</rp></ruby><ruby class="furi">典<rp>(</rp><rt>てん</rt><rp>)</rp></ruby>の<ruby class="furi">表<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby>と<ruby class="furi">状<rp>(</rp><rt>じょう</rt><rp>)</rp></ruby><ruby class="furi">態<rp>(</rp><rt>たい</rt><rp>)</rp></ruby>の<ruby class="furi">行<rp>(</rp><rt>ぎょう</rt><rp>)</rp></ruby>の<ruby class="furi">各<rp>(</rp><rt>かく</rt><rp>)</rp></ruby><ruby class="furi">項<rp>(</rp><rt>こう</rt><rp>)</rp></ruby><ruby class="furi">目<rp>(</rp><rt>もく</rt><rp>)</rp></ruby>。</li>
+<li><a href="04-cli-reference.html">コマンドリファレンス</a>：すべてのオプションと<ruby class="furi">環<rp>(</rp><rt>かん</rt><rp>)</rp></ruby><ruby class="furi">境<rp>(</rp><rt>きょう</rt><rp>)</rp></ruby><ruby class="furi">変<rp>(</rp><rt>へん</rt><rp>)</rp></ruby><ruby class="furi">数<rp>(</rp><rt>すう</rt><rp>)</rp></ruby>。</li>
+<li>エラーが<ruby class="furi">出<rp>(</rp><rt>で</rt><rp>)</rp></ruby>たら：<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>。</li>
+</ul>
+</div>
+<div class="pager"></div>
+</main>
 </div>
 </body>
 </html>

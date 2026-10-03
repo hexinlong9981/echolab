@@ -145,3 +145,21 @@ body, pre.mermaid { font-family: var(--font-body); }
 .lang-switch a { text-decoration: none; }
 .lang-switch strong { color: var(--text); }
 header.top { flex-wrap: wrap; }
+
+/* ===== 日本語版のふりがな（ruby.furi）。漢字 1 字ずつ赤字で表示する ===== */
+:root { --furigana: #d32f2f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --furigana: #ff7b72; } }
+:root[data-theme="dark"] { --furigana: #ff7b72; }
+ruby.furi { position: relative; }
+/* ルビは漢字の真上に浮かせ、漢字の間を広げない（隣どうしが重なるときだけ guide.js が間を空ける） */
+ruby.furi rt {
+  position: absolute; left: 50%; top: -0.95em; transform: translateX(-50%);
+  color: var(--furigana); font-size: .5em; font-weight: normal; line-height: 1;
+  white-space: nowrap; letter-spacing: -0.06em; user-select: none;
+}
+ruby.furi rp { display: none; }
+html:lang(ja) body { line-height: 2.15; }
+html:lang(ja) nav.side li a { line-height: 1.9; }
+html.no-furi ruby.furi rt { display: none; }
+html.no-furi body { line-height: 1.75; }
+#furi-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; margin-right: 8px; }
