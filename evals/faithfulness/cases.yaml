@@ -12,6 +12,7 @@
 #     drafts_rejected      : 差し戻された下書きの数（台本モードのみ照合）
 #     unverified_note      : 回答に未確認データの注記が付くか
 #     answer_note          : 回答にドメインの注記（domain.yaml の answer_note）が付くか
+#     tool_errors          : ゲートウェイ・サービスが拒んだツール呼び出しの数（トレースから数える）
 #
 # 入力の値は説明用（ゴールデンケースと同じ）で、ゲームの公式の値ではない。
 schema_version: 1
@@ -153,6 +154,7 @@ cases:
       cited: [c2.probability]
       drafts_rejected: 0
       unverified_note: false
+      tool_errors: 1
 
   - id: bad-draft-raw-number
     title: 数字を直接書いた下書きは差し戻され、引用に直される

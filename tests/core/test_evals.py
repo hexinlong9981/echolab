@@ -30,6 +30,8 @@ async def test_all_scripted_cases_pass(tmp_path: Path) -> None:
     assert report.ok
     statuses = {r.case_id: r.status for r in report.results}
     assert statuses["never-corrected"] == "fallback"
+    errors = {r.case_id: r.tool_errors for r in report.results}
+    assert errors["tool-error-recovery"] == 1 and report.tool_errors == 1
     assert sum(r.drafts_rejected for r in report.results) >= 4
     assert 0 < report.draft_rejection_rate < 1
     assert report.total_cost > 0  # 台本の使用量から費用を計算している
@@ -70,6 +72,22 @@ async def test_a_failing_expectation_is_reported(tmp_path: Path) -> None:
     assert any("差し戻し" in f for f in result.failures)
     assert any("余り" in f for f in result.failures)
     assert result.faithful  # 期待とずれても、回答そのものは忠実
+
+
+async def test_tool_errors_expectation_is_checked(tmp_path: Path) -> None:
+    import yaml
+
+    doc = yaml.safe_load(CASES.read_text(encoding="utf-8"))
+    case = next(c for c in doc["cases"] if c["id"] == "tool-error-recovery")
+    case["expect"]["tool_errors"] = 0
+    path = tmp_path / "cases.yaml"
+    path.write_text(yaml.safe_dump({"cases": [case]}, allow_unicode=True), encoding="utf-8")
+    report = await run_evals(llm_kind="scripted", cases_path=path, raw_dir=tmp_path / "raw")
+    [result] = report.results
+    assert result.failures == ["拒まれたツール呼び出しが 1 件（期待 0 件）"]
+    assert "| 拒んだツール呼び出し（入力の誤り・許可外のツールなど） | 1 |" in render_markdown(
+        report
+    )
 
 
 def test_cases_file_declares_its_domain(tmp_path: Path) -> None:

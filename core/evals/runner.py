@@ -60,6 +60,8 @@ class CaseResult:
     cost_usd: Decimal = Decimal(0)
     run_id: str | None = None
     answer: str = ""
+    #: ゲートウェイやサービスが拒んだツール呼び出しの数（入力の誤り・許可されていないツールなど）
+    tool_errors: int = 0
 
 
 @dataclass
@@ -86,6 +88,10 @@ class EvalReport:
     @property
     def total_cost(self) -> Decimal:
         return sum((r.cost_usd for r in self.results), Decimal(0))
+
+    @property
+    def tool_errors(self) -> int:
+        return sum(r.tool_errors for r in self.results)
 
     @property
     def ok(self) -> bool:
@@ -121,6 +127,17 @@ def unsourced_numbers(result: AgentResult, question: str, sources: Mapping[str, 
         # 上限の回答の金額は台帳と設定から決まる値（LLM は書いていない）なので数えない
         answer = re.sub(r"（使用額 [^）]*）", "", answer)
     return len(_DIGITS.findall(unicodedata.normalize("NFKC", answer)))
+
+
+def count_tool_errors(trace_path: Path) -> int:
+    """トレースのうち、誤りとして LLM に返したツール呼び出しの数。"""
+    from core.trace import read_trace
+
+    return sum(
+        1
+        for r in read_trace(trace_path, "tool_result")
+        if (r.get("outcome") or {}).get("error") is not None
+    )
 
 
 async def run_case(
@@ -176,6 +193,11 @@ async def run_case(
     expected_note = expect.get("unverified_note")
     if expected_note is not None and result.status == "answered" and note != bool(expected_note):
         failures.append(f"未確認データの注記が{'ある' if note else 'ない'}")
+    tool_errors = count_tool_errors(result.trace_path)
+    if "tool_errors" in expect and tool_errors != expect["tool_errors"]:
+        failures.append(
+            f"拒まれたツール呼び出しが {tool_errors} 件（期待 {expect['tool_errors']} 件）"
+        )
     expected_answer_note = expect.get("answer_note")
     if expected_answer_note is not None and result.status == "answered":
         answer_note = load_answer_note(repo_root, domain)
@@ -206,6 +228,7 @@ async def run_case(
         cost_usd=result.cost_usd,
         run_id=result.run_id,
         answer=result.answer,
+        tool_errors=tool_errors,
     )
 
 
@@ -285,6 +308,7 @@ def render_markdown(report: EvalReport, *, model: str | None = None) -> str:
         f"（{sum(r.drafts_rejected for r in report.results)} / "
         f"{sum(r.drafts for r in report.results)}） |",
         f"| 合格したケース | {report.passed} / {len(report.results)} |",
+        f"| 拒んだツール呼び出し（入力の誤り・許可外のツールなど） | {report.tool_errors} |",
         f"| 費用の合計（USD） | {report.total_cost:.6f} |",
         "",
         "## ケースごとの結果",
