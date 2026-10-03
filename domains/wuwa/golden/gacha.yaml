@@ -1,0 +1,94 @@
+# ピックアップ獲得確率のゴールデンケース。
+# 規則の数値は説明用（toy）で、公式の値ではない。期待値の出どころは各ケースの derivation に書く（hand = 手計算、closed_form = 閉じた式、reference = 参照実装の厳密解（マルコフ連鎖））。
+# Java の厳密解・モンテカルロ法、Python の参照実装の 3 つで照合している。
+schema_version: 1
+tool: gacha.probability_within
+cases:
+  - id: gacha-001
+    description: 小さな規則で 10 回以内（ソフト天井あり・初期状態）
+    derivation: reference
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true }
+      start_pity: 0
+      guaranteed: false
+      pulls: 10
+    expected:
+      probability: 0.7344054712
+    tolerance: 1.0e-9
+  - id: gacha-002
+    description: ハード天井 × 2 回分引けば、すり抜け確定があるので必ず獲得する
+    derivation: closed_form
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true }
+      start_pity: 0
+      guaranteed: false
+      pulls: 20
+    expected:
+      probability: 1.0
+    tolerance: 1.0e-9
+  - id: gacha-003
+    description: 天井カウント 8・確定ありから 1 回（ソフト天井で 60%）
+    derivation: hand
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true }
+      start_pity: 8
+      guaranteed: true
+      pulls: 1
+    expected:
+      probability: 0.6
+    tolerance: 1.0e-9
+  - id: gacha-004
+    description: 実際のガチャに近い規模の toy 規則で 80 回以内
+    derivation: reference
+    input:
+      rules: { base_rate: 0.008, soft_pity_start: 66, soft_pity_increment: 0.04, hard_pity: 80, featured_rate: 0.5, guarantee_after_loss: true }
+      start_pity: 0
+      guaranteed: false
+      pulls: 80
+    expected:
+      probability: 0.6058637851964593
+    tolerance: 1.0e-9
+  - id: gacha-005
+    description: 同じ規則で 160 回引けば必ず獲得する
+    derivation: closed_form
+    input:
+      rules: { base_rate: 0.008, soft_pity_start: 66, soft_pity_increment: 0.04, hard_pity: 80, featured_rate: 0.5, guarantee_after_loss: true }
+      start_pity: 0
+      guaranteed: false
+      pulls: 160
+    expected:
+      probability: 1.0
+    tolerance: 1.0e-9
+  - id: gacha-006
+    description: すり抜け確定が無い規則では 20 回でも 1 にならない
+    derivation: reference
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: false }
+      start_pity: 0
+      guaranteed: false
+      pulls: 20
+    expected:
+      probability: 0.8854307959241043
+    tolerance: 1.0e-9
+  - id: gacha-007
+    description: 天井が届かず全員ピックアップなら、毎回 10% の独立試行（1 − 0.9^10）
+    derivation: closed_form
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 100, soft_pity_increment: 0, hard_pity: 100, featured_rate: 1.0, guarantee_after_loss: false }
+      start_pity: 0
+      guaranteed: false
+      pulls: 10
+    expected:
+      probability: 0.6513215599
+    tolerance: 1.0e-9
+  - id: gacha-008
+    description: すり抜け確定なし・天井が届かなければ、毎回 0.1 × 0.5 = 5% の独立試行（1 − 0.95^20）
+    derivation: closed_form
+    input:
+      rules: { base_rate: 0.1, soft_pity_start: 100, soft_pity_increment: 0, hard_pity: 100, featured_rate: 0.5, guarantee_after_loss: false }
+      start_pity: 0
+      guaranteed: false
+      pulls: 20
+    expected:
+      probability: 0.6415140775914581
+    tolerance: 1.0e-9

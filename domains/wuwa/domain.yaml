@@ -1,0 +1,27 @@
+# ドメインパック①：鳴潮の育成（非公式・ファン作品）
+# コアはこのマニフェストだけを読み、ゲームの概念を直接は知らない（ADR-0003）。
+name: wuwa
+display_name: 鳴潮 育成アドバイザー
+version: 0.1.0
+data_version: v2.x
+data_dir: data/v2.x
+golden_dir: golden
+prompts_dir: prompts
+filter_policy: none
+tools:
+  - name: damage.expected
+    service: calc-engine
+    implemented_in: M1
+    description: 期待ダメージと各乗区の明細
+  - name: echo.score
+    service: calc-engine
+    implemented_in: M1
+    description: 声骸サブ詞条の重み付きスコア
+  - name: gacha.probability_within
+    service: calc-engine
+    implemented_in: M1
+    description: N 回以内にピックアップを獲得する確率（厳密解）
+  - name: gacha.simulate
+    service: calc-engine
+    implemented_in: M1
+    description: 同確率のモンテカルロ推定（逐次・parallel stream・仮想スレッド）

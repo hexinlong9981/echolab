@@ -1,0 +1,12 @@
+# 声骸スコアの重みとサブ詞条の最大値のサンプル。**値は未確認（verified: false）です。**
+schema_version: 1
+max_roll:
+  verified: false
+  source: "TODO: 要確認"
+  values: { CRIT_RATE: 0.1, CRIT_DMG: 0.2, ATK_PERCENT: 0.12, ATK_FLAT: 60, ENERGY_REGEN: 0.12, HP_PERCENT: 0.12, HP_FLAT: 600, DEF_PERCENT: 0.15, DEF_FLAT: 60 }
+profiles:
+  - id: sample-crit-attacker
+    display_name: 会心型アタッカー（サンプル）
+    verified: false
+    source: "TODO: 要確認"
+    weights: { CRIT_RATE: 1.0, CRIT_DMG: 1.0, ATK_PERCENT: 0.75, ATK_FLAT: 0.25, ENERGY_REGEN: 0.5 }

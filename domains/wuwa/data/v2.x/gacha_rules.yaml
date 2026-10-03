@@ -1,0 +1,15 @@
+# ガチャ規則のサンプル。**値は未確認（verified: false）で、公式の値ではありません。**
+# 実際に使う前に、出典を確認して source を埋め、verified を true にしてください。
+schema_version: 1
+banners:
+  - id: featured-character
+    display_name: 限定キャラクター（サンプル）
+    verified: false
+    source: "TODO: 要確認"
+    rules:
+      base_rate: 0.008
+      soft_pity_start: 66
+      soft_pity_increment: 0.04
+      hard_pity: 80
+      featured_rate: 0.5
+      guarantee_after_loss: true

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "golden case file",
+  "description": "Java の契約テストと Python の評価で共用するゴールデンケースの形式（schema_version 1）",
+  "type": "object",
+  "required": ["schema_version", "tool", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "tool": { "type": "string", "pattern": "^[a-z_]+(\\.[a-z_]+)+$" },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "derivation", "input", "expected", "tolerance"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z]+-[0-9]{3}$" },
+          "description": { "type": "string", "minLength": 1 },
+          "derivation": {
+            "description": "期待値の出どころ。hand=手計算、closed_form=閉形式の解、reference=参照実装の出力",
+            "enum": ["hand", "closed_form", "reference"]
+          },
+          "input": { "type": "object" },
+          "expected": { "type": "object", "minProperties": 1 },
+          "tolerance": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+# Gradle / Java
+.gradle/
+.gradle-cache/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secrets（絶対にコミットしない）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node（web/）
+node_modules/
+dist/
+
+# 評価の生ログ（集計済みレポートのみコミット）
+evals/reports/raw/
+
+# テスト・ツールのキャッシュ
+.jqwik-database
+
+# AI ツールのローカル設定
+CLAUDE.md
+CLAUDE.local.md
+.claude/

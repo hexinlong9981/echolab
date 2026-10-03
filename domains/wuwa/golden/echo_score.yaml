@@ -1,0 +1,61 @@
+# 声骸スコアのゴールデンケース。重み・最大値は説明用の値で、公式の値ではない。
+schema_version: 1
+tool: echo.score
+cases:
+  - id: echo-001
+    description: 一般的なサブ詞条の組み合わせ
+    derivation: hand
+    input:
+      echo:
+        name: sample-echo-a
+        cost: 4
+        main: { stat: CRIT_RATE, value: 0.22 }
+        subs:
+          - { stat: CRIT_RATE, value: 0.08 }
+          - { stat: CRIT_DMG, value: 0.16 }
+          - { stat: ATK_PERCENT, value: 0.09 }
+          - { stat: ATK_FLAT, value: 40 }
+          - { stat: ENERGY_REGEN, value: 0.06 }
+      weights: { CRIT_RATE: 1.0, CRIT_DMG: 1.0, ATK_PERCENT: 0.75, ATK_FLAT: 0.25, ENERGY_REGEN: 0.5 }
+      max_roll: { CRIT_RATE: 0.1, CRIT_DMG: 0.2, ATK_PERCENT: 0.12, ATK_FLAT: 60, ENERGY_REGEN: 0.12, HP_PERCENT: 0.12, DEF_FLAT: 60 }
+    expected:
+      score: 2.579167
+      percent_of_ideal: 73.690476
+    tolerance: 1.0e-6
+  - id: echo-002
+    description: 重みのある 5 枠がすべて最大値なら理想値の 100%
+    derivation: hand
+    input:
+      echo:
+        name: sample-echo-b
+        cost: 3
+        main: { stat: ATK_PERCENT, value: 0.3 }
+        subs:
+          - { stat: CRIT_RATE, value: 0.1 }
+          - { stat: CRIT_DMG, value: 0.2 }
+          - { stat: ATK_PERCENT, value: 0.12 }
+          - { stat: ATK_FLAT, value: 60 }
+          - { stat: ENERGY_REGEN, value: 0.12 }
+      weights: { CRIT_RATE: 1.0, CRIT_DMG: 1.0, ATK_PERCENT: 0.75, ATK_FLAT: 0.25, ENERGY_REGEN: 0.5 }
+      max_roll: { CRIT_RATE: 0.1, CRIT_DMG: 0.2, ATK_PERCENT: 0.12, ATK_FLAT: 60, ENERGY_REGEN: 0.12, HP_PERCENT: 0.12, DEF_FLAT: 60 }
+    expected:
+      score: 3.5
+      percent_of_ideal: 100.0
+    tolerance: 1.0e-6
+  - id: echo-003
+    description: 重み 0 のステータスだけならスコアは 0（メイン詞条は評価しない）
+    derivation: hand
+    input:
+      echo:
+        name: sample-echo-c
+        cost: 1
+        main: { stat: CRIT_RATE, value: 0.08 }
+        subs:
+          - { stat: HP_PERCENT, value: 0.1 }
+          - { stat: DEF_FLAT, value: 50 }
+      weights: { CRIT_RATE: 1.0, CRIT_DMG: 1.0, ATK_PERCENT: 0.75, ATK_FLAT: 0.25, ENERGY_REGEN: 0.5 }
+      max_roll: { CRIT_RATE: 0.1, CRIT_DMG: 0.2, ATK_PERCENT: 0.12, ATK_FLAT: 60, ENERGY_REGEN: 0.12, HP_PERCENT: 0.12, DEF_FLAT: 60 }
+    expected:
+      score: 0.0
+      percent_of_ideal: 0.0
+    tolerance: 1.0e-6

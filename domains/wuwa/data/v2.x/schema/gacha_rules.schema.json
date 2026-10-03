@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "gacha_rules",
+  "type": "object",
+  "required": ["schema_version", "banners"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "banners": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provenance",
+        "type": "object",
+        "required": ["id", "display_name", "verified", "source", "rules"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "display_name": { "type": "string" },
+          "verified": { "type": "boolean" },
+          "source": { "type": "string", "minLength": 1 },
+          "checked_at": { "$ref": "#/$defs/date" },
+          "game_version": { "$ref": "#/$defs/gameVersion" },
+          "rules": { "$ref": "#/$defs/rules" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "gameVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "provenance": {
+      "description": "verified: true には出典の URL・確認日・ゲームの版が必須（ADR-0006）",
+      "if": { "properties": { "verified": { "const": true } }, "required": ["verified"] },
+      "then": {
+        "required": ["checked_at", "game_version"],
+        "properties": { "source": { "pattern": "^https://" } }
+      }
+    },
+    "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "rules": {
+      "type": "object",
+      "required": ["base_rate", "soft_pity_start", "soft_pity_increment", "hard_pity", "featured_rate", "guarantee_after_loss"],
+      "additionalProperties": false,
+      "properties": {
+        "base_rate": { "$ref": "#/$defs/probability" },
+        "soft_pity_start": { "type": "integer", "minimum": 1 },
+        "soft_pity_increment": { "$ref": "#/$defs/probability" },
+        "hard_pity": { "type": "integer", "minimum": 1 },
+        "featured_rate": { "$ref": "#/$defs/probability" },
+        "guarantee_after_loss": { "type": "boolean" }
+      }
+    }
+  }
+}
