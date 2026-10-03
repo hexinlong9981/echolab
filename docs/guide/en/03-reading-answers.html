@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reading the answers | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .mock { background: #0f1115; color: #c9d1d9; border: 1px solid #2a2f37; border-radius: 10px; margin: 16px 0; overflow: hidden;
+      font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace; }
+    .mock .mbar { background: #1a1d23; border-bottom: 1px solid #2a2f37; padding: 6px 12px; color: #8b93a1; font-size: 12px; }
+    .mock .mbody { padding: 10px 12px; overflow-x: auto; }
+    .mock .zone { position: relative; display: block; border: 1px dashed transparent; border-radius: 6px; padding: 2px 34px 2px 6px; margin: 2px 0; white-space: pre; }
+    .mock .zone.wrap { white-space: pre-wrap; word-break: break-word; }
+    .mock .zone[data-n] { border-color: #3a404a; }
+    .mock .zone[data-n]::after { content: attr(data-n); position: absolute; right: 6px; top: 4px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+    .mock .warn { color: #e3b341; } .mock .hl { color: #79c0ff; } .mock .dim { color: #8b93a1; } .mock .cmd { color: #fff; } .mock .prompt { color: #7ee787; }
+    ol.legend { padding-left: 0; list-style: none; counter-reset: lg; }
+    ol.legend li { counter-increment: lg; position: relative; padding-left: 32px; margin: 8px 0; }
+    ol.legend li::before { content: counter(lg); position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+  </style>
+</head>
+<body data-page="03-reading-answers.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Using EchoLab</span><span>Output</span><span>Verification</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Reading the answers</h1>
+    <p class="lead">Every run of the EchoLab CLI prints 4 parts: the answer text, the unverified-data note (when needed), the source table and the status line. Once you can read them, you can check for yourself "where this number came from and how far it can be trusted".</p>
+
+    <div class="callout"><strong>About language</strong>The answer text is written in the language of your question (Claude decides this), but the parts the CLI prints itself (labels such as 「出典」 "sources", 「状態」 "status", 「差し戻し」 "rejected drafts", 「費用」 "cost" and 「トレース」 "trace", the unverified-data note, and the fixed answers on failure) are currently in <b>Japanese</b>. This page gives an English gloss for each. All examples on this page come from real runs (<code>--llm scripted</code> scripted mode imitates Claude's wording; the calculation, verification and output are real). The scripts in the commands, <code>gacha_banner.yaml</code>, <code>compare_en.yaml</code> and <code>never_corrected.yaml</code>, were written for this guide and are not in the repository.</div>
+
+    <h2>The structure of one output</h2>
+    <p>Below is the real output (real Java calculation service) for "Using the sample limited character banner: my pity count is 30 and I'm not on a guarantee. What is the chance of getting the featured character within 100 more pulls?", with numbered annotations:</p>
+    <div class="mock" role="img" aria-label="Terminal output with numbered annotations">
+      <div class="mbar">bash — output structure, annotated</div>
+      <div class="mbody">
+<span class="zone wrap"><span class="prompt">$ </span><span class="cmd">python -m core.agent "Using the sample limited character banner: my pity count is 30 and I'm not on a guarantee. What is the chance of getting the featured character within 100 more pulls?" --llm scripted --script gacha_banner.yaml</span></span>
+<span class="zone wrap" data-n="1">Under the sample banner rules, starting from a pity count of 30 without a guarantee, the chance of getting the featured character within 100 pulls is 75.5%.</span>
+<span class="zone wrap warn" data-n="2">※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</span>
+<span class="zone" data-n="3"><span class="hl">出典:</span>
+<span class="dim">出典 ID         値                  ツール                    未確認データ</span>
+<span class="dim">--------------  ------------------  ------------------------  ------------------------------</span>
+c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character</span>
+<span class="zone hl" data-n="4">状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T032605Z-c32a6a</span>
+<span class="zone dim" data-n="5">トレース: /projects2/echolab/.echolab/traces/20261003T032605Z-c32a6a.jsonl</span>
+      </div>
+    </div>
+    <ol class="legend">
+      <li><b>Answer text</b>: the answer after it passed verification and the renderer filled in the numbers. Every number in it either comes from a calculation tool or appears in your question (here "30" and "100" are quoted from the question).</li>
+      <li><b>Unverified-data note</b>: "※ Some of the numbers in this answer are based on unverified sample data." It is added automatically whenever any result the answer cites used data marked <code>verified: false</code>.</li>
+      <li><b>Source table</b> (<code>出典</code> = sources): every value the answer actually cites; see the next section.</li>
+      <li><b>Status line</b>: <code>状態</code> (status), <code>差し戻し</code> (how many drafts were rejected), <code>費用</code> (the LLM cost of this run in USD, usually 0 in scripted mode), <code>実行 ID</code> (run ID).</li>
+      <li><b>Execution trace file</b> (<code>トレース</code> = trace): a JSONL record of every step of this run, saved locally in <code>.echolab/traces/</code>. See <a href="07-traces-evals.html">Traces &amp; evals</a>.</li>
+    </ol>
+
+    <h2>The 4 columns of the source table</h2>
+    <table>
+      <tr><th>Column (Japanese)</th><th>English</th><th>Meaning</th><th>Example</th></tr>
+      <tr><td><code>出典 ID</code></td><td>Source ID</td><td><code>c&lt;tool call number&gt;.&lt;result field&gt;</code>. Numbering starts at c1 and is valid only within this question</td><td><code>c1.probability</code>, <code>c4.change</code></td></tr>
+      <tr><td><code>値</code></td><td>Value</td><td>The <b>raw, unformatted value</b> returned by the tool. Java decimal results keep 6 decimal places; probabilities use the shortest decimal representation</td><td><code>0.7546548474342011</code>, <code>6192.000000</code></td></tr>
+      <tr><td><code>ツール</code></td><td>Tool</td><td>The tool that computed the value (its in-domain name, separated by <code>.</code>)</td><td><code>gacha.probability_within</code>, <code>compare.ratio</code></td></tr>
+      <tr><td><code>未確認データ</code></td><td>Unverified data</td><td>IDs of unverified data used in the calculation, in the form <code>&lt;data file name&gt;:&lt;item ID&gt;</code>; <code>-</code> if none</td><td><code>gacha_rules:featured-character</code>, <code>echo_weights:max_roll</code></td></tr>
+    </table>
+    <p>The table lists only values the answer <b>actually cites</b>. Values a tool computed but the answer did not use (such as <code>c1.base</code> from the damage tool) do not appear. If the answer cites no values, this section shows <code>（引用した出典はありません）</code> ("no sources were cited").</p>
+    <p>Below is a real output that includes the compare tools. Note that the "tool" column of the compare results (<code>c3.diff</code>, <code>c4.change</code>) is <code>compare.*</code>; if the two sides of a comparison used unverified data, the compare results inherit those IDs too.</p>
+    <div class="term" data-title="bash — comparing two builds (real Java calculation service)">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"Build A (ATK 2000, skill multiplier 2.5, …) vs Build B (ATK 1800, skill multiplier 3.0, …): which is stronger, and by how much? …\" --llm scripted --script compare_en.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "Build B is stronger.", "delay": 400},
+        {"out": "- Build A expected damage: 6,192"},
+        {"out": "- Build B expected damage: 7,128"},
+        {"out": "- Difference: 936 (15.1% higher than A)"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T032631Z-920ada", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T032631Z-920ada.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>(The question is shortened with "…" here; the actual run gave every stat of both builds in full.)</p>
+
+    <h2>How numbers are formatted</h2>
+    <p>The answer Claude writes is really a <b>template</b>: each number position is a placeholder <code>[[sourceID]]</code> or <code>[[sourceID|format]]</code>, and the renderer (<code>core/verifier/render.py</code>) turns the raw value into text according to the format. The rules:</p>
+    <ul>
+      <li>No format: at most 2 decimal places, with trailing zeros and a trailing decimal point removed.</li>
+      <li><code>|N</code> (N from 0 to 9): exactly N decimal places.</li>
+      <li><code>|%N</code>: multiply by 100, exactly N decimal places, then append <code>%</code>.</li>
+      <li>The integer part gets a comma every 3 digits; rounding is <b>banker's rounding</b> (ROUND_HALF_EVEN: exact halves go to the even digit); "-0" is never shown.</li>
+    </ul>
+    <p>The "Displayed as" column below was computed by the real renderer function <code>format_value()</code>:</p>
+    <table>
+      <tr><th>Raw value (the table's <code>値</code>)</th><th>Placeholder</th><th>Displayed as</th></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|0]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|1]]</code></td><td>6,192.0</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier]]</code></td><td>0.62</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier|3]]</code></td><td>0.615</td></tr>
+      <tr><td><code>0.151163</code></td><td><code>[[c4.change|%1]]</code></td><td>15.1%</td></tr>
+      <tr><td><code>0.6058637851964593</code></td><td><code>[[c1.probability|%1]]</code> / <code>|%2</code></td><td>60.6% / 60.59%</td></tr>
+      <tr><td><code>0.7546548474342011</code></td><td><code>[[c1.probability|%0]]</code></td><td>75%</td></tr>
+      <tr><td><code>76.976190</code></td><td><code>[[c1.percent_of_ideal|1]]%</code></td><td>77.0% (the field is already a percentage, so use <code>|1</code> and write the % by hand)</td></tr>
+      <tr><td><code>1234567.891</code></td><td><code>[[c1.value|2]]</code></td><td>1,234,567.89</td></tr>
+      <tr><td><code>0.125</code> / <code>0.135</code></td><td><code>[[c1.value]]</code></td><td>0.12 / 0.14 (banker's rounding)</td></tr>
+    </table>
+    <div class="callout"><strong>The numbers in the answer and in the source table differ?</strong>That is expected: the source table shows the raw value (such as <code>0.7546548474342011</code>), while the answer shows the formatted value (such as 75.5%). If you want more digits, say something like "to two decimal places" in your question, and Claude chooses the format.</div>
+
+    <h2>What the "unverified" note means</h2>
+    <p>The note reads <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code>, meaning "Some of the numbers in this answer are based on unverified sample data." It is <b>not written by Claude</b>; the renderer appends it automatically whenever at least one cited source has something other than <code>-</code> in its <code>未確認データ</code> (unverified data) column.</p>
+    <ul>
+      <li>You give every value in the question (damage calculations, or your own banner rules) → no note.</li>
+      <li>You reference the sample banner <code>featured-character</code> or the sample weights <code>sample-crit-attacker</code>, or omit an echo's <code>max_roll</code> → note.</li>
+    </ul>
+    <p>The calculation itself is correct; "unverified" means the <b>input game values</b> have not been checked against a source and may not match the actual game. See <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>.</p>
+
+    <h2>What a rejected draft (差し戻し) is</h2>
+    <p>Every draft answer from Claude first goes through the verifier (<code>core/verifier/verify.py</code>). The verifier checks that:</p>
+    <ol>
+      <li>placeholders are well formed and their source IDs were really issued within this question;</li>
+      <li>after removing placeholders, every number in the text is one of the following: a number from your question (thousands separators are ignored, and <code>x%</code> and <code>x/100</code> count as the same); a list marker at the start of a line (<code>1.</code>, <code>2)</code>); or an integer of 10 or less directly followed by a counter word: Japanese 「つ・点・種類・位・番目」, Chinese 「个・种・项・条・步」, or one of the English nouns ways, points, steps, options, items, reasons, types, kinds, parts, things, tools, builds (at most one space in between).</li>
+    </ol>
+    <p>A failing draft is sent back to Claude with a list of problems to rewrite; that is the 「差し戻し: N 回」 ("N rejected drafts") in the status line. The animation below replays one "rejected → corrected" cycle from the real execution trace <code>20261003T032631Z-920ada.jsonl</code>:</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="llm">Claude<small>writes a draft</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="ver">Verifier<small>every number sourced?</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="ren">Renderer<small>placeholder → number</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">Terminal output<small>the answer you see</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["llm"], "packet": {"at": "llm", "text": "c1, c2 ready"}, "text": "Both <code>damage_expected</code> calls have finished: <code>c1.total = 6192.000000</code>, <code>c2.total = 7128.000000</code>. Claude starts writing draft 1."},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "Draft 1"}, "text": "Draft 1: <code>Build B is stronger, with expected damage of [[c2.total|0]], which is 936 more than A.</code> The \"936\" is a difference Claude worked out in its head; it has no source."},
+        {"on": ["ver"], "fail": ["ver"], "done": ["llm"], "packet": {"at": "ver", "text": "Rejected"}, "text": "The verifier finds that 936 is neither a cited tool result nor in your question. The problem list (verbatim): <code>数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code> (\"The number 936 has no source. Cite tool results with [[sourceID]] and compute differences and ratios with the compare tools (quoting numbers from the question is allowed).\")"},
+        {"on": ["llm", "a1"], "fail": [], "packet": {"at": "llm", "text": "Rejected: 1"}, "text": "The draft is rejected and the feedback is passed to Claude as a new message. The rejection count goes up by 1 (limit: it gives up at the 3rd rejection; see below)."},
+        {"on": ["llm"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "Claude now calls the compare tools, passing source IDs, and gets <code>c3.diff = 936.000000</code>, <code>c4.ratio = 1.151163</code> and <code>c4.change = 0.151163</code>."},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "Draft 2"}, "text": "Draft 2: lines such as <code>Difference: [[c3.diff|0]] ([[c4.change|%1]] higher than A)</code>, with every number written as a placeholder."},
+        {"on": ["ver", "a2"], "done": ["llm", "ver"], "packet": {"at": "ver", "text": "Passed"}, "text": "Verification passes: it cites 4 sources, <code>c1.total</code>, <code>c2.total</code>, <code>c3.diff</code> and <code>c4.change</code>."},
+        {"on": ["ren", "a3"], "done": ["llm", "ver"], "packet": {"at": "ren", "text": "936 / 15.1%"}, "text": "The renderer fills in the numbers: <code>[[c3.diff|0]]</code> → 936, <code>[[c4.change|%1]]</code> → 15.1%. None of these used unverified data, so no note is added."},
+        {"on": ["out"], "done": ["llm", "ver", "ren"], "packet": {"at": "out", "text": "差し戻し: 1 回"}, "text": "The terminal shows the final answer, the source table and <code>状態: answered　差し戻し: 1 回</code> (status answered, 1 rejected draft). The 936 you see is the same as in draft 1, but this time it <b>comes from a compare tool</b> and can be checked in the source table."}
+      ]</script>
+    </div>
+    <div class="callout"><strong>Small counts in English answers</strong>In English answers, an integer of 10 or less may be written as a digit only when one of the nouns ways, points, steps, options, items, reasons, types, kinds, parts, things, tools or builds comes <b>directly after</b> it. In a check against the real verifier, <code>There are 2 points: [[c1.total]]</code>, <code>There are two key points: [[c1.total]]</code> and <code>有 2 个要点：[[c1.total]]</code> passed, but <code>There are 2 key points: [[c1.total]]</code> was rejected: another word stands between the number and the noun, so "2" counts as an unsourced number. When in doubt, spell small counts out as words. Numbers above 10 (such as 「有 12 个要点」 or “12 points”) are rejected as unsourced in any language.</div>
+
+    <h3>The fixed answer after 3 rejections</h3>
+    <p>By default Claude may rewrite at most 2 times (<code>DEFAULT_MAX_RETRIES = 2</code>). At the 3rd rejection EchoLab gives up on the answer and prints a fixed text <b>without any numbers</b> instead, with status <code>fallback</code> and exit code 1:</p>
+    <div class="term" data-title="bash — fixed answer when drafts cannot be fixed">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"Pity count 0: what is the chance of getting the featured character within 10 pulls? Rules: base rate 0.1, +0.1 per pull from pull 5, hard pity 10, featured rate 0.5, featured guaranteed after a loss.\" --llm scripted --script never_corrected.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "delay": 400},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T032641Z-4803bf", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T032641Z-4803bf.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The fixed answer means: "Sorry. We could not produce an answer whose calculation results can be traced to sources, so we will not give an answer containing numbers. Please make the conditions more specific and ask again." The status line reads <code>状態: fallback　差し戻し: 3 回</code> (status fallback, 3 rejected drafts). The 3 drafts in this run were "The probability is about 73.4%.", "The probability is 0.734." and "The probability is about 73% ([[c1.probability|%1]])." The third one uses a placeholder, but it also writes an unsourced "73%", so it still fails.</p>
+
+    <h2>Status overview</h2>
+    <p>Only <code>answered</code> has exit code 0; all others have 1. For every status other than <code>answered</code>, the answer text is one of the fixed Japanese texts below (no numbers). The detailed cause is written to the execution trace.</p>
+    <table>
+      <tr><th>状態 (status)</th><th>When it happens</th><th>Fixed answer (verbatim)</th><th>Meaning in English</th></tr>
+      <tr><td><code>answered</code></td><td>A draft passed verification</td><td>(Claude's answer)</td><td>A normal answer. It may contain no numbers</td></tr>
+      <tr><td><code>fallback</code></td><td>A draft was rejected for the 3rd time</td><td>申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。</td><td>Could not produce a verifiable answer, so no numbers are given</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>The daily or monthly cost cap has been reached</td><td>今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.02 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。</td><td>Today's (UTC) daily cap has been reached. It states the amount used / the cap, when service resumes (when the UTC date changes), and which environment variable or setting changes the cap (for the monthly cap it says 「今月…月次…ECHOLAB_MONTHLY_USD」, i.e. this month, monthly, ECHOLAB_MONTHLY_USD). See <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a></td></tr>
+      <tr><td><code>refusal</code></td><td>The model's safety features stopped the response</td><td>この質問には回答できませんでした（モデルの安全機能により応答が止まりました）。</td><td>Could not answer this question (the model's safety features stopped the response)</td></tr>
+      <tr><td><code>max_tokens</code></td><td>The reply was too long and got cut off</td><td>応答が長くなりすぎて途中で切れたため、回答を完成できませんでした。質問を分けてお試しください。</td><td>The reply was cut off for being too long; try splitting the question</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>More than 6 rounds of tool calls</td><td>計算の手順が多くなりすぎたため、回答を完成できませんでした。質問を分けてお試しください。</td><td>The calculation took too many steps; try splitting the question</td></tr>
+      <tr><td><code>llm_error</code></td><td>Calling the Claude API failed (no credentials)</td><td>Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。</td><td>No credentials found: set <code>ANTHROPIC_API_KEY</code> or use <code>ant auth login</code>, or switch to scripted mode</td></tr>
+      <tr><td><code>llm_error</code></td><td>Authentication failed (HTTP 401/403)</td><td>Claude API の認証に失敗したため、回答できませんでした。ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</td><td>Invalid key or no permission: check that the key (or login) is valid</td></tr>
+      <tr><td><code>llm_error</code></td><td>Rate limit, overload, network problem</td><td>Claude API が混み合っているか、接続できなかったため、回答できませんでした。時間をおいてお試しください。</td><td>The API is busy or could not be reached; try again later</td></tr>
+      <tr><td><code>llm_error</code></td><td>Other API errors</td><td>Claude API の呼び出しに失敗したため、回答できませんでした。詳細はトレースの llm_error の行を確かめてください。</td><td>The call failed; see the trace's <code>llm_error</code> line for details</td></tr>
+    </table>
+    <div class="callout"><strong><code>llm_error</code> answers depend on the cause</strong>The CLI classifies errors by the Anthropic SDK's exception type, and only rate limits, overload and network problems get "please try again later". With no credentials or failed authentication it tells you directly to set <code>ANTHROPIC_API_KEY</code> (a real run without credentials shows the first of the four texts above). The <code>llm_error</code> event in the execution trace also records the category <code>kind</code> (<code>credentials</code>, <code>auth</code>, <code>transient</code>, <code>other</code>) and the SDK's original error message; see <a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>.</div>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="04-cli-reference.html">CLI reference</a>: all options and exit codes.</li>
+        <li><a href="05-how-it-works.html">What happens behind the scenes (animated)</a>: how the gateway, calculation service and verifier work together.</li>
+        <li><a href="07-traces-evals.html">Traces &amp; evals</a>: how to read <code>.echolab/traces/*.jsonl</code>.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

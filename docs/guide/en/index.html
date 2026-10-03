@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home: what is EchoLab | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* Page-specific: on narrow screens, keep wide content (tables, animations) from widening the page */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="index.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>Overview</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>What is EchoLab</h1>
+    <p class="lead">A command-line Q&amp;A assistant that never lets the AI do the math: you ask a question in one sentence, every number is computed by deterministic tools, and every number in the answer can be traced back to its source.</p>
+
+    <h2>What it can do for you</h2>
+    <p>EchoLab is themed on character building in the game <i>Wuthering Waves</i> (a non-official, non-commercial fan project). You type a question in the terminal, and it:</p>
+    <ul>
+      <li>understands the question and picks the right <strong>calculation tools</strong> (expected damage, echo score, gacha probability, plus compare tools for differences and growth rates);</li>
+      <li>has the tools compute the results, then writes an explanation from those results;</li>
+      <li>attaches a <strong>source table</strong> below the answer: which calculation each number came from, its raw value, and whether unverified data was used.</li>
+    </ul>
+    <div class="callout warn"><strong>Command line (CLI) only for now</strong>Today EchoLab can only be used from a terminal, with <code>python -m core.agent "question"</code>. There is no graphical interface. A web interface is planned for roadmap milestone M5 but is not implemented yet (see <a href="09-roadmap.html">Roadmap</a>).</div>
+    <div class="callout"><strong>About the interface language</strong>The CLI's labels and fixed messages (such as <code>状態</code> "status", <code>出典</code> "source" and <code>差し戻し</code> "rejected drafts") are in Japanese. This guide shows the real output unchanged and explains each part in English. Some examples also use the Japanese sample questions that ship with the project; you can ask your own questions in English.</div>
+
+    <h2>Why you can trust its numbers</h2>
+    <div class="cards">
+      <div class="card"><h4>Numbers come only from tools</h4><p>The AI does no arithmetic at all. Even the difference between two numbers or a growth rate is computed by the compare tools (<code>compare.diff</code> / <code>compare.ratio</code>).</p></div>
+      <div class="card"><h4>A verifier checks every number</h4><p>The AI writes a draft with placeholders (such as <code>[[c1.total|0]]</code>). If a number without a source appears in the draft, the draft is rejected (「差し戻し」) and must be rewritten.</p></div>
+      <div class="card"><h4>The source table is traceable</h4><p>Every number has a source ID (such as <code>c3.diff</code>), listed below the answer with its raw value and the tool that computed it.</p></div>
+      <div class="card"><h4>Unverified data is flagged</h4><p>Most of the sample data is <code>verified: false</code>. When it is used, a note is added to the end of the answer automatically: 「未確認のサンプルデータに基づいています」 ("based on unverified sample data").</p></div>
+      <div class="card"><h4>No numbers rather than wrong ones</h4><p>If a draft is still not acceptable after 3 rejections, you get a fixed answer with no numbers (status <code>fallback</code>) instead of questionable numbers.</p></div>
+      <div class="card"><h4>Cost caps</h4><p>When the real Claude is called, a cap of 1 USD per day and 10 USD per month is checked before every call (adjustable with environment variables).</p></div>
+    </div>
+
+    <h2>One question, start to finish (animation)</h2>
+    <p>The animation below walks through one question using the project's bundled example, "which of two builds is stronger". Click "Next" to step through, or "Auto-play".</p>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="user">You<small>ask in the terminal</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">AI (Claude)<small>picks tools, drafts</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="calc">Gateway + calc service<small>checks and computes</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ver">Verifier<small>checks each number</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="ans">Answer<small>with source table</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "A or B: which is stronger?"}, "text": "You enter the question: which of two builds (attack, multiplier, crit and other stats are all written in the question) has the higher expected damage, and by how much."},
+        {"on": ["a1", "llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "After reading the question, the AI <strong>does not calculate anything itself</strong>. It decides to call the expected damage tool <code>damage_expected</code> twice (once for A and once for B, in parallel)."},
+        {"on": ["a2", "calc"], "done": ["user", "llm"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "The gateway first confirms the tool is on the allowlist and the arguments match the schema, then passes the call to the Java calculation service. The results are numbered as source IDs: <code>c1.total</code> = 6192.000000, <code>c2.total</code> = 7128.000000."},
+        {"on": ["llm", "a3", "ver"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "The AI's first draft says 「A より 936 高い」 (\"936 higher than A\"), and 936 is a number it worked out in its head. The verifier reports <code>数値「936」の出典がありません</code> (\"the number 936 has no source\") and rejects the draft."},
+        {"on": ["llm", "a2", "calc"], "done": ["user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "The AI now calls the compare tools <code>compare_diff</code> and <code>compare_ratio</code>: <code>c3.diff</code> = 936.000000, <code>c4.change</code> = 0.151163."},
+        {"on": ["a3", "ver"], "done": ["user", "llm", "calc", "ver"], "packet": {"at": "ver", "text": "OK"}, "text": "The second draft refers to numbers only through placeholders, such as <code>[[c3.diff|0]]</code> and <code>[[c4.change|%1]]</code>. It passes verification, and the program replaces the placeholders with the real numbers (936, 15.1%)."},
+        {"on": ["a4", "ans"], "done": ["user", "llm", "calc", "ver", "ans"], "packet": {"at": "ans", "text": "answered"}, "text": "You see the answer, the source table and the status line: <code>状態: answered</code> (status), <code>差し戻し: 1 回</code> (1 rejected draft). The whole process is also saved as an execution trace under <code>.echolab/traces/</code>."}
+      ]</script>
+    </div>
+
+    <h2>A real recorded run</h2>
+    <p>Below is the real output of the same example (scripted mode with the real Java calculation service; no API key needed). The command is long because every stat of both builds is written into the question.</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 6},
+        {"pause": 1500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024449Z-4423a9", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024449Z-4423a9.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The question asks: "Build A (ATK 2000, skill multiplier 2.5, DMG bonus 0.3, crit rate 0.6, crit DMG 2.2, enemy DEF 1000, no RES shred) vs Build B (ATK 1800, skill multiplier 3.0, DMG bonus 0.2, crit rate 0.5, crit DMG 2.5, enemy DEF 1200, RES shred 0.3): which is stronger, and by how much? Both use defense constant 1600, DEF ignore 0, enemy RES 0.1."</p>
+    <p>How to read the output:</p>
+    <ul>
+      <li><strong>The answer</strong> (top four lines): "Build B is stronger. Build A expected damage: 6,192. Build B expected damage: 7,128. Difference: 936 (15.1% more than A)."</li>
+      <li><strong>The source table</strong> under <code>出典:</code> ("sources") lists every number the answer cites. Its columns are <code>出典 ID</code> (source ID), <code>値</code> (raw value), <code>ツール</code> (tool) and <code>未確認データ</code> (unverified data used; <code>-</code> means none).</li>
+      <li><strong>The status line</strong>: <code>状態</code> (status), <code>差し戻し: 1 回</code> (1 rejected draft), <code>費用</code> (cost; <code>$0.0000</code> because scripted mode does not call a real AI) and <code>実行 ID</code> (run ID). <code>トレース</code> is the path of the execution trace.</li>
+    </ul>
+    <p>Each part is explained in detail in <a href="03-reading-answers.html">Reading the answers</a>.</p>
+
+    <h3>What it looks like when unverified data is used</h3>
+    <p>If a calculation uses sample data marked <code>verified: false</code> (for example the rules of the limited character banner), the answer automatically gets an extra note line, and the <code>未確認データ</code> (unverified data) column of the source table names the data item:</p>
+    <div class="term" data-title="bash — unverified data note">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"限定キャラクターのバナーで、天井カウント 0・すり抜け確定なしから 80 回以内にピックアップを獲得できる確率は？\" --llm scripted --script my-unverified.yaml", "speed": 10},
+        {"pause": 1200},
+        {"out": "80 回以内にピックアップを獲得できる確率は 60.6% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.6058637851964593  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024602Z-6a350f", "cls": "warn"}
+      ]</script>
+    </div>
+    <p>The question asks for the chance of getting the featured character within 80 pulls on the limited character banner, starting from a pity count of 0 with no guarantee. The answer reads "The chance of getting the featured character within 80 pulls is 60.6%." The line starting with <code>※</code> is the automatic note: "Some of the numbers in this answer are based on unverified sample data."</p>
+    <p class="lead" style="font-size:14px">(<code>my-unverified.yaml</code> is a script written for this demo: it has the tool reference the sample banner data with <code>banner: featured-character</code>. How to write scripts is covered in <a href="07-traces-evals.html">Traces &amp; evals</a>.)</p>
+
+    <h2>Get started in three steps</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  S1["① Install&lt;br/&gt;Python 3.12 + dependencies"] --> S2["② Try it without a key&lt;br/&gt;--llm scripted --fake-backend"]
+  S2 --> S3["③ Connect the Java&lt;br/&gt;calculation service&lt;br/&gt;JDK 21 + build the jar"]
+  S3 -.-> OPT["(Optional) real Claude&lt;br/&gt;set an API key"]
+      </pre>
+      <div class="caption">Figure 1: The first three steps need no API key. You only need the real Claude when you want to ask your own questions freely</div>
+    </div>
+    <p>Detailed steps are in <a href="01-quickstart.html">Install &amp; first question</a>.</p>
+
+    <h2>What this guide covers</h2>
+    <div class="cards">
+      <a class="card" href="01-quickstart.html" style="text-decoration:none"><h4>Install &amp; first question</h4><p>Requirements, installation, a key-free trial run, connecting the Java service and the real Claude.</p></a>
+      <a class="card" href="02-what-to-ask.html" style="text-decoration:none"><h4>What you can ask</h4><p>Expected damage, echo scores, gacha probabilities, comparisons, and what it cannot answer.</p></a>
+      <a class="card" href="03-reading-answers.html" style="text-decoration:none"><h4>Reading the answers</h4><p>The answer text, source table, unverified-data note and status line, item by item.</p></a>
+      <a class="card" href="04-cli-reference.html" style="text-decoration:none"><h4>CLI reference</h4><p>All options, run modes, statuses and exit codes, environment variables.</p></a>
+      <a class="card" href="05-how-it-works.html" style="text-decoration:none"><h4>What happens behind the scenes (animated)</h4><p>Animations of the full flow: question, tools, verification, rejected drafts.</p></a>
+      <a class="card" href="06-cost-and-safety.html" style="text-decoration:none"><h4>Cost caps &amp; data trust</h4><p>How cost is computed, how to adjust the caps, and why the sample data is marked unverified.</p></a>
+      <a class="card" href="07-traces-evals.html" style="text-decoration:none"><h4>Traces &amp; evals</h4><p>Inspect the record of each run and run the faithfulness evals.</p></a>
+      <a class="card" href="08-troubleshooting.html" style="text-decoration:none"><h4>Troubleshooting &amp; FAQ</h4><p>Handling real errors such as java not found, no API key, or budget exceeded.</p></a>
+      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>Roadmap</h4><p>Planned features such as the web interface.</p></a>
+    </div>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="01-quickstart.html">Install &amp; first question</a>: reproduce the output above on your own machine.</li>
+        <li><a href="02-what-to-ask.html">What you can ask</a>: see which kinds of questions it handles well.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

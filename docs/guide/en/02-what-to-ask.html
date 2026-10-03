@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What you can ask | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    .qa > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--surface); font-size: 14.5px; }
+    .qa .good { border-left: 4px solid var(--ok); }
+    .qa .bad { border-left: 4px solid var(--bad); }
+    .qa h4 { margin: 0 0 4px; font-size: 14px; }
+    .qa .good h4 { color: var(--ok); }
+    .qa .bad h4 { color: var(--bad); }
+    .qa p { margin: 4px 0; }
+    @media (max-width: 700px) { .qa { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-page="02-what-to-ask.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Using EchoLab</span><span>Features</span><span>Asking questions</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>What you can ask</h1>
+    <p class="lead">EchoLab never gives numbers "by feel": every number comes from a calculation tool. So "what can I ask?" really means "which calculation tools exist, and what inputs do they need?" This page explains the 6 tools in player terms and tells you what information to include in a question.</p>
+
+    <div class="callout warn"><strong>Current state, first</strong>
+      Today EchoLab only has a command line (CLI): <code>python -m core.agent "your question"</code>. A web interface is planned for roadmap milestone M5 and <b>does not exist yet</b>.<br>
+      Understanding natural-language questions is Claude's job, which requires the default <code>--llm anthropic</code> mode and an <code>ANTHROPIC_API_KEY</code>. The terminal examples on this page were produced in <code>--llm scripted</code> (scripted) mode: <b>"which tool to pick, which arguments to fill in, and how to word the answer" are written in a script that imitates Claude</b>, but the tool results, the verifier's verdicts and the terminal output are from real runs. The scripts used in the examples, such as <code>gacha_banner.yaml</code>, <code>out_of_scope.yaml</code> and <code>tool_error.yaml</code>, were written separately for this guide and are not in the repository; the example script that ships with the repository is <code>core/agent/examples/compare_builds.yaml</code>.
+    </div>
+
+    <h2>Feature overview</h2>
+    <p>EchoLab currently has a single domain pack, <code>wuwa</code> (a <i>Wuthering Waves</i> character-building advisor, a non-official fan project). Claude can call 6 tools in total: the 4 calculation tools the domain pack declares in <code>domains/wuwa/domain.yaml</code>, plus the 2 compare tools built into the core.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+mindmap
+  root((What EchoLab&lt;br/&gt;can calculate))
+    Expected damage
+      damage_expected
+      Total expected damage
+      Per-multiplier breakdown
+    Echo score
+      echo_score
+      Weighted score
+      Percent of ideal
+    Gacha probability exact
+      gacha_probability_within
+      Chance of featured within N pulls
+    Gacha simulation Monte Carlo
+      gacha_simulate
+      Estimate and standard error
+    Compare
+      compare_diff difference
+      compare_ratio ratio and increase
+      </pre>
+      <div class="caption">Figure 1: The 6 tools. The first 4 are computed by the Java calculation service calc-engine; the compare tools are computed by the Python core</div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h4>Expected damage</h4><p><code>damage_expected</code>: given attack, multiplier, bonuses, crit, enemy defense and resistance, computes the expected damage and each multiplier.</p></div>
+      <div class="card"><h4>Echo score</h4><p><code>echo_score</code>: scores an echo's sub-stats by weight and converts the score to "what percent of the ideal".</p></div>
+      <div class="card"><h4>Gacha probability (exact)</h4><p><code>gacha_probability_within</code>: the exact probability (Markov chain) of getting the featured character within N pulls from your current pity state.</p></div>
+      <div class="card"><h4>Gacha simulation (Monte Carlo)</h4><p><code>gacha_simulate</code>: a random-simulation estimate of the same probability, with its standard error.</p></div>
+      <div class="card"><h4>Difference</h4><p><code>compare_diff</code>: the difference a − b between two calculation results.</p></div>
+      <div class="card"><h4>Ratio</h4><p><code>compare_ratio</code>: the ratio a / b of two results, and the increase a / b − 1 ("how many percent higher").</p></div>
+    </div>
+
+    <h2>How a question turns into tool calls</h2>
+    <p>You just ask in natural language. Claude reads the question, picks tools, and fills the values from the question into the tool arguments; the gateway checks that the arguments are valid and passes them to the calculation service. When a comparison is needed, Claude does not subtract by itself; it calls a compare tool. The animation below follows a real run of "which of two builds is stronger, and by how much" (scripted mode, real calculation results).</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="q">Your question<small>natural language</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">Claude<small>picks tools, fills args</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="gw">Gateway + calc service<small>check, compute, number</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ans">Answer<small>shown after verification</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["q"], "packet": {"at": "q", "text": "Build A or B: which is stronger, by how much?"}, "text": "You write every value of both builds into the question: ATK 2000 / 1800, skill multiplier 2.5 / 3.0, DMG bonus, crit rate, crit DMG, enemy DEF, RES shred, plus the shared defense constant 1600, DEF ignore 0 and enemy RES 0.1."},
+        {"on": ["llm", "a1"], "done": ["q"], "packet": {"at": "llm", "text": "damage_expected × 2"}, "text": "Claude recognizes an \"expected damage\" question in which the two builds do not depend on each other, so it calls <code>damage_expected</code> twice <b>in parallel</b> in one reply, copying the values from the question into the 10 arguments."},
+        {"on": ["gw", "a2"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c1.total / c2.total"}, "text": "The gateway checks the arguments against the input schema (ranges, required fields, unknown fields), then passes them to the Java calculation service. Calls are numbered in order, <code>c1</code>, <code>c2</code>, and each result field gets a source ID, for example <code>c1.total = 6192.000000</code> and <code>c2.total = 7128.000000</code>."},
+        {"on": ["llm", "a2"], "done": ["q", "gw"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "To answer \"by how much\", Claude may not subtract by itself. It calls the compare tools and passes <b>source IDs</b>, not numbers: <code>{\"a\": \"c2.total\", \"b\": \"c1.total\"}</code>."},
+        {"on": ["gw"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c3.diff / c4.change"}, "text": "The compare tools run in the Python core: <code>c3.diff = 936.000000</code>, <code>c4.ratio = 1.151163</code>, <code>c4.change = 0.151163</code>."},
+        {"on": ["ans", "a3"], "done": ["q", "llm", "gw"], "packet": {"at": "ans", "text": "6,192 / 7,128 / 936 / 15.1%"}, "text": "Claude writes the answer as a template with placeholders (such as <code>[[c4.change|%1]]</code>). Once the verifier confirms every number has a source, the renderer fills in the values: \"Difference: 936 (15.1% higher than A)\". See <a href=\"03-reading-answers.html\">Reading the answers</a>."},
+        {"on": ["llm"], "fail": ["q"], "packet": {"at": "llm", "text": "missing values → asks you"}, "text": "If the question lacks a required value (say, the enemy DEF), the rules tell Claude <b>not to guess and not to use game values from its own memory</b>; instead it uses the ID of sample data (banner, weight profile) or asks you."}
+      ]</script>
+    </div>
+
+    <h2>What each feature needs from you</h2>
+    <p>The field names and ranges below come from the calculation service's input schemas (<code>services/calc-engine/src/main/resources/tools/*.schema.json</code>). You do not need to write field names; just say it clearly in natural language. But <b>information marked "required" must appear in the question</b> (or be obtainable from sample data), otherwise Claude should ask you for it. All "rate" values are decimals inside the tools (0.3 = 30%); you can write either 30% or 0.3 and Claude converts.</p>
+
+    <h3>1. Expected damage <code>damage_expected</code></h3>
+    <p>All 10 arguments are <b>required</b>. The tool contains no game constants, so you also have to give the defense constant, enemy DEF and resistance.</p>
+    <table>
+      <tr><th>What you say</th><th>Field</th><th>Allowed range</th><th>Notes</th></tr>
+      <tr><td>Final ATK</td><td><code>atk</code></td><td>≥ 0</td><td>The final ATK on the character panel</td></tr>
+      <tr><td>Skill multiplier</td><td><code>skill_multiplier</code></td><td>≥ 0</td><td>Decimal, 2.5 = 250%</td></tr>
+      <tr><td>Total DMG bonus</td><td><code>dmg_bonus</code></td><td>≥ 0</td><td>Decimal, 0.3 = 30%</td></tr>
+      <tr><td>Crit rate</td><td><code>crit_rate</code></td><td>≥ 0</td><td>Anything above 1 (100%) counts as 1</td></tr>
+      <tr><td>Crit DMG multiplier</td><td><code>crit_dmg</code></td><td>≥ 1</td><td>2.2 = 220% (the full multiplier, not "an extra 120%")</td></tr>
+      <tr><td>Defense constant C</td><td><code>defense_constant</code></td><td>&gt; 0</td><td>Depends on the attacker's level and so on. Defense multiplier = C / (C + DEF × (1 − DEF ignore))</td></tr>
+      <tr><td>Enemy DEF</td><td><code>enemy_def</code></td><td>≥ 0</td><td></td></tr>
+      <tr><td>DEF ignore</td><td><code>def_ignore</code></td><td>0–1</td><td>Decimal</td></tr>
+      <tr><td>Enemy elemental RES</td><td><code>enemy_res</code></td><td>Can be negative</td><td>0.1 = 10%</td></tr>
+      <tr><td>RES shred</td><td><code>res_shred</code></td><td>Any</td><td>Effective RES = RES − shred, which must be below 1; when effective RES is negative, the multiplier = 1 − effective RES / 2</td></tr>
+    </table>
+    <p><b>Returns</b>: <code>base</code> (base damage = ATK × multiplier), <code>bonus_multiplier</code> (bonus multiplier), <code>crit_multiplier</code> (expected crit multiplier), <code>defense_multiplier</code>, <code>resistance_multiplier</code>, <code>total</code> (expected damage). If you want the breakdown, say "with a breakdown" in the question.</p>
+    <div class="qa">
+      <div class="good"><h4>Enough information</h4><p>"What is the expected damage for ATK 2000, skill multiplier 2.5, DMG bonus 0.3, crit rate 0.6, crit DMG 2.2, defense constant 1600, enemy DEF 1000, DEF ignore 0, enemy RES 0.1 and RES shred 0? With a breakdown."</p><p>(Real result for these inputs: expected damage 6192, base damage 5000, multipliers 1.3 / 1.72 / 0.615385 / 0.9.)</p></div>
+      <div class="bad"><h4>Not enough information</h4><p>"My ATK is 2000. How much does this skill hit for?" The multiplier, bonuses, crit and enemy data are missing. Claude may not fill in a multiplier it "remembers"; it can only ask you.</p></div>
+    </div>
+
+    <h3>2. Echo score <code>echo_score</code></h3>
+    <table>
+      <tr><th>What you say</th><th>Field</th><th>Allowed range</th><th>Notes</th></tr>
+      <tr><td>Echo name</td><td><code>echo.name</code></td><td>Any string</td><td>Required; used only for display</td></tr>
+      <tr><td>COST</td><td><code>echo.cost</code></td><td>Integer 1–4</td><td>Required</td></tr>
+      <tr><td>Main stat</td><td><code>echo.main</code></td><td>Stat + value (≥ 0)</td><td>Required, but <b>not counted in the score</b> (the main stat is determined by COST and is not part of judging sub-stat rolls)</td></tr>
+      <tr><td>Sub-stats</td><td><code>echo.subs</code></td><td>Up to 5</td><td>Each: stat + value (≥ 0; rates as decimals, 0.08 = 8%)</td></tr>
+      <tr><td>Weights</td><td><code>weights</code> <b>or</b> <code>profile</code></td><td>Weights ≥ 0</td><td>Give one or the other, not both. Without your own weights, you can say "use the sample crit attacker profile" (<code>profile: sample-crit-attacker</code>)</td></tr>
+      <tr><td>Max value of one sub-stat roll</td><td><code>max_roll</code></td><td>≥ 0; must be positive for weighted stats</td><td>Optional. If omitted, the <code>max_roll</code> from the sample data <code>echo_weights.yaml</code> is used (unverified)</td></tr>
+    </table>
+    <p>Stat names (the tool's internal enum values) map as follows:</p>
+    <table>
+      <tr><th>Enum value</th><th>Meaning</th><th>Enum value</th><th>Meaning</th></tr>
+      <tr><td><code>CRIT_RATE</code></td><td>Crit rate</td><td><code>CRIT_DMG</code></td><td>Crit DMG</td></tr>
+      <tr><td><code>ATK_PERCENT</code> / <code>ATK_FLAT</code></td><td>ATK% / flat ATK</td><td><code>HP_PERCENT</code> / <code>HP_FLAT</code></td><td>HP% / flat HP</td></tr>
+      <tr><td><code>DEF_PERCENT</code> / <code>DEF_FLAT</code></td><td>DEF% / flat DEF</td><td><code>ENERGY_REGEN</code></td><td>Energy Regen</td></tr>
+      <tr><td><code>BASIC_ATTACK_DMG_BONUS</code></td><td>Basic Attack DMG Bonus</td><td><code>HEAVY_ATTACK_DMG_BONUS</code></td><td>Heavy Attack DMG Bonus</td></tr>
+      <tr><td><code>SKILL_DMG_BONUS</code></td><td>Resonance Skill DMG Bonus</td><td><code>LIBERATION_DMG_BONUS</code></td><td>Resonance Liberation DMG Bonus</td></tr>
+      <tr><td><code>ELEMENTAL_DMG_BONUS</code></td><td>Elemental DMG Bonus</td><td><code>HEALING_BONUS</code></td><td>Healing Bonus</td></tr>
+    </table>
+    <p><b>Returns</b>: <code>score</code> = the sum over sub-stats of weight × value ÷ max value; <code>percent_of_ideal</code> = score ÷ ideal × 100, where the ideal is the score of "one max roll in each of the 5 highest-weighted stats". For example, the sample profile has weights 1.0 / 1.0 / 0.75 / 0.25 / 0.5, so the ideal is 3.5. Note that <code>percent_of_ideal</code> is already a percentage (76.976190 means about 77%).</p>
+    <div class="qa">
+      <div class="good"><h4>Enough information (sample weights)</h4><p>"Score this COST 4 echo: main stat crit DMG 44%, sub-stats crit rate 8.7%, crit DMG 17.4%, ATK 8.6%, HP 430, Energy Regen 10%. Use the sample crit attacker profile for weights."</p><p>(Real result: score 2.694167, 76.976190% of the ideal, with the unverified-data note.)</p></div>
+      <div class="bad"><h4>Not enough information</h4><p>"What's my echo's score? It has decent crit stats." No concrete values. Also do not expect Claude to know "official" max rolls or weights: the tool uses only the values you give or the sample data.</p></div>
+    </div>
+
+    <h3>3. Gacha probability (exact) <code>gacha_probability_within</code></h3>
+    <table>
+      <tr><th>What you say</th><th>Field</th><th>Allowed range</th><th>Notes</th></tr>
+      <tr><td>Current pity count</td><td><code>start_pity</code></td><td>Integer 0–9999, below hard pity</td><td>Required. How many pulls since your last top-rarity drop</td></tr>
+      <tr><td>Whether you are guaranteed</td><td><code>guaranteed</code></td><td>Yes / no</td><td>Required. If you lost the 50/50 last time (did not get the featured character), the next top-rarity drop is guaranteed to be featured → yes</td></tr>
+      <tr><td>How many more pulls</td><td><code>pulls</code></td><td>Integer 0–10000</td><td>Required</td></tr>
+      <tr><td>Banner rules</td><td><code>rules</code> <b>or</b> <code>banner</code></td><td>See the table below</td><td>One or the other. Either give all 6 rules yourself, or say "use the sample limited character banner" (<code>banner: featured-character</code>, unverified data)</td></tr>
+    </table>
+    <table>
+      <tr><th>Rule (field of <code>rules</code>)</th><th>Allowed range</th><th>Meaning</th></tr>
+      <tr><td><code>base_rate</code></td><td>0–1</td><td>Base top-rarity rate</td></tr>
+      <tr><td><code>soft_pity_start</code></td><td>Integer 1–10000, ≤ hard pity</td><td>The pull at which soft pity starts (counted from 1 since the last top-rarity drop)</td></tr>
+      <tr><td><code>soft_pity_increment</code></td><td>0–1</td><td>Probability added per pull during soft pity</td></tr>
+      <tr><td><code>hard_pity</code></td><td>Integer 1–10000</td><td>Hard pity: this pull is guaranteed top rarity</td></tr>
+      <tr><td><code>featured_rate</code></td><td>0–1</td><td>Probability that a top-rarity drop is the featured character</td></tr>
+      <tr><td><code>guarantee_after_loss</code></td><td>Yes / no</td><td>Whether the next top-rarity drop after a loss is guaranteed featured</td></tr>
+    </table>
+    <p><b>Returns</b>: <code>probability</code> (the exact value, 0–1).</p>
+
+    <h3>4. Gacha simulation (Monte Carlo) <code>gacha_simulate</code></h3>
+    <p>Same inputs as the exact version, plus 3 optional ones:</p>
+    <table>
+      <tr><th>Field</th><th>Allowed range</th><th>If omitted</th><th>Notes</th></tr>
+      <tr><td><code>trials</code></td><td>Integer 1–1,000,000</td><td>100000</td><td>Number of simulated runs. The standard error is proportional to 1/√trials</td></tr>
+      <tr><td><code>seed</code></td><td>64-bit integer</td><td>0</td><td>Random seed; the same seed gives the same result</td></tr>
+      <tr><td><code>method</code></td><td><code>sequential</code> / <code>parallel_stream</code> / <code>virtual_threads</code></td><td><code>sequential</code></td><td>Affects speed only, not the result</td></tr>
+    </table>
+    <p><b>Returns</b>: <code>probability</code> (the estimate) and <code>std_error</code> (standard error). For everyday use the exact version is the better fit; if you want to see whether the simulation agrees with the exact value, say "also check it with a simulation" in the question.</p>
+    <div class="callout"><strong>Tip</strong>The tool table in the domain prompt (<code>domains/wuwa/prompts/system.md</code>) also lists <code>gacha_simulate</code>, and tells Claude to use the exact <code>gacha_probability_within</code> for ordinary probability questions and to simulate only when you ask for a simulation check. If you want a simulation, ask for it explicitly. Also, <code>--fake-backend</code> (the fake calculation service for testing) does not offer the simulation and does not support data references such as <code>banner</code> / <code>profile</code>; those work only with the real Java service.</div>
+
+    <h3>5. Difference <code>compare_diff</code> and 6. Ratio <code>compare_ratio</code></h3>
+    <p>The inputs of the compare tools are not numbers but the source IDs (such as <code>c1.total</code>) of earlier tool results <b>within the same question</b>. Therefore:</p>
+    <ul>
+      <li>For questions like "how much stronger / how many percent higher is build B than build A", give the full conditions of both sides <b>in the same question</b>, so both get calculated first.</li>
+      <li>Every CLI run is a separate question with no memory of the previous one. You cannot ask about A first and then follow up with "and how does that A compare to B?"</li>
+      <li>Plain arithmetic such as "how much higher is 1234 than 1000?" cannot use the compare tools (there is no source ID to pass), and a number Claude computes itself may not appear in the answer either.</li>
+    </ul>
+    <p><b>Returns</b>: <code>compare_diff</code> → <code>diff</code> (a − b); <code>compare_ratio</code> → <code>ratio</code> (a / b) and <code>change</code> (a / b − 1, usually shown as a percentage in the answer). When b is 0 it returns the error 「b が 0 のため、比を計算できません」 ("cannot compute the ratio because b is 0"). Compare results keep 6 decimal places (banker's rounding).</p>
+
+    <h2>Sample data: banners and weight profiles you can reference</h2>
+    <p>If you do not give banner rules or echo weights, you can have Claude reference the sample data in <code>domains/wuwa/data/v2.x/</code>. <b>All of these values are <code>verified: false</code> (unverified) and are not official numbers</b>; answers that use them carry a note automatically (see <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>).</p>
+    <table>
+      <tr><th>How to reference</th><th>ID</th><th>Contents (verbatim from the data files)</th></tr>
+      <tr><td>Banner <code>banner</code></td><td><code>featured-character</code><br>限定キャラクター（サンプル） ("limited character (sample)")</td><td>base_rate 0.008, soft_pity_start 66, soft_pity_increment 0.04, hard_pity 80, featured_rate 0.5, guarantee_after_loss true</td></tr>
+      <tr><td>Weight profile <code>profile</code></td><td><code>sample-crit-attacker</code><br>会心型アタッカー（サンプル） ("crit attacker (sample)")</td><td>CRIT_RATE 1.0, CRIT_DMG 1.0, ATK_PERCENT 0.75, ATK_FLAT 0.25, ENERGY_REGEN 0.5</td></tr>
+      <tr><td>Sub-stat max values (when <code>max_roll</code> is omitted)</td><td><code>max_roll</code></td><td>CRIT_RATE 0.1, CRIT_DMG 0.2, ATK_PERCENT 0.12, ATK_FLAT 60, ENERGY_REGEN 0.12, HP_PERCENT 0.12, HP_FLAT 600, DEF_PERCENT 0.15, DEF_FLAT 60</td></tr>
+    </table>
+    <p>There is only this one banner and one weight profile. Referencing an ID that does not exist makes the calculation service return an error, for example <code>banner 'standard' は gacha_rules.yaml の banners にありません</code> ("banner 'standard' is not among the banners in gacha_rules.yaml"; observed in a real run).</p>
+    <p>Below is a real run that references the sample banner (scripted mode + the real Java calculation service):</p>
+    <div class="term" data-title="bash — referencing the sample banner">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"Using the sample limited character banner: my pity count is 30 and I'm not on a guarantee. What is the chance of getting the featured character within 100 more pulls?\" --llm scripted --script gacha_banner.yaml"},
+        {"pause": 600},
+        {"out": "Under the sample banner rules, starting from a pity count of 30 without a guarantee, the chance of getting the featured character within 100 pulls is 75.5%.", "delay": 400},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T032605Z-c32a6a", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T032605Z-c32a6a.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The <code>※</code> line is the automatic note "Some of the numbers in this answer are based on unverified sample data", and the <code>未確認データ</code> (unverified data) column names the data item used: <code>gacha_rules:featured-character</code>.</p>
+
+    <h2>How to write a good question</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  Q["What you want to know"] --> K{"One of the 4&lt;br/&gt;calculation types?&lt;br/&gt;damage / echo /&lt;br/&gt;gacha probability /&lt;br/&gt;gacha simulation"}
+  K -- No --> X["No numbers possible&lt;br/&gt;Claude explains the scope&lt;br/&gt;or asks you"]
+  K -- Yes --> V{"All required&lt;br/&gt;values in&lt;br/&gt;the question?"}
+  V -- Yes --> OK["Can be calculated"]
+  V -- No --> D{"Can sample data&lt;br/&gt;fill in?&lt;br/&gt;banner /&lt;br/&gt;weight profile"}
+  D -- Yes --> OK2["Can be calculated&lt;br/&gt;answer carries the&lt;br/&gt;unverified note"]
+  D -- No --> ASK["Claude should ask you&lt;br/&gt;it does not guess values"]
+  OK --> C{"Comparing two&lt;br/&gt;results?"}
+  OK2 --> C
+  C -- Yes --> SAME["Put both sides' conditions&lt;br/&gt;in the same question"]
+      </pre>
+      <div class="caption">Figure 2: A self-check before you ask</div>
+    </div>
+    <ul>
+      <li><b>Give all the values</b>: the tools have no built-in game values, and Claude is told not to fill values in from memory.</li>
+      <li><b>Rates as 30% or 0.3 both work</b>: the verifier treats <code>x%</code> and <code>x/100</code> as the same number, so an answer quoting "30%" or "0.3" from your question is not blocked.</li>
+      <li><b>Say so if you want sample data</b>: "use the sample limited character banner", "use the sample crit attacker profile for weights".</li>
+      <li><b>Ask comparisons in one go</b>: put the conditions of both sides in the same question.</li>
+      <li><b>Ask one thing at a time</b>: each question allows at most 6 rounds of tool calls; beyond that the run ends with 「計算の手順が多くなりすぎた…」 ("the calculation took too many steps…"; see <a href="03-reading-answers.html">Reading the answers</a>).</li>
+    </ul>
+
+    <h2>Questions it cannot answer, and what happens then</h2>
+    <table>
+      <tr><th>Type of question</th><th>Example</th><th>Why</th></tr>
+      <tr><td>Subjective ratings, rankings, team recommendations</td><td>"Which character is the strongest in the current version?"</td><td>There is no calculation tool for it</td></tr>
+      <tr><td>Needs in-game data you did not provide</td><td>"What is this character's Liberation multiplier?"</td><td>EchoLab contains no game data (only unverified samples), and Claude may not give values from memory</td></tr>
+      <tr><td>Plain arithmetic</td><td>"How many percent higher is 1234 than 1000?"</td><td>The compare tools only accept source IDs of tool results from the same question</td></tr>
+      <tr><td>Following up on the last question</td><td>"What about that last one with 10% more crit rate?"</td><td>Each run is independent with no conversation memory; write out the full conditions again</td></tr>
+      <tr><td>Screenshot reading, mortgage calculations, etc.</td><td>"Score the echo in this screenshot"</td><td>Screenshot reading (M4) and the mortgage domain pack (M3) are only roadmap plans so far; see <a href="09-roadmap.html">Roadmap</a></td></tr>
+    </table>
+    <p>In these cases Claude should explain what it can do in text without numbers, or ask for the missing information. Whatever Claude writes, <b>the verifier blocks numbers without a source</b>, so the worst case is "an answer with no numbers", never "made-up numbers". Both runs below are real (a script imitates Claude's reply):</p>
+    <div class="term" data-title="bash — out-of-scope questions">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"Which character is the strongest in the current version? Rank them for me.\" --llm scripted --script out_of_scope.yaml --fake-backend"},
+        {"pause": 500},
+        {"out": "Sorry, this question (a character strength ranking) is outside the scope of the available calculation tools. What I can do: calculate expected damage from the values you give, score echoes, compute gacha probabilities, and compare those results by difference and ratio.", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T032610Z-950a92", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T032610Z-950a92.jsonl", "cls": "dim"},
+        {"pause": 900},
+        {"cmd": "python -m core.agent \"Sample limited character banner, starting from 0: what is the chance of getting the featured character within 20000 pulls?\" --llm scripted --script tool_error.yaml"},
+        {"pause": 600},
+        {"out": "The number of pulls you gave is above the limit the calculation tool allows, so no result could be calculated. Please ask again with fewer pulls.", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T032620Z-5b3265", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T032620Z-5b3265.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p><code>（引用した出典はありません）</code> means "no sources were cited". In the second example, the gateway rejected <code>pulls: 20000</code> against the schema before calling the calculation service. The error text recorded in the execution trace is <code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code> ("Invalid input: pulls: 20000 is greater than the maximum 10000"). Gateway errors are in Japanese and include the field path; common errors such as a missing required field, a wrong type, an out-of-range value, a value not among the allowed choices, an extra field, or a format mismatch are all explained this way. After receiving the error, Claude can retry with corrected arguments or, as here, explain the problem to you. Note: status <code>answered</code> only means "the answer passed verification"; <b>it does not guarantee that the answer contains numbers</b>. An empty sources section means the answer cited no calculation results.</p>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="03-reading-answers.html">Reading the answers</a>: the source table, status line, number formatting and the unverified-data note.</li>
+        <li><a href="04-cli-reference.html">CLI reference</a>: options such as <code>--llm</code>, <code>--script</code> and <code>--fake-backend</code>.</li>
+        <li><a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>: why the sample data is marked unverified.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

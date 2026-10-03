@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>背后发生了什么（动画） | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* 本页专用：分步动画里的轨迹片段 */
+    #how .caption-box { min-height: 11em; }
+    #how .caption-box pre.tr { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; background: var(--surface); border: 1px solid var(--border); }
+    #how .caption-box .ev { display: inline-block; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 0 6px; margin-right: 4px; }
+    #how .node { font-size: 13.5px; padding: 10px 6px; }
+    @media (max-width: 760px) { #how .stage { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+    /* 本页专用：流水线 SVG 动画 */
+    .pipe { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px 14px; margin: 16px 0; }
+    .pipe svg { width: 100%; height: auto; display: block; }
+    .pipe .edge { fill: none; stroke: var(--border); stroke-width: 3; }
+    .pipe .edge.draft { stroke: var(--accent); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .edge.reject { stroke: var(--bad); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .leg { fill: none; stroke: none; }
+    .pipe .st circle { fill: var(--bg); stroke: var(--muted); stroke-width: 2.5; transition: fill .3s, stroke .3s; }
+    .pipe .st.hit circle { fill: var(--accent-soft); stroke: var(--accent); }
+    .pipe .st.ok circle { fill: var(--ok-soft); stroke: var(--ok); }
+    .pipe .st.bad circle { fill: var(--bad-soft); stroke: var(--bad); }
+    .pipe .st text { fill: var(--text); font: 600 13px system-ui, -apple-system, "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+    .pipe .st .ico { font-size: 14px; dominant-baseline: central; fill: var(--muted); }
+    .pipe .st .sub { fill: var(--muted); font-weight: 400; font-size: 11px; }
+    .pipe .edge-label { fill: var(--muted); font: 11px system-ui, -apple-system, "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", sans-serif; text-anchor: middle; }
+    .pipe #pk circle { fill: var(--accent); }
+    .pipe #pk.bad circle { fill: var(--bad); }
+    .pipe #pk.ok circle { fill: var(--ok); }
+    .pipe #pk text { fill: var(--text); font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans CJK SC", monospace; text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+    .pipe .pipe-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .pipe .pipe-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    .pipe .pipe-status { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--code-bg); font-size: 14px; min-height: 2.6em; }
+    .pipe .pipe-status b { color: var(--accent); margin-right: 6px; }
+  </style>
+</head>
+<body data-page="05-how-it-works.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>理解</span><span>动画</span><span>真实执行轨迹</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>背后发生了什么（动画）</h1>
+    <p class="lead">你按下回车之后，EchoLab 在几秒内做了十几件事。本页用一次<strong>真实运行</strong>留下的执行轨迹，一步一步演示：问题怎样变成计算、计算结果怎样变成“出典 ID”、写错的草稿怎样被退回，以及为什么最终答案里的每个数字都可以追溯。</p>
+
+    <div class="callout"><strong>一句话版本</strong>Claude（AI）只负责“理解问题、决定调用哪个计算工具、组织语言”；答案里的<strong>每一个数字</strong>都来自确定性的计算工具。Claude 写答案时不能直接写数字，只能写 <code>[[c1.total]]</code> 这样的“引用”，最后由程序把真实数值填进去。</div>
+
+    <h2>先看结果：一次真实的运行</h2>
+    <p>下面是在仓库里实际运行的命令和输出（问题是日语原文，比较两套角色配装“构建 A”与“构建 B”的期待伤害，因为较长，这里用 … 省略了中间部分）。这次用的是<strong>台本模式</strong>（<code>--llm scripted</code>，按预先写好的台本扮演 Claude，不需要 API 密钥）和<strong>测试用计算服务</strong>（<code>--fake-backend</code>，不启动 Java）。台本故意让第一份草稿犯错，好演示“退回”是怎么发生的。</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、…）とビルド B（攻撃力 1800、…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 9},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "delay": 300},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": ""},
+        {"out": "出典:", "cls": "hl", "delay": 250},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl", "delay": 300},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>答案的意思是：“构建 B 更强。A 的期待伤害 6,192，B 为 7,128，差 936（比 A 高 15.1%）”。下面的“出典”表列出了答案引用的每个数字来自哪个工具；<code>差し戻し: 1 回</code> 表示有 1 份草稿被验证器退回过。最后一行是这次运行的<strong>执行轨迹</strong>文件，本页的动画就是根据它做的。</p>
+    <div class="callout ok"><strong>换成真正的 Java 计算服务，结果一样</strong>去掉 <code>--fake-backend</code>（并设置 <code>JAVA_HOME</code> 指向 Java 21）再运行，答案文字和出典表都完全相同：测试用计算服务和 Java 服务一样，把数值按 6 位小数（银行家舍入）返回，例如 <code>6192.000000</code>。实测运行 ID <code>20261003T031434Z-0b1739</code>。答案里显示的位数由渲染器统一决定。</div>
+
+    <h2>分步动画：一次提问的 12 个步骤</h2>
+    <p>点“下一步 ▶”逐步观看，或点“▶ 自动播放”。每一步下方的灰框里是这一步在执行轨迹（<code>.jsonl</code>）中对应的<strong>真实事件</strong>（为了易读做了删节，<code>…</code> 表示省略）。</p>
+    <div class="flow-anim" id="how" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="user">你<small>提问 / 看答案</small></div>
+        <div class="node" data-id="llm">Claude<small>理解・规划・写模板</small></div>
+        <div class="node" data-id="gw">网关<small>守门・编号</small></div>
+        <div class="node" data-id="calc">calc-engine<small>确定性计算</small></div>
+        <div class="node" data-id="cmp">比较工具<small>差・比</small></div>
+        <div class="node" data-id="ver">验证器<small>检查草稿</small></div>
+        <div class="node" data-id="ren">渲染器<small>填入数字</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "问题"},
+         "text": "<b>你提问。</b>EchoLab 为这次提问生成一个运行 ID，并新建一个轨迹文件，第一条事件记下问题、使用的领域包（<code>wuwa</code>，鸣潮）和本次可用的工具清单。<pre class='tr'><span class='ev'>question</span>{&quot;run_id&quot;: &quot;20261003T031424Z-28df54&quot;, &quot;question&quot;: &quot;ビルド A（攻撃力 2000、…）…&quot;, &quot;domain&quot;: &quot;wuwa&quot;, &quot;llm&quot;: &quot;ScriptedLLM&quot;, &quot;model&quot;: &quot;claude-opus-5-5&quot;, &quot;tools&quot;: [&quot;compare_diff&quot;, &quot;compare_ratio&quot;, &quot;damage_expected&quot;, &quot;echo_score&quot;, &quot;gacha_probability_within&quot;]}</pre>"},
+        {"on": ["llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"},
+         "text": "<b>Claude 规划。</b>调用 Claude 之前，程序先检查成本上限（每日 / 每月），超了就直接停止、不调用。Claude 读懂问题后，决定<strong>同时</strong>调用两次期待伤害计算工具（A、B 各一次），并把问题里的参数原样作为输入。它此时没有计算任何东西。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;usd&quot;: &quot;0.00&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, &quot;skill_multiplier&quot;: 2.5, …}}, {&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, &quot;skill_multiplier&quot;: 3.0, …}}]}</pre>"},
+        {"on": ["gw"], "done": ["user", "llm"], "packet": {"at": "gw", "text": "许可・格式 OK → c1, c2"},
+         "text": "<b>网关守门。</b>所有工具调用都要经过网关：① 工具必须在领域包的 <code>domain.yaml</code> 里登记过（白名单，默认拒绝）；② 输入必须符合工具公开的格式（JSON Schema），不符合就把错误告诉 Claude 让它重来；③ 给每次调用编号 <code>c1</code>、<code>c2</code>……<pre class='tr'><span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_01&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, …}}\n<span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_02&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, …}}</pre>"},
+        {"on": ["calc"], "done": ["user", "llm", "gw"], "packet": {"at": "calc", "text": "c1.total = 6192…"},
+         "text": "<b>calc-engine 计算，并得到“出典 ID”。</b>计算服务返回各项数值和明细，网关给每个数值起名：<code>调用编号.字段名</code>。例如 <code>c1.total</code> 就是“第 1 次调用的总伤害”。之后答案只能通过这些名字引用数字。<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c1&quot;, &quot;tool&quot;: &quot;damage.expected&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c1.base&quot;, &quot;value&quot;: &quot;5000.000000&quot;}, … {&quot;source_id&quot;: &quot;c1.total&quot;, &quot;value&quot;: &quot;6192.000000&quot;, &quot;unverified_inputs&quot;: []}], &quot;error&quot;: null}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c2&quot;, … {&quot;source_id&quot;: &quot;c2.total&quot;, &quot;value&quot;: &quot;7128.000000&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "gw", "calc"], "packet": {"at": "llm", "text": "草稿 1"},
+         "text": "<b>Claude 写第一份草稿（模板）。</b>它正确地用 <code>[[c2.total|0]]</code> 引用了 B 的伤害，但又<strong>自己心算</strong>了差值，直接写了 936。（这是台本故意安排的错误，真实的 Claude 也可能犯这种错。）<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が [[c2.total|0]] で、A より 936 高いです。&quot;, &quot;tool_uses&quot;: []}</pre>"},
+        {"on": ["ver"], "done": ["user", "gw", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "× 退回"},
+         "text": "<b>验证器退回草稿。</b>验证器把 <code>[[…]]</code> 以外的文字里的数字都找出来，逐个核对：是不是你问题里出现过的数字？是不是允许的序号？936 都不是，所以<strong>不合格</strong>。问题说明会作为反馈发回给 Claude，要求它改写。<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 1, &quot;ok&quot;: false, &quot;problems&quot;: [&quot;数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。&quot;], &quot;cited&quot;: [&quot;c2.total&quot;]}</pre>"},
+        {"on": ["llm", "gw"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"},
+         "text": "<b>Claude 改用比较工具。</b>差值和比率也必须由工具计算。比较工具的输入不是数字，而是<strong>出典 ID</strong>：<code>a = c2.total</code>，<code>b = c1.total</code>。这样 Claude 连“把数字抄进工具”的机会都没有。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;compare_diff&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}, {&quot;name&quot;: &quot;compare_ratio&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}]}</pre>"},
+        {"on": ["cmp"], "done": ["user", "calc", "gw"], "packet": {"at": "cmp", "text": "c3.diff · c4.change"},
+         "text": "<b>比较工具计算差与比。</b>比较工具在 EchoLab 核心里运行，网关先把出典 ID 换回真实数值再计算，结果同样得到新的出典 ID：<code>c3.diff</code>（差）、<code>c4.ratio</code>（比）、<code>c4.change</code>（增长率）。<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c3&quot;, &quot;tool&quot;: &quot;compare.diff&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c3.diff&quot;, &quot;value&quot;: &quot;936.000000&quot;}]}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c4&quot;, &quot;tool&quot;: &quot;compare.ratio&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c4.ratio&quot;, &quot;value&quot;: &quot;1.151163&quot;}, {&quot;source_id&quot;: &quot;c4.change&quot;, &quot;value&quot;: &quot;0.151163&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "calc", "cmp", "gw"], "packet": {"at": "llm", "text": "草稿 2"},
+         "text": "<b>Claude 写第二份草稿。</b>这次所有数字都是引用。<code>|0</code> 表示显示 0 位小数，<code>|%1</code> 表示换算成百分比并保留 1 位小数。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: [[c1.total|0]]\\n- ビルド B の期待ダメージ: [[c2.total|0]]\\n- 差: [[c3.diff|0]]（A に比べて [[c4.change|%1]] 増加）&quot;}</pre>"},
+        {"on": ["ver"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ver", "text": "通过"},
+         "text": "<b>验证器放行。</b>引用的 4 个出典 ID 都是本次提问中真实产生的，正文里也没有来历不明的数字。<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 2, &quot;ok&quot;: true, &quot;problems&quot;: [], &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;]}</pre>"},
+        {"on": ["ren"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ren", "text": "[[c4.change|%1]] → 15.1%"},
+         "text": "<b>渲染器填入数字。</b>程序（不是 AI）把每个占位符换成数值并按格式排版：<code>[[c1.total|0]]</code> → <code>6,192</code>，<code>[[c3.diff|0]]</code> → <code>936</code>，<code>[[c4.change|%1]]</code> → <code>15.1%</code>（0.151163 × 100，四舍六入五成双）。如果引用的数值来自“未确认的示例数据”，还会自动加上提醒注记。"},
+        {"on": ["user"], "done": ["llm", "gw", "calc", "cmp", "ver", "ren"], "packet": {"at": "user", "text": "答案 + 出典表"},
+         "text": "<b>你收到答案。</b>终端显示答案、出典表、状态和轨迹文件路径。整个过程：调用 Claude 4 次、调用工具 4 次、草稿 2 份（退回 1 份）。<pre class='tr'><span class='ev'>answer</span>{&quot;status&quot;: &quot;answered&quot;, &quot;answer&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: 6,192\\n…（A に比べて 15.1% 増加）&quot;, &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;], &quot;cost_usd&quot;: &quot;0.00&quot;, &quot;drafts&quot;: 2, &quot;drafts_rejected&quot;: 1, &quot;llm_calls&quot;: 4, &quot;tool_calls&quot;: 4}</pre>"}
+      ]</script>
+    </div>
+    <p>台本模式不消耗真实 token，所以 <code>usd</code> 都是 0。用真实 Claude 时，每次 <code>llm_call</code> 都会记下 token 数和费用（美元）。</p>
+
+    <h2>流水线动画：跟着一个“数据包”走一遍</h2>
+    <p>同一次运行，换个角度看：蓝点是正在传递的内容，红色是被退回的草稿，绿色是通过检查的答案。上方虚线是“提交草稿”的路线，下方红色虚线是“退回”的路线。</p>
+    <div class="pipe" id="pipe">
+      <svg viewBox="0 0 900 300" role="img" aria-label="一次提问在 EchoLab 内部流转的动画：你、Claude、网关、calc-engine、比较工具、验证器、渲染器、答案">
+        <path class="edge" d="M50 150 L180 150 L320 150"/>
+        <path class="edge" d="M320 150 L460 85"/>
+        <path class="edge" d="M320 150 L460 215"/>
+        <path class="edge" d="M620 150 L745 150 L860 150"/>
+        <path class="edge draft" d="M180 150 C 230 0, 570 0, 620 150"/>
+        <path class="edge reject" d="M620 150 C 570 300, 230 300, 180 150"/>
+        <text class="edge-label" x="400" y="30">提交草稿（模板）</text>
+        <text class="edge-label" x="400" y="290">不合格 → 退回改写</text>
+        <g class="legs"></g>
+        <g class="st" data-st="user"><circle cx="50" cy="150" r="22"/><text class="ico" x="50" y="150">问</text><text x="50" y="192">你</text></g>
+        <g class="st" data-st="llm"><circle cx="180" cy="150" r="22"/><text class="ico" x="180" y="150">AI</text><text x="180" y="192">Claude</text><text class="sub" x="180" y="207">不写数字</text></g>
+        <g class="st" data-st="gw"><circle cx="320" cy="150" r="22"/><text class="ico" x="320" y="150">关</text><text x="320" y="192">网关</text><text class="sub" x="320" y="207">白名单・格式</text></g>
+        <g class="st" data-st="calc"><circle cx="460" cy="85" r="22"/><text class="ico" x="460" y="85">算</text><text x="520" y="80">calc-engine</text><text class="sub" x="520" y="95">期待伤害等</text></g>
+        <g class="st" data-st="cmp"><circle cx="460" cy="215" r="22"/><text class="ico" x="460" y="215">比</text><text x="520" y="210">比较工具</text><text class="sub" x="520" y="225">差・比</text></g>
+        <g class="st" data-st="ver"><circle cx="620" cy="150" r="22"/><text class="ico" x="620" y="150">验</text><text x="620" y="192">验证器</text></g>
+        <g class="st" data-st="ren"><circle cx="745" cy="150" r="22"/><text class="ico" x="745" y="150">填</text><text x="745" y="192">渲染器</text></g>
+        <g class="st" data-st="ans"><circle cx="860" cy="150" r="22"/><text class="ico" x="860" y="150">答</text><text x="860" y="192">答案</text></g>
+        <g id="pk" transform="translate(50,150)"><circle r="9"/><text y="-16">问题</text></g>
+      </svg>
+      <div class="pipe-ctl">
+        <button type="button" data-p="play">▶ 播放</button>
+        <button type="button" data-p="next">下一段 ▶</button>
+        <button type="button" data-p="reset">从头开始</button>
+      </div>
+      <div class="pipe-status"><b>0 / 12</b>点“▶ 播放”开始（滚动到这里时也会自动播放一次）。</div>
+    </div>
+    <script>
+    (function () {
+      var root = document.getElementById("pipe");
+      if (!root) return;
+      var svg = root.querySelector("svg"), legsG = root.querySelector(".legs");
+      var pk = root.querySelector("#pk"), pkText = pk.querySelector("text");
+      var status = root.querySelector(".pipe-status"), playBtn = root.querySelector('[data-p="play"]');
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var NS = "http://www.w3.org/2000/svg";
+      // 每一段：路径、包上的短标签、包的颜色、到达后点亮的站点、说明
+      var LEGS = [
+        { d: "M50 150 L180 150", label: "问题", hit: { llm: "hit" }, say: "你的问题交给 Claude。" },
+        { d: "M180 150 L320 150", label: "damage_expected ×2", hit: { gw: "hit" }, say: "Claude 决定并行调用两次期待伤害工具（调用前先检查成本上限）。" },
+        { d: "M320 150 L460 85", label: "许可・格式 OK", hit: { gw: "ok", calc: "hit" }, say: "网关确认工具在白名单内、输入格式正确，编号为 c1、c2，转给 calc-engine。" },
+        { d: "M460 85 L320 150 L180 150", label: "c1.total · c2.total", hit: { calc: "ok", llm: "hit" }, say: "计算结果带着出典 ID（c1.total = 6192、c2.total = 7128 等）回到 Claude。" },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "草稿 1：…A より 936 高い", hit: { ver: "hit" }, say: "Claude 提交草稿 1，但自己写了差值 936。" },
+        { d: "M620 150 C 570 300, 230 300, 180 150", label: "× 936 没有出典", cls: "bad", hit: { ver: "bad", llm: "hit" }, say: "验证器发现 936 不是工具结果、也不在你的问题里，退回并说明原因。" },
+        { d: "M180 150 L320 150", label: "compare_diff / compare_ratio", hit: { gw: "hit" }, say: "Claude 改用比较工具，输入是出典 ID：a = c2.total、b = c1.total。" },
+        { d: "M320 150 L460 215", label: "许可・格式 OK", hit: { gw: "ok", cmp: "hit" }, say: "网关把出典 ID 换回数值，交给比较工具，编号 c3、c4。" },
+        { d: "M460 215 L320 150 L180 150", label: "c3.diff · c4.change", hit: { cmp: "ok", llm: "hit" }, say: "差（c3.diff = 936）和增长率（c4.change = 0.151163）也有了出典 ID。" },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "草稿 2：[[c3.diff|0]] …", hit: { ver: "hit" }, say: "Claude 提交草稿 2，所有数字都写成 [[出典ID|格式]]。" },
+        { d: "M620 150 L745 150", label: "通过", cls: "ok", hit: { ver: "ok", ren: "hit" }, say: "验证器放行，渲染器按格式把占位符换成数字。" },
+        { d: "M745 150 L860 150", label: "6,192 · 7,128 · 936 · 15.1%", cls: "ok", hit: { ren: "ok", ans: "ok", llm: "ok" }, say: "答案和出典表一起显示给你。完成！" }
+      ];
+      var paths = LEGS.map(function (L) {
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("class", "leg"); p.setAttribute("d", L.d); legsG.appendChild(p);
+        return p;
+      });
+      var stations = {};
+      root.querySelectorAll(".st").forEach(function (g) { stations[g.dataset.st] = g; });
+      var idx = -1, t0 = 0, raf = 0, playing = false, holdTimer = 0, marks = {};
+      var MOVE = reduce ? 0 : 1500, HOLD = reduce ? 2200 : 1100;
+
+      function place(x, y) {
+        pk.setAttribute("transform", "translate(" + x.toFixed(1) + "," + y.toFixed(1) + ")");
+        // 标签别跑出画布
+        var w = Math.min(300, pkText.textContent.length * 8 + 10);
+        var lx = Math.max(w / 2 - x + 4, Math.min(0, 896 - w / 2 - x));
+        pkText.setAttribute("x", lx.toFixed(1));
+        pkText.setAttribute("y", y < 60 ? "26" : "-16");
+      }
+      function paintStations() {
+        Object.keys(stations).forEach(function (k) {
+          stations[k].classList.remove("hit", "ok", "bad");
+          if (marks[k]) stations[k].classList.add(marks[k]);
+        });
+      }
+      function begin(i) {
+        idx = i;
+        var L = LEGS[i];
+        pk.setAttribute("class", L.cls || "");
+        pkText.textContent = L.label;
+        status.innerHTML = "<b>" + (i + 1) + " / " + LEGS.length + "</b>" + L.say;
+        // 新一段开始时，旧的“正在处理”高亮改为普通
+        Object.keys(marks).forEach(function (k) { if (marks[k] === "hit") delete marks[k]; });
+        paintStations();
+        t0 = performance.now();
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(tick);
+      }
+      function arrive() {
+        var L = LEGS[idx];
+        Object.keys(L.hit).forEach(function (k) { marks[k] = L.hit[k]; });
+        paintStations();
+        if (playing) {
+          if (idx < LEGS.length - 1) holdTimer = setTimeout(function () { begin(idx + 1); }, HOLD);
+          else stop();
+        }
+      }
+      function tick(now) {
+        var p = paths[idx], len = p.getTotalLength();
+        var k = MOVE ? Math.min(1, (now - t0) / MOVE) : 1;
+        var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        var pt = p.getPointAtLength(len * e);
+        place(pt.x, pt.y);
+        if (k < 1) raf = requestAnimationFrame(tick); else arrive();
+      }
+      function stop() { playing = false; clearTimeout(holdTimer); playBtn.textContent = "▶ 播放"; }
+      function reset() {
+        stop(); cancelAnimationFrame(raf); idx = -1; marks = {}; paintStations();
+        pk.setAttribute("class", ""); pkText.textContent = "问题"; place(50, 150);
+        status.innerHTML = "<b>0 / " + LEGS.length + "</b>点“▶ 播放”开始。";
+      }
+      root.querySelector(".pipe-ctl").addEventListener("click", function (ev) {
+        var a = ev.target.dataset && ev.target.dataset.p;
+        if (a === "play") {
+          if (playing) return stop();
+          playing = true; playBtn.textContent = "暂停";
+          if (idx >= LEGS.length - 1) { reset(); playing = true; playBtn.textContent = "暂停"; }
+          begin(idx + 1);
+        } else if (a === "next") {
+          stop();
+          if (idx >= LEGS.length - 1) reset();
+          begin(idx + 1);
+        } else if (a === "reset") reset();
+      });
+      place(50, 150);
+      // 滚动到可见时自动播放一次（减少动态效果时不自动播放）
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries, obs) {
+          if (entries.some(function (e) { return e.isIntersecting; })) {
+            obs.disconnect();
+            if (idx < 0) { playing = true; playBtn.textContent = "暂停"; begin(0); }
+          }
+        }, { threshold: 0.5 }).observe(svg);
+      }
+    })();
+    </script>
+
+    <h2>时序图：谁在什么时候和谁说话</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as 你
+  participant A as Claude（经由 Agent）
+  participant G as 网关
+  participant C as calc-engine
+  participant K as 比较工具
+  participant V as 验证器・渲染器
+  U->>A: 提问：构建 A 和 B 哪个强、强多少？
+  Note over A: 每次调用 Claude 前先检查成本上限
+  A->>G: damage_expected ×2（并行）
+  G->>G: 白名单・输入格式检查，编号 c1、c2
+  G->>C: 计算
+  C-->>A: 数值 + 出典 ID（c1.total、c2.total…）
+  A->>V: 草稿 1（自己写了 936）
+  V-->>A: 退回：数字 936 没有出典
+  A->>G: compare_diff・compare_ratio（输入为出典 ID）
+  G->>K: 把出典 ID 换回数值后计算
+  K-->>A: c3.diff、c4.ratio、c4.change
+  A->>V: 草稿 2（数字全部是占位符）
+  V->>V: 检查通过 → 填入数字
+  V-->>U: 答案 + 出典表
+      </pre>
+      <div class="caption">图 1：本页那次真实运行的时序（对应轨迹 20261003T031424Z-28df54 的 16 条事件）</div>
+    </div>
+
+    <h2>为什么这样数字就可信</h2>
+    <div class="cards">
+      <div class="card"><h4>① AI 没有“写数字”的通道</h4><p>Claude 的最终输出只是模板，数字位置只能写 <code>[[出典ID]]</code>。真正的数字由渲染器程序填进去，不存在抄错、四舍五入不一致的问题。</p></div>
+      <div class="card"><h4>② 每个数字都有出处</h4><p>出典 ID 由网关按“第几次调用.哪个字段”编号，答案下方的出典表告诉你每个数来自哪个工具。</p></div>
+      <div class="card"><h4>③ 验证器逐字检查</h4><p>草稿里出现的任何来历不明的数字（包括 AI 心算的差值、“约 73%”这样的估算）都会被退回。</p></div>
+      <div class="card"><h4>④ 改不好就不给数字</h4><p>最多允许退回改写 2 次；第 3 份草稿仍不合格时，EchoLab 返回一段<strong>不含任何数字</strong>的固定说明，而不是一个可疑的答案。</p></div>
+      <div class="card"><h4>⑤ 只能用登记过的工具</h4><p>网关只放行领域包里登记的工具（默认拒绝），并在调用前检查输入格式。</p></div>
+      <div class="card"><h4>⑥ 示例数据会被标出</h4><p>如果数值依赖尚未确认的示例数据，答案末尾会自动附上注记：<code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code></p></div>
+      <div class="card"><h4>⑦ 全程留痕</h4><p>每次提问都会写下一份执行轨迹，事后可以逐条核对。见<a href="07-traces-evals.html">执行轨迹与评估</a>。</p></div>
+    </div>
+
+    <h3>验证器允许哪些“裸数字”</h3>
+    <p>占位符以外的正文中，只有下面这些数字可以直接出现（全角数字会先转成半角再比较）：</p>
+    <table>
+      <tr><th>允许的情况</th><th>例子</th><th>说明</th></tr>
+      <tr><td>引用你问题里出现过的数字</td><td>“攻撃力 2000 のとき…”</td><td>忽略千位分隔符；<code>60%</code> 和 <code>0.6</code> 视为相同</td></tr>
+      <tr><td>行首的列表序号</td><td><code>1.</code>、<code>2)</code>、<code>３．</code></td><td>小数（如 1.5）不算序号</td></tr>
+      <tr><td>10 以下的整数 + 特定量词</td><td>“3 つの方法”</td><td>日语的 <code>つ・点・種類・位・番目</code>、中文的 <code>个・种・项・条・步</code>，以及英文名词 <code>ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds</code>（紧跟在数字后面，中间最多一个空格）</td></tr>
+    </table>
+    <div class="callout"><strong>量词白名单也包括中文和英文</strong>回答用你提问的语言书写，所以中文回答里的“3 种方法”“2 个要点”、英文回答里的“3 ways”“2 points”同样被允许。英文名词必须紧跟在数字后面，像“2 key points”这样中间隔了别的词就会被退回。超过 10 的数仍然必须来自工具或问题。</div>
+
+    <h3>其他结束方式</h3>
+    <p>上面是正常结束（状态 <code>answered</code>）。遇到下列情况，EchoLab 会给出不含数字的固定说明并在轨迹里记下状态：</p>
+    <table>
+      <tr><th>状态</th><th>什么时候</th></tr>
+      <tr><td><code>fallback</code></td><td>草稿被退回超过 2 次仍未改好</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>达到每日或每月的成本上限（调用 Claude 前检查，不会产生费用）</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>工具调用的往返超过 6 轮</td></tr>
+      <tr><td><code>llm_error</code></td><td>调用 Claude 失败，例如没有设置 API 密钥</td></tr>
+      <tr><td><code>refusal</code> / <code>max_tokens</code></td><td>模型的安全机能拒绝回答 / 回答过长被截断（这两种情况不会执行半截的工具调用）</td></tr>
+    </table>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="06-cost-and-safety.html">成本上限与数据可信度</a>：成本上限怎么设、“未确认数据”注记是什么意思。</li>
+        <li><a href="07-traces-evals.html">执行轨迹与评估</a>：自己打开轨迹文件逐条查看，或运行忠实度评估。</li>
+        <li><a href="03-reading-answers.html">回答怎么读</a>：答案、出典表和状态行各部分的含义。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

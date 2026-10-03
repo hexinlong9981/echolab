@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>何を聞けるか：機能一覧 | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    .qa > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--surface); font-size: 14.5px; }
+    .qa .good { border-left: 4px solid var(--ok); }
+    .qa .bad { border-left: 4px solid var(--bad); }
+    .qa h4 { margin: 0 0 4px; font-size: 14px; }
+    .qa .good h4 { color: var(--ok); }
+    .qa .bad h4 { color: var(--bad); }
+    .qa p { margin: 4px 0; }
+    @media (max-width: 700px) { .qa { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-page="02-what-to-ask.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>使い方</span><span>機能</span><span>質問のしかた</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>何を聞けるか：機能一覧</h1>
+    <p class="lead">EchoLab は「なんとなく」で数字を出しません。どの数字も、いずれかの計算ツールから来ています。つまり「何を聞けるか」は「どんな計算ツールがあり、それぞれに何を入力する必要があるか」と同じです。このページでは 6 つのツールをプレイヤーの言葉で説明し、質問に含めるべき情報を紹介します。</p>
+
+    <div class="callout warn"><strong>はじめに現状を確認します</strong>
+      現在の EchoLab はコマンドライン（CLI）のみです：<code>python -m core.agent "質問"</code>。Web 画面はロードマップ M5 の計画で、<b>まだ存在しません</b>。<br>
+      自然文の質問を実際に理解するのは Claude で、既定の <code>--llm anthropic</code> モードと <code>ANTHROPIC_API_KEY</code> の設定が必要です。このページのターミナルの例は、すべて <code>--llm scripted</code>（台本モード）で実行しています。<b>「どのツールを選び、どの引数を入れ、どう書くか」はあらかじめ用意した台本で、Claude の振る舞いを模したもの</b>です。一方、ツールの計算結果、検証器の判定、ターミナルの出力は実際に実行して得たものです。例に出てくる <code>gacha_banner.yaml</code>、<code>out_of_scope.yaml</code>、<code>tool_error.yaml</code> などの台本はこのガイド用に別途書いたもので、リポジトリには含まれていません。リポジトリ付属の台本の例は <code>core/agent/examples/compare_builds.yaml</code> です。
+    </div>
+
+    <h2>機能の全体像</h2>
+    <p>現在の EchoLab にあるドメインパックは <code>wuwa</code>（『鳴潮』の育成アドバイザー、非公式のファン作品）の 1 つだけです。Claude が呼べるツールは全部で 6 つで、ドメインパックが <code>domains/wuwa/domain.yaml</code> で宣言している 4 つの計算ツールと、コアに組み込まれた 2 つの比較ツールです。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+mindmap
+  root((EchoLab で計算できること))
+    期待ダメージ
+      damage_expected
+      合計の期待ダメージ
+      乗算区分ごとの明細
+    声骸のスコア
+      echo_score
+      重み付きスコア
+      理想値に対する割合
+    ガチャ確率 厳密
+      gacha_probability_within
+      N 回以内にピックアップを得る確率
+    ガチャのシミュレーション モンテカルロ
+      gacha_simulate
+      確率の推定値と標準誤差
+    比較
+      compare_diff 差
+      compare_ratio 比と増加率
+      </pre>
+      <div class="caption">図 1：6 つのツール。最初の 4 つは Java の計算サービス calc-engine が、比較ツールは Python のコアが計算します</div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h4>期待ダメージ</h4><p><code>damage_expected</code>：攻撃力、倍率、バフ、会心、敵の防御と耐性から、期待ダメージと各乗算区分を求めます。</p></div>
+      <div class="card"><h4>声骸のスコア</h4><p><code>echo_score</code>：声骸のサブステータスを重みに従って採点し、「理想値の何 %」かに換算します。</p></div>
+      <div class="card"><h4>ガチャ確率（厳密）</h4><p><code>gacha_probability_within</code>：現在の天井の状態から、N 回以内にピックアップを獲得できる厳密な確率（マルコフ連鎖）。</p></div>
+      <div class="card"><h4>ガチャのシミュレーション（モンテカルロ）</h4><p><code>gacha_simulate</code>：同じ確率をランダムなシミュレーションで推定し、標準誤差も示します。</p></div>
+      <div class="card"><h4>差</h4><p><code>compare_diff</code>：2 つの計算結果の差 a − b。</p></div>
+      <div class="card"><h4>比</h4><p><code>compare_ratio</code>：2 つの結果の比 a / b と、増加率 a / b − 1（「何 % 高いか」）。</p></div>
+    </div>
+
+    <h2>質問がツールの呼び出しになるまで</h2>
+    <p>質問は自然な文章で書くだけでかまいません。Claude が質問を読み、ツールを選び、質問中の数値をツールの引数に入れます。ゲートウェイが引数の妥当性を確かめてから、計算サービスに渡します。比較が必要なときも、Claude は自分で引き算をせず、比較ツールを呼びます。以下では「2 つのビルドのどちらが、どれだけ強いか」を実際に実行した過程で説明します（台本モード、計算結果は実際のものです）。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="q">あなたの質問<small>自然な文章</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">Claude<small>ツール選択・引数の入力</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="gw">ゲートウェイ＋計算サービス<small>検査・計算・採番</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ans">回答<small>検証後に表示</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["q"], "packet": {"at": "q", "text": "ビルド A と B、どちらがどれだけ強い？"}, "text": "質問には 2 つのビルドの数値をすべて書きます。攻撃力 2000 / 1800、スキル倍率 2.5 / 3.0、ダメージバフ、会心率、会心ダメージ、敵の防御、耐性ダウン、そして共通の防御定数 1600、防御無視 0、敵の耐性 0.1 です。"},
+        {"on": ["llm", "a1"], "done": ["q"], "packet": {"at": "llm", "text": "damage_expected × 2"}, "text": "Claude は「期待ダメージ」の質問だと判断します。2 つのビルドは互いに独立しているので、1 回の応答で <code>damage_expected</code> を 2 回<b>並列</b>に呼び、質問中の数値をそのまま 10 個の引数に入れます。"},
+        {"on": ["gw", "a2"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c1.total / c2.total"}, "text": "ゲートウェイは入力スキーマに従って引数（範囲、必須項目、未知のフィールド）を検査し、Java の計算サービスに渡します。呼び出しには順に <code>c1</code>、<code>c2</code> と番号が振られ、結果の各フィールドに出典 ID が付きます（例：<code>c1.total = 6192.000000</code>、<code>c2.total = 7128.000000</code>）。"},
+        {"on": ["llm", "a2"], "done": ["q", "gw"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "「どれだけ強いか」に答えるのに、Claude は自分で引き算をしてはいけません。比較ツールを呼び、数字ではなく<b>出典 ID</b> を渡します：<code>{\"a\": \"c2.total\", \"b\": \"c1.total\"}</code>。"},
+        {"on": ["gw"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c3.diff / c4.change"}, "text": "比較ツールは Python のコアで計算します：<code>c3.diff = 936.000000</code>、<code>c4.ratio = 1.151163</code>、<code>c4.change = 0.151163</code>。"},
+        {"on": ["ans", "a3"], "done": ["q", "llm", "gw"], "packet": {"at": "ans", "text": "6,192 / 7,128 / 936 / 15.1%"}, "text": "Claude はプレースホルダ（例：<code>[[c4.change|%1]]</code>）で回答のテンプレートを書きます。検証器がすべての数字に出典があることを確かめると、レンダラが数値を埋めます：「差: 936（A に比べて 15.1% 増加）」。詳しくは<a href=\"03-reading-answers.html\">回答の読み方</a>をご覧ください。"},
+        {"on": ["llm"], "fail": ["q"], "packet": {"at": "llm", "text": "数値が足りない → 聞き返す"}, "text": "質問に必要な数値が欠けている場合（たとえば敵の防御が書かれていない場合）、Claude は<b>推測せず、自分が覚えているゲームの数値も使わない</b>決まりです。サンプルデータの ID（ガチャ、重みの設定）を使うか、あなたに聞き返します。"}
+      ]</script>
+    </div>
+
+    <h2>機能ごとに必要な情報</h2>
+    <p>以下のフィールド名と範囲は、計算サービスの入力スキーマ（<code>services/calc-engine/src/main/resources/tools/*.schema.json</code>）から取っています。フィールド名を書く必要はなく、自然な文章で伝えれば十分です。ただし<b>表で「必須」とある情報は質問に含めてください</b>（またはサンプルデータから取れる必要があります）。足りなければ Claude が聞き返します。「割合」の数値はツール内部ではすべて小数（0.3 = 30%）で扱います。30% と書いても 0.3 と書いてもかまいません。換算は Claude が行います。</p>
+
+    <h3>1. 期待ダメージ <code>damage_expected</code></h3>
+    <p>10 個の引数は<b>すべて必須</b>です。ツールにはゲームの定数が一切含まれていないため、防御定数、敵の防御、耐性なども質問で指定してください。</p>
+    <table>
+      <tr><th>伝える内容</th><th>フィールド</th><th>許される範囲</th><th>説明</th></tr>
+      <tr><td>最終攻撃力</td><td><code>atk</code></td><td>≥ 0</td><td>ステータス画面の最終的な攻撃力</td></tr>
+      <tr><td>スキル倍率</td><td><code>skill_multiplier</code></td><td>≥ 0</td><td>小数。2.5 = 250%</td></tr>
+      <tr><td>ダメージバフの合計</td><td><code>dmg_bonus</code></td><td>≥ 0</td><td>小数。0.3 = 30%</td></tr>
+      <tr><td>会心率</td><td><code>crit_rate</code></td><td>≥ 0</td><td>1（100%）を超えた分は 1 として計算</td></tr>
+      <tr><td>会心ダメージ倍率</td><td><code>crit_dmg</code></td><td>≥ 1</td><td>2.2 = 220%（「倍率」であり、「追加で 120%」ではありません）</td></tr>
+      <tr><td>防御定数 C</td><td><code>defense_constant</code></td><td>&gt; 0</td><td>攻撃側のレベルなどで決まります。防御の乗算区分 = C / (C + 防御 × (1 − 防御無視))</td></tr>
+      <tr><td>敵の防御力</td><td><code>enemy_def</code></td><td>≥ 0</td><td></td></tr>
+      <tr><td>防御無視</td><td><code>def_ignore</code></td><td>0〜1</td><td>小数</td></tr>
+      <tr><td>敵の属性耐性</td><td><code>enemy_res</code></td><td>負の値も可</td><td>0.1 = 10%</td></tr>
+      <tr><td>耐性ダウン</td><td><code>res_shred</code></td><td>任意</td><td>実効耐性 = 耐性 − 耐性ダウン。1 未満である必要があります。実効耐性が負のときは乗算区分 = 1 − 実効耐性 / 2</td></tr>
+    </table>
+    <p><b>戻り値</b>：<code>base</code>（基礎ダメージ = 攻撃力 × 倍率）、<code>bonus_multiplier</code>（バフの乗算区分）、<code>crit_multiplier</code>（会心の期待値の乗算区分）、<code>defense_multiplier</code>、<code>resistance_multiplier</code>、<code>total</code>（期待ダメージ）。明細を見たいときは、質問に「明細つきで」と書いてください。</p>
+    <div class="qa">
+      <div class="good"><h4>○ 情報が十分</h4><p>「攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？ 明細つきで。」</p><p>（この入力での実際の結果：期待ダメージ 6192、基礎ダメージ 5000、各乗算区分 1.3 / 1.72 / 0.615385 / 0.9。）</p></div>
+      <div class="bad"><h4>× 情報が不足</h4><p>「攻撃力 2000 なんだけど、この技でどれくらい出る？」――倍率、バフ、会心、敵のデータが足りません。Claude は自分が「覚えている」倍率で補うことはできず、聞き返すしかありません。</p></div>
+    </div>
+
+    <h3>2. 声骸のスコア <code>echo_score</code></h3>
+    <table>
+      <tr><th>伝える内容</th><th>フィールド</th><th>許される範囲</th><th>説明</th></tr>
+      <tr><td>声骸の名前</td><td><code>echo.name</code></td><td>任意の文字列</td><td>必須。表示にだけ使います</td></tr>
+      <tr><td>COST</td><td><code>echo.cost</code></td><td>整数 1〜4</td><td>必須</td></tr>
+      <tr><td>メインステータス</td><td><code>echo.main</code></td><td>ステータス＋数値（≥ 0）</td><td>必須ですが、<b>スコアには含めません</b>（メインステータスは COST で決まるため、サブステータスの厳選の評価には入りません）</td></tr>
+      <tr><td>サブステータス</td><td><code>echo.subs</code></td><td>最大 5 個</td><td>それぞれステータス＋数値（≥ 0。割合は小数で、0.08 = 8%）</td></tr>
+      <tr><td>重み</td><td><code>weights</code> <b>または</b> <code>profile</code></td><td>重み ≥ 0</td><td>どちらか一方で、両方は指定できません。重みを指定しない場合は「会心型アタッカーのサンプル設定で」（<code>profile: sample-crit-attacker</code>）と伝えられます</td></tr>
+      <tr><td>サブステータス 1 個の最大値</td><td><code>max_roll</code></td><td>≥ 0。重みのあるステータスは正の値が必須</td><td>省略可。省略時はサンプルデータ <code>echo_weights.yaml</code> の <code>max_roll</code>（未確認）を使います</td></tr>
+    </table>
+    <p>ステータス名（ツール内部の列挙値）の対応は次のとおりです。</p>
+    <table>
+      <tr><th>列挙値</th><th>意味</th><th>列挙値</th><th>意味</th></tr>
+      <tr><td><code>CRIT_RATE</code></td><td>会心率</td><td><code>CRIT_DMG</code></td><td>会心ダメージ</td></tr>
+      <tr><td><code>ATK_PERCENT</code> / <code>ATK_FLAT</code></td><td>攻撃力% / 攻撃力（実数）</td><td><code>HP_PERCENT</code> / <code>HP_FLAT</code></td><td>HP% / HP（実数）</td></tr>
+      <tr><td><code>DEF_PERCENT</code> / <code>DEF_FLAT</code></td><td>防御力% / 防御力（実数）</td><td><code>ENERGY_REGEN</code></td><td>共鳴効率</td></tr>
+      <tr><td><code>BASIC_ATTACK_DMG_BONUS</code></td><td>通常攻撃ダメージアップ</td><td><code>HEAVY_ATTACK_DMG_BONUS</code></td><td>重撃ダメージアップ</td></tr>
+      <tr><td><code>SKILL_DMG_BONUS</code></td><td>共鳴スキルダメージアップ</td><td><code>LIBERATION_DMG_BONUS</code></td><td>共鳴解放ダメージアップ</td></tr>
+      <tr><td><code>ELEMENTAL_DMG_BONUS</code></td><td>属性ダメージアップ</td><td><code>HEALING_BONUS</code></td><td>治療効果アップ</td></tr>
+    </table>
+    <p><b>戻り値</b>：<code>score</code> = サブステータスごとの「重み × 数値 ÷ 最大値」の合計。<code>percent_of_ideal</code> = score ÷ 理想値 × 100 で、理想値は「重みが最も大きい 5 つのステータスが 1 個ずつ最大値で付いた」ときのスコアです。たとえばサンプル設定の重みが 1.0 / 1.0 / 0.75 / 0.25 / 0.5 なら、理想値は 3.5 です。<code>percent_of_ideal</code> はそれ自体がすでにパーセントである点に注意してください（76.976190 は約 77% の意味です）。</p>
+    <div class="qa">
+      <div class="good"><h4>○ 情報が十分（サンプルの重みを使用）</h4><p>「この COST 4 の声骸を採点して。メインは会心ダメージ 44%、サブは会心率 8.7%、会心ダメージ 17.4%、攻撃力 8.6%、HP 430、共鳴効率 10%。重みは会心型アタッカーのサンプル設定で。」</p><p>（実際の結果：スコア 2.694167、理想値の 76.976190%。「未確認のデータ」の注記が付きます。）</p></div>
+      <div class="bad"><h4>× 情報が不足</h4><p>「この声骸って何点？ 会心系はまあまあ付いてる。」――具体的なサブステータスの数値がありません。また、Claude が「公式」の最大値や重みを知っていると期待しないでください。ツールが使うのは、あなたが与えた値かサンプルデータだけです。</p></div>
+    </div>
+
+    <h3>3. ガチャ確率（厳密）<code>gacha_probability_within</code></h3>
+    <table>
+      <tr><th>伝える内容</th><th>フィールド</th><th>許される範囲</th><th>説明</th></tr>
+      <tr><td>現在の天井カウント</td><td><code>start_pity</code></td><td>整数 0〜9999、かつ天井未満</td><td>必須。前回最高レアリティが出てから何回引いたか</td></tr>
+      <tr><td>すり抜け確定かどうか</td><td><code>guaranteed</code></td><td>はい / いいえ</td><td>必須。前回すり抜けた（ピックアップではなかった）場合は、次の最高レアリティが必ずピックアップになるので「はい」</td></tr>
+      <tr><td>あと何回引くか</td><td><code>pulls</code></td><td>整数 0〜10000</td><td>必須</td></tr>
+      <tr><td>ガチャのルール</td><td><code>rules</code> <b>または</b> <code>banner</code></td><td>下の表を参照</td><td>どちらか一方。6 項目のルールをすべて自分で指定するか、「サンプルの限定キャラクターガチャで」（<code>banner: featured-character</code>、未確認のデータ）と伝えます</td></tr>
+    </table>
+    <table>
+      <tr><th>ルールの項目（<code>rules</code> のフィールド）</th><th>許される範囲</th><th>意味</th></tr>
+      <tr><td><code>base_rate</code></td><td>0〜1</td><td>最高レアリティの基本確率</td></tr>
+      <tr><td><code>soft_pity_start</code></td><td>整数 1〜10000、天井以下</td><td>ソフト天井が何回目から始まるか（前回の最高レアリティから 1 と数えて）</td></tr>
+      <tr><td><code>soft_pity_increment</code></td><td>0〜1</td><td>ソフト天井の間、1 回ごとに上がる確率</td></tr>
+      <tr><td><code>hard_pity</code></td><td>整数 1〜10000</td><td>天井：この回で最高レアリティが確定</td></tr>
+      <tr><td><code>featured_rate</code></td><td>0〜1</td><td>最高レアリティがピックアップである確率</td></tr>
+      <tr><td><code>guarantee_after_loss</code></td><td>はい / いいえ</td><td>すり抜けた後、次の最高レアリティがピックアップで確定するか</td></tr>
+    </table>
+    <p><b>戻り値</b>：<code>probability</code>（0〜1 の厳密な値）。</p>
+
+    <h3>4. ガチャのシミュレーション（モンテカルロ）<code>gacha_simulate</code></h3>
+    <p>入力は厳密版と同じで、加えて 3 つの任意項目があります。</p>
+    <table>
+      <tr><th>フィールド</th><th>許される範囲</th><th>省略時</th><th>説明</th></tr>
+      <tr><td><code>trials</code></td><td>整数 1〜1,000,000</td><td>100000</td><td>試行回数。標準誤差は 1/√trials に比例します</td></tr>
+      <tr><td><code>seed</code></td><td>64 ビット整数</td><td>0</td><td>乱数のシード。同じシードなら同じ結果になります</td></tr>
+      <tr><td><code>method</code></td><td><code>sequential</code> / <code>parallel_stream</code> / <code>virtual_threads</code></td><td><code>sequential</code></td><td>速度だけに影響し、結果には影響しません</td></tr>
+    </table>
+    <p><b>戻り値</b>：<code>probability</code>（推定値）と <code>std_error</code>（標準誤差）。ふだん使うなら厳密版が適しています。「シミュレーションと厳密な値が一致するか」を見たいときは、質問に「シミュレーションでも計算して」とはっきり書いてください。</p>
+    <div class="callout"><strong>ヒント</strong>ドメインのプロンプト（<code>domains/wuwa/prompts/system.md</code>）のツール説明表にも <code>gacha_simulate</code> が載っており、Claude には「ふだんの確率の質問には厳密版 <code>gacha_probability_within</code> を使い、シミュレーションでの確認を求められたときだけシミュレーションを使う」よう指示しています。シミュレーションを使いたい場合は、質問ではっきり求めてください。なお、<code>--fake-backend</code>（試験用の計算サービス）はシミュレーションに対応しておらず、<code>banner</code> / <code>profile</code> のようなデータの参照もできません。これらは実際の Java サービスでのみ使えます。</div>
+
+    <h3>5. 差 <code>compare_diff</code> と 6. 比 <code>compare_ratio</code></h3>
+    <p>比較ツールの入力は数字ではなく、<b>同じ質問の中で</b>先に呼んだツールの結果の出典 ID（例：<code>c1.total</code>）です。そのため、次の点に注意してください。</p>
+    <ul>
+      <li>「ビルド A と B の差はいくつか／何 % 高いか」といった質問では、両方の条件をすべて<b>1 つの質問の中に</b>書き、両方を先に計算させます。</li>
+      <li>CLI の実行は 1 回ごとに独立した質問で、前回の結果は覚えていません。A について聞いた後、別の質問で「さっきの A と B を比べると？」と聞くことはできません。</li>
+      <li>「1234 は 1000 より何 % 高い？」のような単なる算数の問題には比較ツールを使えません（渡せる出典 ID がないため）。Claude が自分で計算した数字を回答に書くこともできません。</li>
+    </ul>
+    <p><b>戻り値</b>：<code>compare_diff</code> → <code>diff</code>（a − b）。<code>compare_ratio</code> → <code>ratio</code>（a / b）と <code>change</code>（a / b − 1。回答ではパーセントで表示されることが多い）。b が 0 のときは「b が 0 のため、比を計算できません」というエラーを返します。比較結果は小数点以下 6 桁（銀行丸め）です。</p>
+
+    <h2>サンプルデータ：そのまま参照できるガチャと重みの設定</h2>
+    <p>ガチャのルールや声骸の重みを指定しないときは、<code>domains/wuwa/data/v2.x/</code> のサンプルデータを Claude に参照させることができます。<b>これらの値はすべて <code>verified: false</code>（未確認）で、公式の数値ではありません</b>。使った回答には自動で注記が付きます（<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>を参照）。</p>
+    <table>
+      <tr><th>参照のしかた</th><th>ID</th><th>内容（データファイルからそのまま抜粋）</th></tr>
+      <tr><td>ガチャ <code>banner</code></td><td><code>featured-character</code><br>限定キャラクター（サンプル）</td><td>base_rate 0.008、soft_pity_start 66、soft_pity_increment 0.04、hard_pity 80、featured_rate 0.5、guarantee_after_loss true</td></tr>
+      <tr><td>重みの設定 <code>profile</code></td><td><code>sample-crit-attacker</code><br>会心型アタッカー（サンプル）</td><td>CRIT_RATE 1.0、CRIT_DMG 1.0、ATK_PERCENT 0.75、ATK_FLAT 0.25、ENERGY_REGEN 0.5</td></tr>
+      <tr><td>サブステータスの最大値（<code>max_roll</code> を省略したとき）</td><td><code>max_roll</code></td><td>CRIT_RATE 0.1、CRIT_DMG 0.2、ATK_PERCENT 0.12、ATK_FLAT 60、ENERGY_REGEN 0.12、HP_PERCENT 0.12、HP_FLAT 600、DEF_PERCENT 0.15、DEF_FLAT 60</td></tr>
+    </table>
+    <p>ガチャと重みの設定はそれぞれ 1 つずつしかありません。存在しない ID を参照すると、計算サービスがエラーを返します（実測例：<code>banner 'standard' は gacha_rules.yaml の banners にありません</code>）。</p>
+    <p>サンプルのガチャを参照して実際に実行した例です（台本モード＋実際の Java 計算サービス）。</p>
+    <div class="term" data-title="bash — サンプルのガチャを参照">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"サンプルの限定キャラクターガチャで、いまの天井カウントは 30、すり抜け確定なし。あと 100 回以内にピックアップキャラクターが出る確率は？\" --llm scripted --script gacha_banner.yaml"},
+        {"pause": 600},
+        {"out": "サンプルのガチャのルールでは、天井カウント 30・すり抜け確定なしの状態から、100 回以内にピックアップキャラクターを獲得できる確率は 75.5% です。", "delay": 400},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T034114Z-cd1664", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T034114Z-cd1664.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+
+    <h2>よい質問の書き方</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  Q["聞きたいこと"] --> K{"4 種類の計算のどれか？&lt;br/&gt;ダメージ / 声骸 / ガチャ確率 / シミュレーション"}
+  K -- いいえ --> X["数字は出せない&lt;br/&gt;Claude が範囲を説明するか聞き返す"]
+  K -- はい --> V{"必須の数値は&lt;br/&gt;すべて質問に書いた？"}
+  V -- はい --> OK["計算できる"]
+  V -- いいえ --> D{"サンプルデータで代用できる？&lt;br/&gt;ガチャ / 重みの設定"}
+  D -- はい --> OK2["計算できる&lt;br/&gt;回答に未確認の注記が付く"]
+  D -- いいえ --> ASK["Claude が聞き返す&lt;br/&gt;数値を推測しない"]
+  OK --> C{"2 つの結果を&lt;br/&gt;比べたい？"}
+  OK2 --> C
+  C -- はい --> SAME["両方の条件を&lt;br/&gt;1 つの質問に書く"]
+      </pre>
+      <div class="caption">図 2：質問する前のセルフチェック</div>
+    </div>
+    <ul>
+      <li><b>数値はすべて書く</b>：ツールにはゲームの数値が組み込まれておらず、Claude も記憶で数値を補わない決まりです。</li>
+      <li><b>割合は 30% でも 0.3 でもよい</b>：検証器は <code>x%</code> と <code>x/100</code> を同じ数として扱うので、質問中の「30%」や「0.3」を回答で引用しても差し戻されません。</li>
+      <li><b>サンプルデータを使うならそう書く</b>：「サンプルの限定キャラクターガチャで」「重みは会心型アタッカーのサンプル設定で」。</li>
+      <li><b>比べるなら 1 回で聞く</b>：両方の条件を同じ質問に入れます。</li>
+      <li><b>1 回に 1 つのことを聞く</b>：1 つの質問でツールを呼べるのは最大 6 ラウンドです。超えると「計算の手順が多くなりすぎた…」で終わります（<a href="03-reading-answers.html">回答の読み方</a>を参照）。</li>
+    </ul>
+
+    <h2>答えられない質問と、そのときに起きること</h2>
+    <table>
+      <tr><th>質問の種類</th><th>例</th><th>理由</th></tr>
+      <tr><td>主観的な評価、ランキング、編成のおすすめ</td><td>「今のバージョンで最強のキャラは？」</td><td>対応する計算ツールがない</td></tr>
+      <tr><td>ゲーム内のデータが必要なのに与えていない</td><td>「あるキャラの解放の倍率は？」</td><td>EchoLab はゲームのデータを持たず（未確認のサンプルのみ）、Claude も記憶で数値を出せない</td></tr>
+      <tr><td>単なる算数</td><td>「1234 は 1000 より何割高い？」</td><td>比較ツールが受け付けるのは、同じ質問の中のツール結果の出典 ID だけ</td></tr>
+      <tr><td>前回の続き</td><td>「さっきのに会心率を 10% 足したら？」</td><td>実行は 1 回ごとに独立していて会話の記憶がない。条件をすべて書き直してください</td></tr>
+      <tr><td>スクリーンショットの読み取り、住宅ローン試算など</td><td>「このスクショで採点して」</td><td>スクリーンショットの読み取り（M4）と住宅ローンのドメインパック（M3）はどちらもロードマップ上の計画です。<a href="09-roadmap.html">今後の機能（ロードマップ）</a>を参照</td></tr>
+    </table>
+    <p>このような場合、Claude は数字を含まない文章で、できることを説明するか、足りない情報を聞き返す決まりです。Claude が何を書いても、<b>出典のない数字は検証器が止めます</b>。そのため最悪の場合でも「数字のない回答」になるだけで、「でっち上げの数字」が出ることはありません。以下の 2 つはどちらも実際の実行です（Claude の応答は台本で模しています）。</p>
+    <div class="term" data-title="bash — 範囲外の質問">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"今のバージョンで一番強いキャラは？ ランキングにして。\" --llm scripted --script out_of_scope.yaml --fake-backend"},
+        {"pause": 500},
+        {"out": "申し訳ありません。この質問（キャラクターの強さのランキング）は、使える計算ツールの範囲外です。お手伝いできるのは、与えられた数値からの期待ダメージの計算、声骸の採点、ガチャの確率の計算、そしてそれらの結果の差と比の比較です。", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T034118Z-d47774", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T034118Z-d47774.jsonl", "cls": "dim"},
+        {"pause": 900},
+        {"cmd": "python -m core.agent \"サンプルの限定キャラクターガチャで、天井カウント 0 から 20000 回以内にピックアップが出る確率は？\" --llm scripted --script tool_error.yaml"},
+        {"pause": 600},
+        {"out": "指定された回数が計算ツールで扱える上限を超えているため、結果を計算できませんでした。回数を減らして、もう一度お尋ねください。", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T034127Z-936c2e", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T034127Z-936c2e.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>2 つ目の例では、ゲートウェイが計算サービスを呼ぶ前にスキーマに従って <code>pulls: 20000</code> を拒否しています。実行トレースに記録されたエラーは <code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code> です（フィールドのパス付き。必須項目の欠落、型の誤り、範囲外、選択肢にない値、余分なフィールド、形式の不一致といったよくある誤りも、同じように説明されます）。エラーを受け取った Claude は、引数を直して再試行することも、この例のようにあなたに説明することもできます。なお、状態 <code>answered</code> は「回答が検証に通った」ことを表すだけで、<b>必ず数字が出たという意味ではありません</b>。「出典」の欄が空なら、その回答は計算結果を 1 つも引用していません。</p>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="03-reading-answers.html">回答の読み方</a>：出典の表、状態の行、数字の書式、「未確認」の注記の意味。</li>
+        <li><a href="04-cli-reference.html">コマンドリファレンス</a>：<code>--llm</code>、<code>--script</code>、<code>--fake-backend</code> などのオプション。</li>
+        <li><a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>：サンプルデータが「未確認」である理由。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

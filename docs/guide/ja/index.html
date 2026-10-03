@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>トップ・EchoLab とは | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* このページ専用：狭い画面で幅の広い要素（表・アニメーション）がページ全体を押し広げないようにする */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="index.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>はじめに</span><span>概要</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>EchoLab とは</h1>
+    <p class="lead">「AI に計算させない」コマンドラインの質問応答アシスタントです。質問を 1 文で入力すると、数値はすべて決定的な計算ツールが求め、回答に出てくるどの数字についても出典をたどれます。</p>
+
+    <h2>できること</h2>
+    <p>EchoLab は『鳴潮（Wuthering Waves）』の育成を題材にした、非公式・非営利のファン作品です。ターミナルで質問を入力すると、次のように動きます。</p>
+    <ul>
+      <li>質問を理解し、適切な<strong>計算ツール</strong>（期待ダメージ、声骸のスコア、ガチャの確率、差や増加率を求める比較ツール）を選びます。</li>
+      <li>ツールに計算させ、その結果を使って説明文を書きます。</li>
+      <li>回答の下に<strong>出典の表</strong>を付けます。それぞれの数字がどの計算から来たか、元の値はいくつか、未確認のデータを使ったかどうかがわかります。</li>
+    </ul>
+    <div class="callout warn"><strong>現在はコマンドライン（CLI）のみです</strong>EchoLab は今のところ、ターミナルで <code>python -m core.agent "質問"</code> と入力して使います。画面（GUI）はありません。Web 画面はロードマップの M5 で予定している機能で、まだ実装されていません（<a href="09-roadmap.html">今後の機能（ロードマップ）</a>を参照）。</div>
+    <div class="callout"><strong>表示言語について</strong>CLI のメッセージや出力（<code>状態</code>、<code>出典</code>、<code>差し戻し</code> など）は日本語です。このガイドでは実際の出力をそのまま載せ、各部分の意味を説明します。</div>
+
+    <h2>数字を信頼できる理由</h2>
+    <div class="cards">
+      <div class="card"><h4>数字はツールだけが出す</h4><p>AI は計算を一切しません。2 つの数の差や増加率も、比較ツール（<code>compare.diff</code> / <code>compare.ratio</code>）に計算させます。</p></div>
+      <div class="card"><h4>検証器が 1 つずつ照合</h4><p>AI が書くのはプレースホルダ（例：<code>[[c1.total|0]]</code>）入りの下書きです。出典のない数字が下書きにあれば「差し戻し」となり、書き直しになります。</p></div>
+      <div class="card"><h4>出典の表でたどれる</h4><p>どの数字にも出典 ID（例：<code>c3.diff</code>）があり、元の値と計算したツールが回答の下に並びます。</p></div>
+      <div class="card"><h4>未確認のデータは注記</h4><p>サンプルデータの多くは <code>verified: false</code> です。これを使った場合は、回答の末尾に「未確認のサンプルデータに基づいています」という注記が自動で付きます。</p></div>
+      <div class="card"><h4>直らなければ数字を出さない</h4><p>3 回差し戻しても合格しないときは、疑わしい数字を出す代わりに、数値を含まない定型の回答だけを返します（状態 <code>fallback</code>）。</p></div>
+      <div class="card"><h4>コストの上限つき</h4><p>実際の Claude を呼ぶときは、呼び出しのたびに 1 日 1 ドル・1 か月 10 ドルの上限を確認します（環境変数で変更できます）。</p></div>
+    </div>
+
+    <h2>1 回の質問の流れ（アニメーション）</h2>
+    <p>付属の例「2 つのビルドのどちらが強いか比べる」を使って、1 回の質問の流れを示します。「次へ」で 1 ステップずつ、または「自動再生」でご覧ください。</p>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="user">あなた<small>ターミナルで質問</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">AI（Claude）<small>ツール選択・下書き</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="calc">ゲートウェイ＋<br/>計算サービス<small>確認して計算</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ver">検証器<small>数字を照合</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="ans">回答<small>出典の表つき</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "A と B、どちらが強い？"}, "text": "質問を入力します。2 つのビルド（攻撃力・倍率・会心などのパラメータはすべて質問に書きます）のどちらの期待ダメージが高く、どれだけ差があるかを尋ねます。"},
+        {"on": ["a1", "llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "AI は質問を理解しても<strong>自分では計算しません</strong>。期待ダメージのツール <code>damage_expected</code> を 2 回（A と B に 1 回ずつ、並列で）呼ぶと決めます。"},
+        {"on": ["a2", "calc"], "done": ["user", "llm"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "ゲートウェイがまず、ツールが許可リストにあるか、引数が形式どおりかを確かめてから、Java の計算サービスに渡します。結果には出典 ID が振られます：<code>c1.total</code> = 6192.000000、<code>c2.total</code> = 7128.000000。"},
+        {"on": ["llm", "a3", "ver"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "AI の 1 回目の下書きには「A より 936 高い」とありました。この 936 は AI が自分で暗算した数字です。検証器は <code>数値「936」の出典がありません</code> と判定し、書き直しを求めます。"},
+        {"on": ["llm", "a2", "calc"], "done": ["user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "AI は比較ツール <code>compare_diff</code> と <code>compare_ratio</code> を呼ぶように改めます：<code>c3.diff</code> = 936.000000、<code>c4.change</code> = 0.151163。"},
+        {"on": ["a3", "ver"], "done": ["user", "llm", "calc", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "2 回目の下書きは、<code>[[c3.diff|0]]</code>、<code>[[c4.change|%1]]</code> のようにプレースホルダだけで数字を引用しています。検証に通ると、プログラムがプレースホルダを実際の数字（936、15.1%）に置き換えます。"},
+        {"on": ["a4", "ans"], "done": ["user", "llm", "calc", "ver", "ans"], "packet": {"at": "ans", "text": "answered"}, "text": "回答、出典の表、状態の行が表示されます：<code>状態: answered</code>、<code>差し戻し: 1 回</code>。一連の過程は <code>.echolab/traces/</code> の実行トレースにも保存されます。"}
+      ]</script>
+    </div>
+
+    <h2>実際の実行の様子</h2>
+    <p>同じ例を実際に実行したときの出力です（台本モード＋実際の Java 計算サービス。API キーは要りません）。コマンドが長いのは、2 つのビルドのパラメータをすべて質問に書いているためです。</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 6},
+        {"pause": 1500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024449Z-4423a9", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024449Z-4423a9.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>出力の読み方：上半分が回答です。<code>出典:</code> の下の表には、回答が引用した数字ごとに出典 ID、元の値、計算したツール、使った未確認のデータ（<code>-</code> はなし）が並びます。最後の行が状態です。<code>費用: $0.0000</code> となっているのは、台本モードでは実際の AI を呼ばないためです。各項目の詳しい説明は<a href="03-reading-answers.html">回答の読み方</a>をご覧ください。</p>
+
+    <h3>未確認のデータを使ったとき</h3>
+    <p>計算に <code>verified: false</code> のサンプルデータ（例：限定キャラクターのガチャのルール）を使うと、回答に注記の行が自動で加わり、出典の表の「未確認データ」列にどのデータかが示されます。</p>
+    <div class="term" data-title="bash — 未確認のデータの注記">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"限定キャラクターのバナーで、天井カウント 0・すり抜け確定なしから 80 回以内にピックアップを獲得できる確率は？\" --llm scripted --script my-unverified.yaml", "speed": 10},
+        {"pause": 1200},
+        {"out": "80 回以内にピックアップを獲得できる確率は 60.6% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.6058637851964593  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024602Z-6a350f", "cls": "warn"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">（<code>my-unverified.yaml</code> はこの説明のために用意した台本で、ツールに <code>banner: featured-character</code> を指定してサンプルのガチャデータを参照させています。台本の書き方は<a href="07-traces-evals.html">実行トレースと評価</a>をご覧ください。）</p>
+
+    <h2>3 ステップで始める</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  S1["① インストール&lt;br/&gt;Python 3.12 + 依存パッケージ"] --> S2["② API キーなしで試す&lt;br/&gt;--llm scripted --fake-backend"]
+  S2 --> S3["③ Java 計算サービスにつなぐ&lt;br/&gt;JDK 21 + jar をビルド"]
+  S3 -.-> OPT["（任意）実際の Claude&lt;br/&gt;API キーを設定"]
+      </pre>
+      <div class="caption">図 1：最初の 3 ステップに API キーは要りません。実際の Claude が必要なのは、自由に質問したいときだけです</div>
+    </div>
+    <p>詳しい手順は<a href="01-quickstart.html">インストールと最初の質問</a>をご覧ください。</p>
+
+    <h2>このガイドの内容</h2>
+    <div class="cards">
+      <a class="card" href="01-quickstart.html" style="text-decoration:none"><h4>インストールと最初の質問</h4><p>動作環境、インストール、API キーなしでの試用、Java サービスと実際の Claude への接続。</p></a>
+      <a class="card" href="02-what-to-ask.html" style="text-decoration:none"><h4>何を聞けるか：機能一覧</h4><p>期待ダメージ、声骸のスコア、ガチャの確率、比較、そして答えられないこと。</p></a>
+      <a class="card" href="03-reading-answers.html" style="text-decoration:none"><h4>回答の読み方</h4><p>回答本文、出典の表、未確認のデータの注記、状態の行を順に説明します。</p></a>
+      <a class="card" href="04-cli-reference.html" style="text-decoration:none"><h4>コマンドリファレンス</h4><p>すべてのオプション、実行モード、状態と終了コード、環境変数。</p></a>
+      <a class="card" href="05-how-it-works.html" style="text-decoration:none"><h4>裏側で起きていること（アニメーション）</h4><p>質問、ツール、検証、差し戻しまでの流れをアニメーションで見ます。</p></a>
+      <a class="card" href="06-cost-and-safety.html" style="text-decoration:none"><h4>コストの上限とデータの確かさ</h4><p>費用の計算方法、上限の変え方、サンプルデータが「未確認」である理由。</p></a>
+      <a class="card" href="07-traces-evals.html" style="text-decoration:none"><h4>実行トレースと評価</h4><p>実行ごとの記録を確認し、忠実度の評価を実行します。</p></a>
+      <a class="card" href="08-troubleshooting.html" style="text-decoration:none"><h4>トラブルシューティングと FAQ</h4><p>java が見つからない、API キーがない、予算を超えたなど、実際のエラーへの対処。</p></a>
+      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>今後の機能（ロードマップ）</h4><p>Web 画面など、計画中の機能。</p></a>
+    </div>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="01-quickstart.html">インストールと最初の質問</a>：上の出力をご自分の PC で再現します。</li>
+        <li><a href="02-what-to-ask.html">何を聞けるか：機能一覧</a>：どんな質問が得意かを先に確認します。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

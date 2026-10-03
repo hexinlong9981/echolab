@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roadmap | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    #ms .node.plan { border-style: dashed; }
+    #ms .caption-box { min-height: 6.5em; }
+    .badge { display: inline-block; font-size: 12px; border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 2px; font-weight: 600; }
+    .badge.done { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
+    .badge.plan { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+    @media (max-width: 760px) { #ms .stage { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; } #ms .arrow { transform: rotate(90deg); } }
+  </style>
+</head>
+<body data-page="09-roadmap.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Advanced</span><span>Roadmap</span><span>Plans</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <h1>Roadmap</h1>
+    <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what is planned, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
+
+    <div class="callout warn"><strong>Please note: everything about M3–M5 on this page is planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The web UI, screenshot reading and the mortgage calculator <strong>do not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
+
+    <h2>Milestones at a glance</h2>
+    <table>
+      <tr><th>Milestone</th><th>Contents</th><th>Status</th></tr>
+      <tr><td>M1</td><td>Calculation engine calc-engine (Java), golden test cases, CI</td><td><span class="badge done">Done</span></td></tr>
+      <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide describes)</span></td></tr>
+      <tr><td>M3</td><td>A second domain pack: mortgage calculator (minimal example)</td><td><span class="badge plan">Planned</span></td></tr>
+      <tr><td>M4</td><td>Screenshot reading, prompt-injection eval set, evals in CI</td><td><span class="badge plan">Planned</span></td></tr>
+      <tr><td>M5</td><td>Web UI, trace replay, eval dashboard, public demo</td><td><span class="badge plan">Planned</span></td></tr>
+    </table>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  M1["M1 Calc engine<br/>Java, golden cases, CI"] --> M2["M2 CLI end to end<br/>source IDs, verifier, evals, traces"]
+  M2 --> M3["M3 Mortgage domain pack<br/>proves zero core changes"]
+  M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
+  M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
+  NOW(["You are here"]) -.-> M2
+  classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class M1,M2 done
+  class M3,M4,M5 plan
+      </pre>
+      <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
+    </div>
+
+    <h3>Animation: one milestone at a time</h3>
+    <div class="flow-anim" id="ms" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="m1">M1<small>Calc engine</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="m2">M2<small>CLI</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node plan" data-id="m3">M3<small>Mortgage</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node plan" data-id="m4">M4<small>Screenshots, injection</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["m1"], "packet": {"at": "m1", "text": "Done"},
+         "text": "<b>M1: Calculation engine.</b>A deterministic calculation library written in Java 21 (expected damage, Echo score, gacha probability). Every tool is checked against golden test cases calculated by hand or derived from the formulas."},
+        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done · now"},
+         "text": "<b>M2: End-to-end CLI (the version you are using now).</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Planned"},
+         "text": "<b>M3 (Planned): Mortgage calculator.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. The goal is to add it without changing a single line of core code, verified by CI. <strong>It is only a calculation example, not financial advice.</strong>"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2"], "packet": {"at": "m4", "text": "Planned"},
+         "text": "<b>M4 (Planned): Screenshot reading and injection evals.</b>Read game screenshots into structured data (with schema validation); add a prompt-injection eval set (using synthetic screenshots, not original game images); and run the evals in CI."},
+        {"on": ["m5", "a4"], "done": ["m1", "m2"], "packet": {"at": "m5", "text": "Planned"},
+         "text": "<b>M5 (Planned): Web UI.</b>Chat in the browser, replay execution traces (as flow diagrams), view an eval dashboard, and a public demo. What the animations on pages 5 and 7 of this guide show would then be visible directly in the interface."}
+      ]</script>
+    </div>
+
+    <h2>M3 (Planned): a second domain pack, the mortgage calculator</h2>
+    <p>EchoLab's core (gateway, verifier, evals, traces) contains no game concepts at all; domain knowledge lives in “domain packs”, which declare their available tools in <code>domain.yaml</code>. M3 is meant to prove this with a very small mortgage pack:</p>
+    <ul>
+      <li>Planned contents: comparing equal-payment (annuity) and equal-principal repayment, and the effect of early repayment. The calculations are written in Python and likewise come with golden test cases and prompts.</li>
+      <li>Goal: about 300 lines of new code with <strong>zero changes to the core</strong>, and a CI check that <code>core/</code> did not change when the pack was added.</li>
+      <li>Both the README and the answers will state: <strong>this is a calculation example, not financial advice.</strong></li>
+    </ul>
+    <p>What it means for you: in the future you may be able to switch to another domain with the <code>--domain</code> option (the option already exists, defaults to <code>wuwa</code>, and <code>wuwa</code> is currently the only domain pack).</p>
+
+    <h2>M4 (Planned): screenshot reading and injection evals</h2>
+    <table>
+      <tr><th>Planned component</th><th>Purpose</th></tr>
+      <tr><td><code>servers/vision_mcp/</code></td><td>Converts screenshots into structured JSON (with schema validation, Python). For example, it would read the stats from an Echo screenshot so you do not have to type them in</td></tr>
+      <tr><td><code>evals/redteam/</code></td><td>A prompt-injection eval set: when an image or text hides something like “ignore the previous instructions”, EchoLab must not follow it. Uses synthetic screenshots, not game images</td></tr>
+      <tr><td>Evals in CI</td><td>Add the evals to CI (per the README: scripted mode runs in CI; the real Claude is still run manually, locally)</td></tr>
+    </table>
+    <p>EchoLab already treats text coming from outside (tool results, user input) as <strong>data</strong>, not instructions; M4 will measure this with a dedicated eval set.</p>
+
+    <h2>M5 (Planned): web UI and trace replay</h2>
+    <p>The plan is a web interface in the <code>web/</code> directory using React + TypeScript, built into static files with Vite and hosted on Cloudflare Pages. Planned features:</p>
+    <div class="cards">
+      <div class="card"><h4>Chat</h4><p>Ask questions and read answers with sources in the browser, without typing commands.</p></div>
+      <div class="card"><h4>Trace replay</h4><p>Draw <code>.jsonl</code> execution traces as flow diagrams (React Flow) and replay them step by step, similar to the animation on page 5 of this guide.</p></div>
+      <div class="card"><h4>Eval dashboard</h4><p>Charts of eval metrics such as faithfulness and rejection rate, and how they change over time.</p></div>
+      <div class="card"><h4>Public demo</h4><p>How to keep costs under control in a public demo has not been decided yet: it could keep the current daily / monthly cost caps, or switch to prerecorded answers (Concept, undecided).</p></div>
+    </div>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  A["Open the web page"] --> B["Enter a question"]
+  B --> C["Answer + sources table"]
+  C --> D{"Where does a number come from?"}
+  D -->|"Click “Replay trace”"| E["Step-by-step flow replay<br/>Claude → gateway → calculation → verification"]
+  D -->|"Click a number"| F["Highlight its source ID<br/>and tool result"]
+  C --> G["Eval dashboard<br/>faithfulness, rejection rate over time"]
+  classDef idea fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class A,B,C,D,E,F,G idea
+      </pre>
+      <div class="caption">Figure 2: Concept (not implemented). A sketch of how the future web UI might be used. The documents list only three features (chat, trace replay, eval dashboard); screen details such as “click a number to highlight its source” are an illustration drawn for this guide, not a decided design</div>
+    </div>
+
+    <h2>What will not change</h2>
+    <p>New domains, screenshot input and the web interface would all go through the same core flow. So for you, the following guarantees stay in place:</p>
+    <div class="cards">
+      <div class="card"><h4>Numbers come only from calculation tools</h4><p>The AI only writes templates with <code>[[sourceID]]</code>, and the program fills in the numbers.</p></div>
+      <div class="card"><h4>The verifier guards the answer</h4><p>Numbers of unknown origin get the draft rejected; if it cannot be fixed, you get an explanation without numbers.</p></div>
+      <div class="card"><h4>Sources can be checked</h4><p>Every number can be traced to a tool and its raw value, and is kept in the execution trace.</p></div>
+      <div class="card"><h4>Costs are capped</h4><p>Once the daily / monthly cap is reached, Claude is not called any more.</p></div>
+      <div class="card"><h4>Unverified data is flagged</h4><p>Values that use sample data come with an automatic note.</p></div>
+    </div>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="index.html">Back to the home page</a>: review what EchoLab can do today.</li>
+        <li><a href="05-how-it-works.html">What happens behind the scenes (animated)</a>: see how these guarantees are implemented in the current CLI.</li>
+        <li><a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>: when you run into problems.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

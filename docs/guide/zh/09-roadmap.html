@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今后的功能（路线图） | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    #ms .node.plan { border-style: dashed; }
+    #ms .caption-box { min-height: 6.5em; }
+    .badge { display: inline-block; font-size: 12px; border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 2px; font-weight: 600; }
+    .badge.done { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
+    .badge.plan { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+    @media (max-width: 760px) { #ms .stage { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; } #ms .arrow { transform: rotate(90deg); } }
+  </style>
+</head>
+<body data-page="09-roadmap.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>进阶</span><span>路线图</span><span>计划</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>今后的功能（路线图）</h1>
+    <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理今后的计划，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
+
+    <div class="callout warn"><strong>请注意：本页 M3～M5 的内容全部是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。网页界面（Web UI）、截图识别、住宅贷款试算都<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
+
+    <h2>阶段一览</h2>
+    <table>
+      <tr><th>阶段</th><th>内容</th><th>状态</th></tr>
+      <tr><td>M1</td><td>计算引擎 calc-engine（Java）、黄金测试用例、CI</td><td><span class="badge done">已完成</span></td></tr>
+      <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书介绍的就是它）</span></td></tr>
+      <tr><td>M3</td><td>第二个领域包：住宅贷款试算（最小示例）</td><td><span class="badge plan">计划</span></td></tr>
+      <tr><td>M4</td><td>截图读取、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge plan">计划</span></td></tr>
+      <tr><td>M5</td><td>Web UI、轨迹回放、评估看板、公开演示</td><td><span class="badge plan">计划</span></td></tr>
+    </table>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  M1["M1 计算引擎<br/>Java・黄金用例・CI"] --> M2["M2 CLI 全流程<br/>出典 ID・验证器・评估・轨迹"]
+  M2 --> M3["M3 住宅贷款领域包<br/>证明核心零改动"]
+  M3 --> M4["M4 截图读取<br/>注入评估・CI 评估"]
+  M4 --> M5["M5 Web UI<br/>轨迹回放・评估看板"]
+  NOW(["现在在这里"]) -.-> M2
+  classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class M1,M2 done
+  class M3,M4,M5 plan
+      </pre>
+      <div class="caption">图 1：开发阶段时间线（实线绿色＝已完成，虚线黄色＝计划；先打通一条完整流程，再横向扩展）</div>
+    </div>
+
+    <h3>动画：逐个阶段看</h3>
+    <div class="flow-anim" id="ms" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="m1">M1<small>计算引擎</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="m2">M2<small>CLI</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node plan" data-id="m3">M3<small>住宅贷款</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node plan" data-id="m4">M4<small>截图・注入</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["m1"], "packet": {"at": "m1", "text": "已完成"},
+         "text": "<b>M1：计算引擎。</b>用 Java 21 写的确定性计算库（期待伤害、声骸评分、抽卡概率），每个工具都有手算或公式推导的黄金测试用例来核对。"},
+        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "已完成 · 现在"},
+         "text": "<b>M2：CLI 全流程（你现在用的版本）。</b>计算引擎作为 MCP 服务接入；网关、出典 ID、验证器、比较工具、成本上限、执行轨迹、忠实度评估都已可用。"},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "计划"},
+         "text": "<b>M3（计划）：住宅贷款试算。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。目标是“核心代码一行不改”就加进来，并用 CI 检查。<strong>只是计算示例，不是金融建议。</strong>"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2"], "packet": {"at": "m4", "text": "计划"},
+         "text": "<b>M4（计划）：截图读取与注入评估。</b>把游戏截图读成结构化数据（带格式校验）；新增“提示词注入”评估题（使用合成截图，不用游戏原图），并把评估放进 CI。"},
+        {"on": ["m5", "a4"], "done": ["m1", "m2"], "packet": {"at": "m5", "text": "计划"},
+         "text": "<b>M5（计划）：Web UI。</b>在网页上对话、回放执行轨迹（流程图形式）、查看评估看板，并公开演示。届时本说明书第 5、7 页的动画所展示的内容，可以在界面里直接看到。"}
+      ]</script>
+    </div>
+
+    <h2>M3（计划）：第二个领域包——住宅贷款试算</h2>
+    <p>EchoLab 的核心（网关、验证器、评估、轨迹）不包含任何游戏概念；领域知识都放在“领域包”里，用 <code>domain.yaml</code> 声明可用工具。M3 要用一个很小的住宅贷款包证明这一点：</p>
+    <ul>
+      <li>计划内容：等额本息（元利均等）与等额本金（元金均等）的比较、提前还款的效果；计算部分用 Python 写，同样带黄金测试用例和提示词。</li>
+      <li>目标：约 300 行新增代码、<strong>核心零改动</strong>，并在 CI 中检查“加这个包时 <code>core/</code> 没有变化”。</li>
+      <li>README 和答案中都会写明：<strong>这是计算示例，不是金融建议。</strong></li>
+    </ul>
+    <p>对你意味着：将来可能用 <code>--domain</code> 参数切换到别的领域（这个参数现在已经存在，默认 <code>wuwa</code>，目前也只有 <code>wuwa</code> 这一个领域包）。</p>
+
+    <h2>M4（计划）：截图读取与注入评估</h2>
+    <table>
+      <tr><th>计划的部分</th><th>作用</th></tr>
+      <tr><td><code>servers/vision_mcp/</code></td><td>把截图转换成结构化 JSON（带格式校验，Python）。例如从声骸的截图读出属性，省去手动输入</td></tr>
+      <tr><td><code>evals/redteam/</code></td><td>提示词注入的评估题：图片或文字里藏着“忽略之前的指示”之类的内容时，EchoLab 不能照做。使用合成的截图，不使用游戏图片</td></tr>
+      <tr><td>CI 中的评估</td><td>把评估流程加入 CI（README：台本模式在 CI 中运行；真实 Claude 仍在本地手动运行）</td></tr>
+    </table>
+    <p>EchoLab 现在已经把外部传来的文字（工具结果、用户输入）当作<strong>数据</strong>而不是指令处理；M4 会用专门的评估题来衡量这一点。</p>
+
+    <h2>M5（计划）：Web UI 与轨迹回放</h2>
+    <p>计划在 <code>web/</code> 目录用 React + TypeScript 做网页界面，用 Vite 构建成静态文件放到 Cloudflare Pages。计划的功能：</p>
+    <div class="cards">
+      <div class="card"><h4>对话</h4><p>在网页里提问、看带出典的答案，不必再敲命令。</p></div>
+      <div class="card"><h4>轨迹回放</h4><p>把 <code>.jsonl</code> 执行轨迹画成流程图（React Flow）逐步回放，类似本说明书第 5 页的动画。</p></div>
+      <div class="card"><h4>评估看板</h4><p>用图表展示忠实度、退回率等评估指标及其变化。</p></div>
+      <div class="card"><h4>公开演示</h4><p>公开演示时如何防止费用失控还没有决定：可以沿用现在的日／月成本上限，也可以改用预先录制的回答（构想，未决定）。</p></div>
+    </div>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  A["打开网页"] --> B["输入问题"]
+  B --> C["答案 + 出典表"]
+  C --> D{"想知道数字从哪来？"}
+  D -->|"点“回放轨迹”"| E["流程图逐步回放<br/>Claude → 网关 → 计算 → 验证"]
+  D -->|"点某个数字"| F["高亮对应的出典 ID<br/>与工具结果"]
+  C --> G["评估看板<br/>忠实度・退回率的变化"]
+  classDef idea fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class A,B,C,D,E,F,G idea
+      </pre>
+      <div class="caption">图 2：构想（未实现）——未来 Web UI 的使用流程示意。文档只列出“对话・轨迹回放・评估看板”三项功能，画面细节（如“点数字高亮出典”）是本说明书为便于理解而画的设想，并非已确定的设计</div>
+    </div>
+
+    <h2>不会改变的东西</h2>
+    <p>无论是新的领域、截图输入还是网页界面，都会走同一条核心流程。所以对你来说，下面这些保证会一直保持：</p>
+    <div class="cards">
+      <div class="card"><h4>数字只来自计算工具</h4><p>AI 只写带 <code>[[出典ID]]</code> 的模板，数字由程序填入。</p></div>
+      <div class="card"><h4>验证器把关</h4><p>来历不明的数字会被退回；改不好就给出不含数字的说明。</p></div>
+      <div class="card"><h4>出典可查</h4><p>每个数字都能追到工具和原始值，并留在执行轨迹里。</p></div>
+      <div class="card"><h4>成本有上限</h4><p>达到每日 / 每月上限就不再调用 Claude。</p></div>
+      <div class="card"><h4>未确认数据有注记</h4><p>用到示例数据的数值会自动提醒。</p></div>
+    </div>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="index.html">回到首页</a>：重新浏览 EchoLab 现在能做什么。</li>
+        <li><a href="05-how-it-works.html">背后发生了什么（动画）</a>：看看这些保证在现在的 CLI 中是怎么实现的。</li>
+        <li><a href="08-troubleshooting.html">故障排除与 FAQ</a>：使用中遇到问题时。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

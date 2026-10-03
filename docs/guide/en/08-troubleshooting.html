@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting and FAQ | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* Page-specific: keep wide content (tables, animations) from widening the page on narrow screens */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="08-troubleshooting.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Advanced</span><span>Troubleshooting</span><span>FAQ</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <h1>Troubleshooting and FAQ</h1>
+    <p class="lead">Every problem on this page has been reproduced in a real environment. First check whether the output under “Symptom” matches what you see, then follow “Cause” and “Fix”.</p>
+
+    <h2>First, figure out which kind of problem it is</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  A["Run python -m core.agent"] --> B{"Is the last line&lt;br/&gt;状態: … ?"}
+  B -- "No, エラー: … appears (exit code 2)" --> T{"What follows エラー:"}
+  T -- "実行ファイル java が見つかりません" --> T1["① java not found"]
+  T -- "jar がありません" --> T2["② jar not found"]
+  T -- "Anything else (domain, script, cap setting, ledger)" --> T3["⑦ Option, setting or file problem"]
+  B -- Yes --> S{"Which 状態?"}
+  S -- llm_error --> S1["③ Credentials or network"]
+  S -- budget_exceeded --> S2["④ Cost cap"]
+  S -- fallback --> S3["⑥ Verification failed"]
+  S -- answered --> S4["Success&lt;br/&gt;(tool errors are corrected automatically, see ⑤)"]
+      </pre>
+      <div class="caption">Figure 1: Troubleshooting decision path. First check whether there is a status line (状態), then check its value</div>
+    </div>
+    <p>When setup or startup fails, there is no status line: the CLI prints one line <code>エラー: …</code> (“Error: …”) to standard error explaining the cause and how to fix it, exits with code 2, and does not print a traceback (add <code>--debug</code> if you need one). When there is a status line, the answer on screen states the category of the cause, and more detail is in the execution trace. A general way to look:</p>
+    <pre><code># The run ID (実行 ID) is in the status line; substitute it here
+grep -E 'llm_error|budget_exceeded|verdict|tool_result' .echolab/traces/&lt;実行 ID&gt;.jsonl</code></pre>
+
+    <h2>① java not found</h2>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>The message says: “Error: the executable java for service calc-engine was not found. Install JDK 21 and put java on PATH, or set the environment variable JAVA_HOME (so that $JAVA_HOME/bin/java exists).” The second line means “add --debug to show the traceback”.</p>
+    <p><strong>Cause</strong>: without <code>--fake-backend</code>, the CLI has to start the Java calculation service, but there is no <code>java</code> on PATH and <code>JAVA_HOME</code> is not set (the CLI checks this before starting the subprocess). On WSL, a Java installed on the Windows side usually cannot be used directly from the Linux side.</p>
+    <p><strong>Fix</strong> (any one of these):</p>
+    <ul>
+      <li>Set <code>JAVA_HOME</code> to JDK 21: <code>export JAVA_HOME=$HOME/.local/jdk/21</code> (adjust to where you actually installed it). The CLI then uses <code>$JAVA_HOME/bin/java</code> automatically.</li>
+      <li>Or add JDK 21's <code>bin</code> to PATH.</li>
+      <li>To skip Java for now: add <code>--fake-backend</code>.</li>
+    </ul>
+
+    <h2>② jar not found (calculation service not built)</h2>
+    <div class="term" data-title="bash — symptom">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"pause": 600},
+        {"out": "エラー: サービス calc-engine の jar がありません: /projects2/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar。先に jar を作ってください：(cd services/calc-engine && ./gradlew bootJar)", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>The message says: “Error: the jar for service calc-engine does not exist: …/calc-engine-mcp.jar. Build the jar first: (cd services/calc-engine &amp;&amp; ./gradlew bootJar)”.</p>
+    <p><strong>Cause</strong>: Java was found, but <code>services/calc-engine/build/libs/calc-engine-mcp.jar</code> does not exist. The launch command in <code>config/services.yaml</code> is <code>java -jar &lt;path&gt;</code>, and the CLI checks that the file after <code>-jar</code> exists before starting Java, so it never starts a process that would exit immediately. If the jar exists but the service exits right after starting, you see <code>エラー: サービス calc-engine を起動できませんでした（…）。起動コマンド: …</code> (“Error: could not start service calc-engine (…). Launch command: …”), also with exit code 2.</p>
+    <p><strong>Fix</strong>: build the jar, then go back to the repository root and try again.</p>
+    <pre><code>cd services/calc-engine &amp;&amp; JAVA_HOME=$HOME/.local/jdk/21 ./gradlew bootJar -q
+ls build/libs/        # you should see calc-engine-mcp.jar
+cd ../..</code></pre>
+
+    <h2>③ llm_error: no credentials (or invalid credentials)</h2>
+    <div class="term" data-title="bash — symptom and finding the cause">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
+        {"pause": 400},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T030610Z-028cc3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T030610Z-028cc3.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"kind\": \"[^\"]*\", \"error\": \"[^\"]*\"' .echolab/traces/20261003T030610Z-028cc3.jsonl"},
+        {"out": "\"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The answer says: “Could not answer because no Claude API credentials were found. Set the environment variable ANTHROPIC_API_KEY (or log in with ant auth login), or use scripted mode (--llm scripted), which needs no API key.” The sources table is empty (“no sources cited”).</p>
+    <p><strong>Cause</strong>: the default <code>--llm anthropic</code> needs Anthropic credentials. The CLI sorts failures into 4 kinds based on the Anthropic SDK's exception type, and the answer on screen states the kind and what to do. The trace's <code>llm_error</code> event has the category <code>kind</code> and the SDK's raw message:</p>
+    <table>
+      <thead><tr><th><code>kind</code> and the answer on screen (beginning)</th><th><code>error</code> in the trace (example)</th><th>Meaning and fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>credentials</code>: <code>Claude API の認証情報が見つからないため、…</code> (“because no Claude API credentials were found, …”)</td><td><code>Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）</code></td><td>No credentials. <code>export ANTHROPIC_API_KEY=…</code> or <code>ant auth login</code>.</td></tr>
+        <tr><td><code>auth</code>: <code>Claude API の認証に失敗したため、…ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</code> (“authentication failed … check that ANTHROPIC_API_KEY (or your ant auth login) is valid”)</td><td><code>Claude API の認証に失敗しました（HTTP 401）: … 'authentication_error', 'message': 'API key is invalid.' …</code></td><td>The key is invalid or lacks permission (HTTP 401/403; a fake key gave 401 in testing). Check that the key was copied completely and has not been revoked.</td></tr>
+        <tr><td><code>transient</code>: <code>Claude API が混み合っているか、接続できなかったため、…時間をおいてお試しください。</code> (“the Claude API is busy or could not be reached … please try again later”)</td><td><code>Claude API が一時的なエラーを返しました（HTTP 429）: …</code> / <code>Claude API に接続できませんでした: …</code></td><td>Rate limiting, overload, a temporary server error or no network connection. Try again later, or check your network and proxy.</td></tr>
+        <tr><td><code>other</code>: <code>Claude API の呼び出しに失敗したため、…詳細はトレースの llm_error の行を確かめてください。</code> (“the Claude API call failed … see the llm_error line in the trace for details”)</td><td><code>Claude API がエラーを返しました（HTTP 400）: …</code></td><td>Other API errors. Act on the raw message in the trace.</td></tr>
+      </tbody>
+    </table>
+    <p>If you do not want to use Claude, switch to scripted mode: <code>--llm scripted --script core/agent/examples/compare_builds.yaml</code>.</p>
+
+    <h2>④ budget_exceeded: cost cap reached</h2>
+    <p>Setting the daily cap to 0 lets you reproduce this safely in scripted mode (scripted mode only uses a one-off temporary ledger and does not affect your real ledger):</p>
+    <div class="term" data-title="bash — reproducing the cost cap">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_DAILY_USD=0 python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"pause": 400},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 0 USD / 上限 0 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031208Z-f255b3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031208Z-f255b3.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"reason\": \"[^\"]*\"' .echolab/traces/20261003T031208Z-f255b3.jsonl"},
+        {"out": "\"reason\": \"今日（UTC）のコストが上限に達しました: 0 / 0 USD\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The answer says: “Today's (UTC) cost has reached the daily cap, so I cannot answer right now (used 0 USD / cap 0 USD). It becomes available again when the UTC date changes. The cap can be changed with the environment variable ECHOLAB_DAILY_USD or caps_usd.daily in config/budget.yaml.”</p>
+    <p><strong>Cause</strong>: before every AI call, the totals for today (UTC) and this month (UTC) in the ledger are compared with the caps; once a cap is reached, no more calls are made. Scripted mode checks this too (see the example above). The answer itself states whether it is the daily (今日 / 日次) or monthly (今月 / 月次) cap, the amount used / the cap, when it will reset, and which environment variable or <code>config/budget.yaml</code> key changes it.</p>
+    <p><strong>Fix</strong>:</p>
+    <ul>
+      <li>Wait for the UTC day to change (00:00 UTC, for example 08:00 in Beijing or 09:00 in Tokyo) or for the next month (UTC).</li>
+      <li>If you really need to, raise it temporarily: <code>export ECHOLAB_DAILY_USD=2.00</code> (use <code>ECHOLAB_MONTHLY_USD</code> for the monthly cap).</li>
+      <li>Check that you are not using a different ledger by mistake: does <code>ECHOLAB_LEDGER</code> point to an unexpected file? If a line in the ledger cannot be parsed, the program does not skip it; it stops with exit code 2 and reports the file and line number (see ⑦).</li>
+    </ul>
+
+    <h2>⑤ Tool input errors (usually corrected automatically)</h2>
+    <p>If the AI calls a tool with wrong parameters (a missing field, a value out of range, both or neither of <code>rules</code> and <code>banner</code>, and so on), the calculation service <strong>does not stop</strong>. Instead, it returns the error message to the AI as the result so the AI can fix it and call again. In the run below, the first call omitted <code>rules</code>, and the second call added them and succeeded:</p>
+    <div class="term" data-title="bash — automatic retry after a tool error">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"天井カウント 8・すり抜け確定ありから 1 回引いたときの獲得確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。\" --llm scripted --script my-toolerr.yaml", "speed": 10},
+        {"pause": 1500},
+        {"out": "次の 1 回で獲得できる確率は 60% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値   ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ---  ------------------------  ------------", "cls": "dim"},
+        {"out": "c2.probability  0.6  gacha.probability_within  -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024553Z-c7193c", "cls": "warn"},
+        {"cmd": "grep -o '\"error\": \"[^\"]*\"' .echolab/traces/20261003T024553Z-c7193c.jsonl"},
+        {"out": "\"error\": \"gacha_probability_within: rules と banner のどちらか一方だけを指定してください\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">(<code>my-toolerr.yaml</code> is a script for reproducing this, taken from the eval case <code>tool-error-recovery</code>. The question asks for the probability of getting the featured character with one pull from pity count 8 with a guaranteed featured pull, and spells out the rules: base rate 0.1, soft pity from 5 rising by 0.1 per pull, hard pity 10, featured rate 0.5, guaranteed after losing the 50/50. The answer says “The probability of getting it with the next pull is 60%.” The error in the trace says “specify exactly one of rules and banner”.)</p>
+    <p>When the parameters do not match the tool's input specification (JSON Schema), the gateway returns the error to the AI before the tool is even called. The message is in Japanese and includes the field path, for example <code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code> (“invalid input: pulls: 20000 is greater than the maximum 10000”) or <code>入力が不正です: (全体): 必須の項目がありません: pulls</code> (“invalid input: (root): required field missing: pulls”).</p>
+    <p><strong>How to tell</strong>: the source ID is <code>c2.probability</code>, not <code>c1…</code>; the 1st call (<code>c1</code>) failed. <strong>What you need to do</strong>: usually nothing. If, with the real Claude, tool errors keep happening and you never get an answer, spell out all the conditions the calculation needs in your question (for example the gacha rules' base rate, soft pity and hard pity, or say explicitly that the sample banner should be used).</p>
+
+    <h2>⑥ fallback: verification did not pass</h2>
+    <div class="term" data-title="bash — numbers withheld after 3 rejections">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"天井カウント 0 から 10 回以内に獲得できる確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。\" --llm scripted --script my-fallback.yaml", "speed": 10},
+        {"pause": 1500},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T024544Z-a9e54f", "cls": "warn"},
+        {"cmd": "grep -o '\"template\": \"[^\"]*\"' .echolab/traces/20261003T024544Z-a9e54f.jsonl"},
+        {"out": "\"template\": \"確率はおよそ 73.4% です。\"", "cls": "hl"},
+        {"out": "\"template\": \"確率は 0.734 です。\"", "cls": "hl"},
+        {"out": "\"template\": \"確率は約 73% です（[[c1.probability|%1]]）。\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">(<code>my-fallback.yaml</code> is a script for reproducing this, taken from the eval case <code>never-corrected</code>. The answer says: “Sorry. I could not produce an answer whose calculation results can be traced to their sources, so I will not give an answer containing numbers. Please make the conditions more specific and ask again.”)</p>
+    <p><strong>Cause</strong>: all three of the AI's drafts wrote numbers directly (“the probability is about 73.4%”, “the probability is 0.734”, “the probability is about 73% ([[c1.probability|%1]])”) instead of citing tool results with placeholders. Each time, the verifier gave feedback like this (<code>problems</code> in the trace's <code>verdict</code> event):</p>
+    <pre><code>数値「73.4%」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code></pre>
+    <p>(“The number 73.4% has no source. Cite tool results as [[source ID]] and compute differences and ratios with the compare tools; quoting numbers from the question is allowed.”) After 3 rejections, EchoLab would rather give no numbers than give numbers that might be wrong. <strong>Fix</strong>: as the message suggests, make the conditions more specific and ask again; numbers you wrote in the question can be quoted in the answer as is.</p>
+
+    <h2>⑦ Other: options, settings and files</h2>
+    <p>In all of the following cases, two lines are printed to standard error, <code>エラー: …</code> and <code>（--debug を付けるとトレースバックを表示します）</code> (except for argparse errors), and the exit code is 2.</p>
+    <table>
+      <thead><tr><th>Symptom (real output)</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>エラー: --llm scripted には --script（台本の YAML）が必要です</code><br>(“--llm scripted requires --script (a script YAML)”)</td><td>No script was given for scripted mode</td><td>Add <code>--script core/agent/examples/compare_builds.yaml</code></td></tr>
+        <tr><td><code>エラー: 台本が見つかりません: nope.yaml</code><br>(“script not found”)</td><td>Wrong script path. Relative paths are resolved from the current directory</td><td>Run from the repository root, or use an absolute path</td></tr>
+        <tr><td><code>エラー: ドメインが見つかりません: lol（使えるドメイン: wuwa）</code><br>(“domain not found (available domains: wuwa)”; same with or without <code>--fake-backend</code>)</td><td><code>--domain</code> names a domain pack that does not exist</td><td>Use a domain listed in the parentheses, or omit <code>--domain</code> (currently only <code>wuwa</code> exists)</td></tr>
+        <tr><td><code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code><br>(“the value ‘abc’ of ECHOLAB_DAILY_USD cannot be used as a cost cap; specify a number of 0 or more”)</td><td>The cost cap environment variable (or the value in <code>config/budget.yaml</code>) is not a number of 0 or more</td><td>Change it to a number such as <code>1.00</code>, or <code>unset ECHOLAB_DAILY_USD</code></td></tr>
+        <tr><td><code>エラー: コストの台帳 …/costs.jsonl の 2 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: …）。その行を直すか消してください</code><br>(“line 2 of the cost ledger cannot be read, so the cost caps cannot be checked safely; fix or delete that line”)</td><td>A line in the cost ledger is not a valid JSON record. Skipping it could lead to exceeding the cap, so the program stops before calling Claude</td><td>Fix or delete the reported line</td></tr>
+        <tr><td><code>エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: …</code><br>(“the run did not follow the script; check the combination of question, script and --fake-backend”)</td><td>The steps in the script do not match the actual run (for example, a tool error the script expects did not occur, or the script ran out)</td><td>Check the script, the question, and whether <code>--fake-backend</code> was added</td></tr>
+        <tr><td><code>python -m core.agent: error: argument --llm: invalid choice: 'openai' (choose from anthropic, scripted)</code></td><td><code>--llm</code> supports only these two values</td><td>Use <code>anthropic</code> or <code>scripted</code></td></tr>
+        <tr><td><code>Error while finding module specification for 'core.agent' (ModuleNotFoundError: No module named 'core')</code></td><td>Not running from the repository root, or the virtual environment is not activated</td><td><code>cd</code> to the repository root and <code>source .venv/bin/activate</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>FAQ</h2>
+    <details><summary>Why doesn't it answer questions outside the tools' scope (such as character tier lists)?</summary>
+      <p>EchoLab's design principle is that numbers only come from tools. The current tools are: expected damage (<code>damage.expected</code>), Echo score (<code>echo.score</code>), gacha probability (<code>gacha.probability_within</code>, <code>gacha.simulate</code>) and comparison (<code>compare.diff</code>, <code>compare.ratio</code>). A number that no tool can calculate cannot appear in an answer; if it does, the verifier rejects the draft and the run ends with <code>fallback</code>. The gateway also only allows calls to tools declared in <code>domain.yaml</code>. See <a href="02-what-to-ask.html">What you can ask</a>.</p>
+    </details>
+    <details><summary>Why is the sample data marked “未確認” (unverified)?</summary>
+      <p>The values in <code>domains/wuwa/data</code> are <strong>sample values</strong> compiled by hand. They have not been checked against official game data and are marked <code>verified: false</code>. They can still be used in calculations, but whenever a calculation uses them, the answer always ends with <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> (“Some numbers in this answer are based on unverified sample data.”), and the “未確認データ” (unverified data) column of the sources table names the exact data entry (such as <code>gacha_rules:featured-character</code>). To get results that do not depend on sample data, give all parameters in your question.</p>
+    </details>
+    <details><summary>How much does one use cost?</summary>
+      <p>Scripted mode (<code>--llm scripted</code>) and the default eval mode cost nothing; the status line shows <code>費用: $0.0000</code> (“cost”). Real Claude mode is billed per token: in <code>config/budget.yaml</code>, <code>claude-opus-5-5</code> costs 4.00 USD per million input tokens and 20.00 USD per million output tokens (cache read 0.20, cache write 5.00). The actual cost of each run is shown in the status line and recorded call by call in <code>.echolab/costs.jsonl</code>; by default spending is capped at 1 USD per day and 10 USD per month. See <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>.</p>
+    </details>
+    <details><summary>Where is my question sent?</summary>
+      <p>Only in <code>--llm anthropic</code> mode (the default) are the question, system prompt, tool definitions and tool results sent to Anthropic's API. Scripted mode runs entirely on your machine, and the calculation service also runs locally as a subprocess. In addition, the question and the full process of every run are stored in plain text locally in <code>.echolab/traces/</code> (git-ignored); you can delete them yourself when you no longer need them.</p>
+    </details>
+    <details><summary>In scripted mode I changed the question. Why is the answer the same?</summary>
+      <p>In scripted mode, the tool calls and drafts are determined by the script file; the question is used only for recording and verification (numbers written in the question may be quoted in the answer). In testing, changing the question to “こんにちは” (“hello”) still produced the same comparison result with the same script. To have the system actually understand your question, use real Claude mode.</p>
+    </details>
+    <details><summary>Is there a graphical interface (web version)?</summary>
+      <p>No. Currently it can only be used from the command line. A web UI, trace replay and an eval dashboard are part of roadmap milestone M5 and are not implemented yet. See <a href="09-roadmap.html">Roadmap</a>.</p>
+    </details>
+    <details><summary>Can I use it without installing a JDK?</summary>
+      <p>Yes. Add <code>--fake-backend</code> to use the Python reference implementation instead of the Java calculation service (it has been checked against the same golden cases as the Java implementation). The only difference is that the fake service does not provide the Monte Carlo simulation tool <code>gacha_simulate</code>. Raw values in the sources table are returned with 6 decimal places, the same as with the Java version.</p>
+    </details>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="09-roadmap.html">Roadmap</a>: see what is planned next.</li>
+        <li><a href="07-traces-evals.html">Traces &amp; evals</a>: once you can read traces, troubleshooting gets faster.</li>
+        <li><a href="04-cli-reference.html">CLI reference</a>: the full list of statuses and exit codes.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

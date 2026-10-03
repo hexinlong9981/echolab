@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>実行トレースと評価 | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* 狭い画面で長いコード行がページ全体を広げないようにする */
+    main { min-width: 0; }
+    /* このページ専用：トレースを 1 行ずつ「再生」 */
+    .tl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 16px 0; }
+    .tl ol { list-style: none; margin: 0; padding: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .tl li { display: grid; grid-template-columns: 7.5em 7.5em minmax(0, 1fr); gap: 8px; padding: 3px 6px; border-radius: 6px; opacity: .35; transition: opacity .3s, background .3s; }
+    .tl li.seen { opacity: 1; }
+    .tl li.now { background: var(--accent-soft); }
+    .tl li .t { color: var(--muted); }
+    .tl li .e { font-weight: 700; }
+    .tl li .e.q { color: var(--accent); } .tl li .e.l { color: var(--warn); } .tl li .e.c { color: var(--muted); }
+    .tl li .e.r { color: var(--ok); } .tl li .e.v { color: var(--bad); } .tl li .e.v.ok { color: var(--ok); } .tl li .e.a { color: var(--accent); }
+    .tl li .d { overflow-wrap: anywhere; }
+    .tl .tl-ctl { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+    .tl .tl-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    @media (max-width: 640px) { .tl li { grid-template-columns: 6.5em minmax(0, 1fr); } .tl li .t { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .tl li { transition: none; } }
+  </style>
+</head>
+<body data-page="07-traces-evals.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>応用</span><span>実行トレース</span><span>忠実度の評価</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>実行トレースと評価</h1>
+    <p class="lead">EchoLab は質問のたびに、処理の流れを 1 件ずつ「実行トレース」ファイルに記録します。また、決まった試験問題で「回答に出所の分からない数値が含まれていないか」を確かめる「数値の忠実度の評価」も備えています。このページでは、トレースの見つけ方と読み方、そして評価を自分で実行してレポートを読む方法を説明します。</p>
+
+    <h2>トレースの保存場所</h2>
+    <table>
+      <tr><th>項目</th><th>内容</th></tr>
+      <tr><td>場所</td><td>リポジトリのルートにある <code>.echolab/traces/</code>（<code>.gitignore</code> 済みで、コミットされません）。<code>--trace-dir ディレクトリ</code> で別の場所に変えられます</td></tr>
+      <tr><td>ファイル名</td><td><code>&lt;実行 ID&gt;.jsonl</code>。質問 1 回につき 1 ファイルです。実行 ID は <code>20261003T031424Z-28df54</code> のような形（UTC の時刻 + 6 桁のランダムな 16 進数）で、ファイル名順に並べるとそのまま時刻順になります</td></tr>
+      <tr><td>どのファイルか分かる方法</td><td>CLI の出力の最終行 <code>トレース: …</code> が今回のファイルのパスです。その 1 つ上の行に <code>実行 ID</code> があります</td></tr>
+      <tr><td>形式</td><td>JSON Lines：1 行に 1 イベント。どの行にも <code>ts</code>（UTC の時刻、ミリ秒まで）、<code>run_id</code>、<code>event</code>（イベントの種類）があります。1 件書くたびにすぐディスクへ書き出すので、途中でエラーが起きても、それまでの記録は残ります</td></tr>
+      <tr><td>評価のトレース</td><td>評価を実行すると、各問題のトレースは評価の生データのディレクトリ内の <code>traces/</code> に置かれます（既定は <code>evals/reports/raw/traces/</code>）</td></tr>
+    </table>
+
+    <h3>やってみよう：質問してからトレースを見る</h3>
+    <p>まず台本モードで質問を 1 回実行し（API キーは不要）、次にトレースのディレクトリを一覧表示し、最後に EchoLab に付属の <code>read_trace</code> 関数でイベントを順に表示します。出力はすべて実際の実行結果です（回答の部分は省略）。</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（…）とビルド B（…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 10},
+        {"out": "ビルド B の方が強いです。", "delay": 400},
+        {"out": "…（回答と出典表は省略）", "cls": "dim"},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "hl"},
+        {"pause": 700},
+        {"cmd": "ls .echolab/traces/"},
+        {"out": "20261003T031424Z-28df54.jsonl", "delay": 200},
+        {"pause": 600},
+        {"cmd": ".venv/bin/python -c \"from core.trace import read_trace; [print(e['ts'][11:23], e['event']) for e in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl')]\"", "speed": 10},
+        {"out": "03:14:24.930 question", "delay": 300},
+        {"out": "03:14:24.931 llm_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_result"},
+        {"out": "03:14:24.933 tool_result"},
+        {"out": "03:14:24.934 llm_call"},
+        {"out": "03:14:24.934 verdict", "cls": "warn"},
+        {"out": "03:14:24.935 llm_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.937 llm_call"},
+        {"out": "03:14:24.938 verdict", "cls": "hl"},
+        {"out": "03:14:24.938 answer", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>特定の種類のイベントだけを見たいときは、<code>read_trace</code> に 2 つ目の引数を渡します。たとえば検証器の判定だけを見るには：</p>
+<pre><code>.venv/bin/python -c "
+from core.trace import read_trace
+for v in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl', 'verdict'):
+    print(v['draft'], v['ok'], v['problems'])
+"
+# 実際の出力：
+1 False ['数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。']
+2 True []</code></pre>
+    <p>（台本モードで質問すると <code>.echolab/traces/</code> にトレースファイルが 1 つ作られますが、それ以外にリポジトリは変更されません。）</p>
+
+    <h2>トレースの読み方</h2>
+    <h3>イベントの種類</h3>
+    <table>
+      <tr><th>event</th><th>書かれるタイミング</th><th>注目するフィールド</th></tr>
+      <tr><td><code>question</code></td><td>開始時に 1 件</td><td><code>question</code> 質問の原文、<code>domain</code> ドメインパック、<code>llm</code>（<code>ScriptedLLM</code> は台本、<code>AnthropicLLM</code> は本物の Claude）、<code>model</code>、<code>tools</code> 今回使えるツール</td></tr>
+      <tr><td><code>llm_call</code></td><td>Claude を呼ぶたびに、その後</td><td><code>stop_reason</code>（<code>tool_use</code>＝ツールを呼びたい、<code>end_turn</code>＝下書きを提出）、<code>usage</code> トークン数、<code>usd</code> 費用、<code>text</code> 下書き、<code>tool_uses</code></td></tr>
+      <tr><td><code>tool_call</code></td><td>各ツール呼び出しの前</td><td><code>name</code>（<code>damage_expected</code> など）、<code>input</code></td></tr>
+      <tr><td><code>tool_result</code></td><td>各ツール呼び出しの後</td><td><code>outcome.call_id</code>（<code>c1</code>…）、<code>outcome.sources</code>（出典 ID と数値、<code>unverified_inputs</code> 未確認のデータ）、<code>outcome.error</code>（ゲートウェイが拒否した場合や入力エラーの説明）</td></tr>
+      <tr><td><code>verdict</code></td><td>各下書きの検査の後</td><td><code>draft</code> 何番目の下書きか、<code>ok</code> 合格かどうか、<code>problems</code> 差し戻しの理由、<code>cited</code> 引用した出典 ID、<code>template</code> 下書きの原文</td></tr>
+      <tr><td><code>answer</code></td><td>終了時に 1 件</td><td><code>status</code>、<code>answer</code> 最終的な文面、<code>cited</code>、<code>cost_usd</code>、<code>drafts</code> / <code>drafts_rejected</code>、<code>llm_calls</code> / <code>tool_calls</code></td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>コストの上限に達し、Claude を呼ばずに止まったとき</td><td><code>reason</code></td></tr>
+      <tr><td><code>llm_error</code></td><td>Claude の呼び出しに失敗したとき（API キーが未設定の場合など）</td><td><code>kind</code> 失敗の分類（<code>credentials</code> 認証情報がない、<code>auth</code> 認証の失敗、<code>transient</code> レート制限・過負荷・ネットワーク、<code>other</code> その他）、<code>error</code> SDK の元のメッセージ</td></tr>
+    </table>
+
+    <h3>実際のトレース（抜粋）</h3>
+    <p><a href="05-how-it-works.html">裏側で起きていること（アニメーション）</a>のアニメーションで使ったトレースの、最初の 7 行です（読みやすくするため長い入力は <code>…</code> で省略しています。<code>ts</code> と <code>run_id</code> はどの行にもありますが、ここでは 1 行目にだけ残しています）：</p>
+<pre><code>{"ts": "2026-10-03T03:14:24.930+00:00", "run_id": "20261003T031424Z-28df54", "event": "question", "question": "ビルド A（攻撃力 2000、…", "domain": "wuwa", "llm": "ScriptedLLM", "model": "claude-opus-5-5", "tools": ["compare_diff", "compare_ratio", "damage_expected", "echo_score", "gacha_probability_within"]}
+{"event": "llm_call", "model": "claude-opus-5-5", "stop_reason": "tool_use", "usage": {"input_tokens": 0, "output_tokens": 0, …}, "usd": "0.00", "text": "", "tool_uses": [{"id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, …}}, {"id": "toolu_scripted_02", …}]}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, "skill_multiplier": 2.5, …}}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_02", "name": "damage_expected", "input": {"atk": 1800, "skill_multiplier": 3.0, …}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_01", "outcome": {"call_id": "c1", "tool": "damage.expected", "sources": [{"source_id": "c1.base", "value": "5000.000000", …}, …, {"source_id": "c1.total", "value": "6192.000000", "tool": "damage.expected", "unverified_inputs": []}], "error": null}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_02", "outcome": {"call_id": "c2", …, {"source_id": "c2.total", "value": "7128.000000", …}], "error": null}}
+{"event": "llm_call", "stop_reason": "end_turn", "text": "ビルド B の方が [[c2.total|0]] で、A より 936 高いです。", "tool_uses": []}</code></pre>
+    <div class="callout"><strong>トレースを読むコツ</strong>
+      <ul style="margin:4px 0 0">
+        <li>まず最終行の <code>answer</code> を見ます。状態、費用、差し戻しの回数がひと目で分かります。</li>
+        <li>回答のある数値が気になるときは、<code>answer.cited</code> で出典 ID（<code>c4.change</code> など）を見つけ、<code>tool_result</code> で同じ名前の <code>source_id</code> を探すと、元の値と計算したツールが分かります。</li>
+        <li>差し戻しがあったときは、<code>verdict</code> の <code>problems</code> を見れば、どの数値に出典がなかったかが分かります。</li>
+        <li>数値は文字列で保存されているため（<code>"6192.000000"</code> など）、丸められることはありません。</li>
+      </ul>
+    </div>
+
+    <h3>アニメーション：このトレースを 1 行ずつ再生</h3>
+    <p>16 件のイベントで、時刻（UTC）はすべて実際のファイルから取っています。「▶ 再生」を押すと、順に現れる様子を見られます。</p>
+    <div class="tl" id="tl">
+      <ol>
+        <li><span class="t">.930</span><span class="e q">question</span><span class="d">質問を記録（ドメイン wuwa、使えるツール 5 個）</span></li>
+        <li><span class="t">.931</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use：damage_expected を 2 回要求</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected（ビルド A）</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected（ビルド B）</span></li>
+        <li><span class="t">.932</span><span class="e r">tool_result</span><span class="d">c1：c1.base … c1.total = 6192.000000</span></li>
+        <li><span class="t">.933</span><span class="e r">tool_result</span><span class="d">c2：c2.base … c2.total = 7128.000000</span></li>
+        <li><span class="t">.934</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn：下書き 1「…A より 936 高いです。」</span></li>
+        <li><span class="t">.934</span><span class="e v">verdict</span><span class="d">draft 1：ok=false、数値「936」の出典がありません</span></li>
+        <li><span class="t">.935</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use：compare_diff、compare_ratio</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_diff {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_ratio {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c3：c3.diff = 936.000000</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c4：c4.ratio = 1.151163、c4.change = 0.151163</span></li>
+        <li><span class="t">.937</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn：下書き 2（すべて [[…]] で引用）</span></li>
+        <li><span class="t">.938</span><span class="e v ok">verdict</span><span class="d">draft 2：ok=true、cited = c1.total, c2.total, c3.diff, c4.change</span></li>
+        <li><span class="t">.938</span><span class="e a">answer</span><span class="d">status=answered、drafts=2、drafts_rejected=1、llm_calls=4、tool_calls=4</span></li>
+      </ol>
+      <div class="tl-ctl"><button type="button" data-t="play">▶ 再生</button><button type="button" data-t="all">すべて表示</button><span class="tl-n">時刻はすべて 03:14:24 以降のミリ秒です</span></div>
+    </div>
+    <script>
+    (function () {
+      var box = document.getElementById("tl");
+      if (!box) return;
+      var items = box.querySelectorAll("li"), btn = box.querySelector('[data-t="play"]'), n = box.querySelector(".tl-n");
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var timer = 0, i = 0;
+      function mark(k) {
+        items.forEach(function (li, j) { li.classList.toggle("seen", j <= k); li.classList.toggle("now", j === k); });
+        n.textContent = (k + 1) + " / " + items.length + " 件のイベント";
+      }
+      function stop() { clearInterval(timer); timer = 0; btn.textContent = "▶ 再生"; }
+      function play() {
+        if (timer) return stop();
+        if (reduce) { mark(items.length - 1); return; }
+        i = 0; mark(0); btn.textContent = "一時停止";
+        timer = setInterval(function () { i++; if (i >= items.length) return stop(); mark(i); }, 650);
+      }
+      btn.addEventListener("click", play);
+      box.querySelector('[data-t="all"]').addEventListener("click", function () { stop(); mark(items.length - 1); });
+      // 既定ではすべて表示（スクリプトなしでも読める）。動きを減らす設定のときもすべて表示のまま
+      mark(items.length - 1);
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (es, obs) {
+          if (es.some(function (e) { return e.isIntersecting; })) { obs.disconnect(); play(); }
+        }, { threshold: 0.5 }).observe(box);
+      }
+    })();
+    </script>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph R1["1 往復目：計算"]
+    direction TB
+    Q["question"] --> L1["llm_call<br/>tool_use"] --> T1["tool_call ×2"] --> S1["tool_result ×2<br/>c1、c2"]
+  end
+  subgraph R2["2 往復目：下書き 1"]
+    direction TB
+    L2["llm_call<br/>end_turn"] --> V1["verdict draft 1<br/>ok=false"]
+  end
+  subgraph R3["3 往復目：比較"]
+    direction TB
+    L3["llm_call<br/>tool_use"] --> T2["tool_call ×2"] --> S2["tool_result ×2<br/>c3、c4"]
+  end
+  subgraph R4["4 往復目：下書き 2"]
+    direction TB
+    L4["llm_call<br/>end_turn"] --> V2["verdict draft 2<br/>ok=true"] --> A["answer<br/>answered"]
+  end
+  R1 --> R2 --> R3 --> R4
+  classDef bad fill:#fdecea,stroke:#c62828,color:#1f2328
+  classDef good fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  class V1 bad
+  class V2,A good
+      </pre>
+      <div class="caption">図 1：1 回の実行のイベントの流れ（Claude の呼び出し 4 回が 4 往復に対応。トレース 20261003T031424Z-28df54）</div>
+    </div>
+
+    <h2>数値の忠実度の評価：試験問題で「出所の分からない数値」を調べる</h2>
+    <p>評価は、<code>evals/faithfulness/cases.yaml</code> の試験問題を順に EchoLab に渡し、結果を確かめます。現在の問題は 8 問です：</p>
+    <table>
+      <tr><th>問題 ID</th><th>何を確かめるか</th><th>期待する結果</th></tr>
+      <tr><td><code>damage-basic</code></td><td>期待ダメージと各明細の引用</td><td>answered、差し戻しなし</td></tr>
+      <tr><td><code>echo-score</code></td><td>声骸スコアの引用（数値とパーセント）</td><td>answered</td></tr>
+      <tr><td><code>gacha-unverified</code></td><td>未確認のデータに基づく数値に注記が自動で付くこと</td><td>answered、注記あり</td></tr>
+      <tr><td><code>compare-builds</code></td><td>並列の計算 + 比較ツール（差・増加率）</td><td>answered、c1–c4 を引用</td></tr>
+      <tr><td><code>tool-error-recovery</code></td><td>ツールの入力エラーを読み取って呼び直すこと</td><td>answered、c2 を引用</td></tr>
+      <tr><td><code>bad-draft-raw-number</code></td><td>数値を直接書いた下書きが差し戻され、引用に直されること</td><td>answered、差し戻し 1 回</td></tr>
+      <tr><td><code>bad-draft-derived-and-unknown-id</code></td><td>自分で計算した差や、存在しない出典 ID がどちらも差し戻されること</td><td>answered、差し戻し 2 回</td></tr>
+      <tr><td><code>never-corrected</code></td><td>何度差し戻しても直らないとき、数値を含まない定型の回答に切り替わること</td><td>fallback、差し戻し 3 回</td></tr>
+    </table>
+
+    <h3>評価を実行する（台本モード）</h3>
+    <p>台本モードでは API キーも Java も不要で（試験用の計算サービスを使います）、数秒で終わります。ここでは、リポジトリ内のファイルを変更しないように、レポートと生データを一時ディレクトリ（例：<code>/tmp/ug3/</code>）に書き出しています：</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.evals --llm scripted --out /tmp/ug3/report.md --raw-dir /tmp/ug3/raw", "speed": 18},
+        {"out": "# 評価レポート：数値の忠実度", "cls": "hl", "delay": 600},
+        {"out": ""},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（8 件）"},
+        {"out": ""},
+        {"out": "## 指標", "cls": "hl"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |", "delay": 200},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 0.462（6 / 13） |"},
+        {"out": "| 合格したケース | 8 / 8 |"},
+        {"out": "| 費用の合計（USD） | 0.028120 |"},
+        {"out": ""},
+        {"out": "## ケースごとの結果", "cls": "hl"},
+        {"out": "| `damage-basic` | … | answered | 1 | 0 | … | 合格 |", "delay": 120},
+        {"out": "| `echo-score` | … | answered | 1 | 0 | … | 合格 |"},
+        {"out": "| `gacha-unverified` | … | answered | 1 | 0 | `c1.probability` | 合格 |"},
+        {"out": "| `compare-builds` | … | answered | 1 | 0 | `c1.total`, `c2.total`, `c3.diff`, `c4.change` | 合格 |"},
+        {"out": "| `tool-error-recovery` | … | answered | 1 | 0 | `c2.probability` | 合格 |"},
+        {"out": "| `bad-draft-raw-number` | … | answered | 2 | 1 | `c1.total` | 合格 |"},
+        {"out": "| `bad-draft-derived-and-unknown-id` | … | answered | 3 | 2 | … | 合格 |"},
+        {"out": "| `never-corrected` | … | fallback | 3 | 3 | - | 合格 |", "cls": "warn"},
+        {"out": ""},
+        {"out": "台本モードの使用量（トークン数）は台本に書いた架空の値で、費用は計算の確認用です。", "cls": "dim"},
+        {"pause": 500},
+        {"cmd": "echo $?"},
+        {"out": "0", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>（端末に出るレポートは Markdown の表です。ここでは紙面の都合で「内容」の列を省略しています。すべての問題に合格し、忠実度が 1.0 のとき終了コードは 0、それ以外は 1 です。）</p>
+
+    <div class="cards">
+      <div class="card"><h4>1 問だけ実行する</h4><p><code>--case never-corrected</code>（<code>--case</code> は複数指定できます）。実測：fallback、下書き 3、差し戻し 3、合格。ID を間違えると 1 問も実行せず、使える ID を一覧表示して終了コード 2 で終わります。</p></div>
+      <div class="card"><h4>レポートの書き出し先</h4><p><code>--out パス</code> で Markdown のレポートを書き出します（指定しなければ表示のみ）。生データ <code>faithfulness-&lt;llm&gt;-&lt;時刻&gt;.jsonl</code> と各問題のトレースは <code>--raw-dir</code> に書き出され、既定は <code>evals/reports/raw/</code> です（コミットしません）。</p></div>
+      <div class="card"><h4>別の問題セットを使う</h4><p><code>--cases ファイル.yaml</code>。形式は <code>evals/faithfulness/cases.yaml</code> と同じです。</p></div>
+    </div>
+
+    <h3>レポートの指標の意味</h3>
+    <table>
+      <tr><th>指標（レポートの表記）</th><th>意味</th><th>今回の値</th></tr>
+      <tr><td>忠実度</td><td>ユーザーに返した回答のうち、<strong>出典のない数値を 1 つも含まない</strong>ものの割合。検証に合格した回答も<strong>もう一度検査</strong>し、定型の回答には数値が一切ないことを確かめます。EchoLab の設計上、この値は必ず 1.000 でなければなりません</td><td>1.000</td></tr>
+      <tr><td>差し戻し率</td><td>すべての下書きのうち、検証器に差し戻されたものの割合。これは AI が誤りをする頻度の指標で、回答が誤っている割合<strong>ではありません</strong>（差し戻された下書きはユーザーには届きません）。台本モードの問題にはわざと誤りを入れているため、ここでは高めです</td><td>0.462（6 / 13）</td></tr>
+      <tr><td>合格したケース</td><td>状態、引用、差し戻しの回数、注記などが期待どおりかどうか</td><td>8 / 8</td></tr>
+      <tr><td>費用の合計</td><td>全問題の Claude の費用の合計（米ドル）。台本モードのトークン数は台本に書いた架空の値で、費用の計算そのものを確かめるためだけに使います</td><td>0.028120</td></tr>
+    </table>
+    <p>問題ごとの表では、「下書き」は下書きの数、「差し戻し」は差し戻しの回数、「引用した出典」は最終回答が引用した出典 ID、「合否」は合格したかどうか（不合格なら理由）を表します。リポジトリにコミットされている基準のレポート <code>evals/reports/scripted-baseline.md</code> は、上の結果と完全に一致します。</p>
+
+    <h2>台本モードと本物の Claude の違い</h2>
+    <table>
+      <tr><th></th><th>台本モード <code>--llm scripted</code>（既定）</th><th>本物の Claude <code>--llm anthropic</code></th></tr>
+      <tr><td>AI の回答</td><td>問題に書かれた台本どおりで、毎回同じ</td><td>質問だけを本物の Claude（<code>claude-opus-5-5</code>）に渡すため、毎回変わることがある</td></tr>
+      <tr><td>計算サービス</td><td>試験用の計算サービス（Python の参照実装）。Java は不要</td><td>本物の Java の計算サービス（Java 21 とビルド済みの jar が必要）</td></tr>
+      <tr><td>必要なもの</td><td>なし</td><td><code>ANTHROPIC_API_KEY</code> などの認証情報。費用がかかります</td></tr>
+      <tr><td>費用の記帳</td><td>一時的な台帳を使い、本物のコストの上限には影響しない</td><td>本物の台帳 <code>.echolab/costs.jsonl</code> に記録し、日次・月次の上限（既定 1 / 10 ドル）が適用される</td></tr>
+      <tr><td>確かめる項目</td><td>すべて：状態、忠実度、注記、引用した出典 ID、差し戻しの回数、台本を使い切ったか</td><td>状態、忠実度、注記（引用や差し戻しの回数は AI によって変わるため確かめない）</td></tr>
+      <tr><td>実行する場所</td><td>手元でも CI でも可</td><td><strong>手元で手動実行するだけ</strong>で、集計したレポートだけをコミットします。CI には API キーがありません</td></tr>
+    </table>
+    <div class="callout warn"><strong>API キーがないとどうなるか</strong>実測：<code>--llm scripted</code> を付けずに質問しても、EchoLab は異常終了しません。原因と対処法を説明する定型の回答「Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、…」を返し、状態は <code>llm_error</code>、終了コードは 1 です。トレースには <code>llm_error</code> イベントが 1 件記録されます：<code>"kind": "credentials"</code>、「Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）」。<code>--llm anthropic</code> で評価した場合も同じで、キーのない問題は <code>llm_error</code> で終わり、費用は発生しません。</div>
+    <p>本物の Claude で評価するときのコマンド（キーがあり、Java の計算サービスをビルド済みの場合）：</p>
+<pre><code>JAVA_HOME=$HOME/.local/jdk/21 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/&lt;名前&gt;.md</code></pre>
+    <p>問題は 1 問ずつ順に実行します（費用が膨らまないよう、並列にはしません）。レポートの LLM の行にはモデル名が記載されます。</p>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>：状態が answered にならないとき、Java が見つからないとき、API キーがないときの対処法。</li>
+        <li><a href="05-how-it-works.html">裏側で起きていること（アニメーション）</a>：このページのトレースをアニメーションで 1 ステップずつ見る。</li>
+        <li><a href="09-roadmap.html">今後の機能（ロードマップ）</a>：Web UI の「トレースの再生」などの予定。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

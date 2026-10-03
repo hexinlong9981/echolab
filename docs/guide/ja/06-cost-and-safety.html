@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>コストの上限とデータの確かさ | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }</style>
+</head>
+<body data-page="06-cost-and-safety.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>しくみ</span><span>費用</span><span>プライバシー</span><span>データ</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>コストの上限とデータの確かさ</h1>
+    <p class="lead">本物の Claude で質問に答えると、API の費用がかかります。EchoLab は Claude を呼ぶ前に毎回、日次・月次の 2 つの上限を確認し、呼び出しごとの費用を手元の台帳に記録します。このページでは、料金、上限、上限に達したときの動き、台帳の形式、そしてあなたのデータがどこへ送られるか、どのデータを信頼できるかを説明します。</p>
+
+    <h2>モデルと料金</h2>
+    <p>既定のモード（<code>--llm anthropic</code>）では <code>claude-opus-5-5</code> を使います。料金表は <code>config/budget.yaml</code> にあり、単位は<b>100 万トークンあたりの米ドル</b>です：</p>
+    <table>
+      <tr><th>モデル</th><th>入力</th><th>出力</th><th>キャッシュ読み取り</th><th>キャッシュ書き込み（TTL 5 分）</th><th>用途</th></tr>
+      <tr><td><code>claude-opus-5-5</code></td><td>4.00</td><td>20.00</td><td>0.20</td><td>5.00</td><td>既定のモデル</td></tr>
+      <tr><td><code>claude-opus-5</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>サーバ側のフォールバックで使われることがある</td></tr>
+      <tr><td><code>claude-opus-4-8</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>同上</td></tr>
+    </table>
+    <p>リクエストではサーバ側のフォールバック（<code>fallbacks: "default"</code>）を有効にしています。既定のモデルが安全性の分類器によって回答を拒否した場合、サーバが別のモデルで回答することがあります。そのとき EchoLab は試行ごとに（それぞれのモデルの料金で）記帳します。台本モード（<code>--llm scripted</code>）は API を一切呼びません。台本に <code>usage</code> が書かれていなければ費用は 0 です。台本に模擬の <code>usage</code> が書かれている場合、CLI は料金表からこの「模擬の費用」を計算して状態行に表示しますが、記録先はその実行専用の一時台帳（実行が終わると削除）だけで、<b>本物の台帳には書き込みません</b>（評価 <code>python -m core.evals</code> の台本モードも同じです）。</p>
+
+    <h3>1 つの質問でおよそいくらかかるか</h3>
+    <p>ここでは<b>例のトークン数</b>を使って計算方法を示します。この数値は <code>evals/faithfulness/cases.yaml</code> の <code>damage-basic</code> ケースの台本に書かれた <code>usage</code> から取ったものです（説明用の仮の値で、<b>実測ではありません</b>）。ダメージの質問 1 つで、LLM の呼び出しは計 2 回です。</p>
+    <table>
+      <tr><th>LLM の呼び出し</th><th>入力</th><th>出力</th><th>キャッシュ書き込み</th><th>キャッシュ読み取り</th><th>費用（claude-opus-5-5）</th></tr>
+      <tr><td>1 回目（ツールを選ぶ）</td><td>2,400</td><td>180</td><td>2,100</td><td>0</td><td>$0.0237</td></tr>
+      <tr><td>2 回目（回答を書く）</td><td>300</td><td>140</td><td>0</td><td>2,100</td><td>$0.00442</td></tr>
+      <tr><th>合計</th><th>2,700</th><th>320</th><th>2,100</th><th>2,100</th><th>$0.02812</th></tr>
+    </table>
+    <p>費用はいずれも <code>core/gateway/budget.py</code> の <code>Budget.cost()</code> が上の料金表から計算したものです。この規模なら、1 日 1 ドルの上限でこうした質問をおよそ 35 回できます。実際のトークン数は、質問の長さ、ツールの呼び出し回数、下書きの差し戻し回数によって変わります。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+pie showData
+  title 例の質問の費用の内訳（米ドル、claude-opus-5-5）
+  "入力 2,700 tok" : 0.0108
+  "出力 320 tok" : 0.0064
+  "キャッシュ書き込み 2,100 tok" : 0.0105
+  "キャッシュ読み取り 2,100 tok" : 0.00042
+      </pre>
+      <div class="caption">図 1：同じ例の費用の内訳。キャッシュ読み取りは入力料金の 1/20 なので、2 回目の呼び出しはとても安く済みます</div>
+    </div>
+    <div class="diagram">
+      <pre class="mermaid">
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2f6fdb"}}}}%%
+xychart-beta
+  title "同じ例を料金表の各モデルで計算した費用（米ドル）"
+  x-axis ["claude-opus-5-5", "claude-opus-5", "claude-opus-4-8"]
+  y-axis "USD" 0 --> 0.04
+  bar [0.02812, 0.035675, 0.035675]
+      </pre>
+      <div class="caption">図 2：同じトークン数でも、フォールバック先のモデルが回答した場合は $0.035675 になります</div>
+    </div>
+
+    <h2>日次の上限と月次の上限</h2>
+    <table>
+      <tr><th>上限</th><th>既定値</th><th>環境変数</th><th>設定ファイル</th></tr>
+      <tr><td>日次</td><td>1.00 USD</td><td><code>ECHOLAB_DAILY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.daily</code></td></tr>
+      <tr><td>月次</td><td>10.00 USD</td><td><code>ECHOLAB_MONTHLY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.monthly</code></td></tr>
+      <tr><td>台帳の場所</td><td><code>.echolab/costs.jsonl</code></td><td><code>ECHOLAB_LEDGER</code></td><td><code>config/budget.yaml</code> → <code>ledger</code>（相対パスはリポジトリのルートが基準。anthropic モードでのみ使用）</td></tr>
+    </table>
+    <ul>
+      <li>環境変数は設定ファイルより優先されます。たとえば今回の実行だけ上限を緩めるには：<code>ECHOLAB_DAILY_USD=2 python -m core.agent "…"</code>。</li>
+      <li>「今日」「今月」は <b>UTC</b> で区切ります。日付は毎日 <b>UTC の 0 時（日本時間の 9 時）</b>に変わり、月は毎月 1 日の UTC の 0 時（日本時間の 9 時）に変わります。</li>
+      <li>上限は 0 以上の数値でなければなりません。<code>abc</code> のような値を指定すると、CLI は Claude を呼ばずに標準エラーへ <code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code> と出力し、終了コード 2 で終わります（実測。<code>config/budget.yaml</code> の値が不正な場合も同様にエラーになり、どのキーかを示します）。</li>
+    </ul>
+
+    <h3>Claude を呼ぶたびに前後で起きること</h3>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  participant U as あなた（CLI）
+  participant A as Agent
+  participant B as 予算（台帳）
+  participant C as Claude API
+  U->>A: 質問
+  loop LLM を呼ぶたびに（1 つの質問で通常 2 回以上）
+    A->>B: check()
+    B->>B: 台帳の今日・今月（UTC）の usd を集計
+    alt 今日 ≥ 日次の上限 または 今月 ≥ 月次の上限
+      B-->>A: BudgetExceeded
+      A-->>U: 定型の回答、状態 budget_exceeded
+    else 上限未満
+      A->>C: リクエスト（プロンプト、ツール定義、会話）
+      C-->>A: 応答とトークン使用量
+      A->>B: record(model, usage)
+      B->>B: JSONL に 1 行追記
+    end
+  end
+  A-->>U: 回答と今回の費用
+      </pre>
+      <div class="caption">図 3：予算の確認は質問ごとではなく、LLM を呼ぶたびに行います</div>
+    </div>
+    <p>確認は呼び出しの<b>前</b>に行い、費用は呼び出しの<b>後</b>に分かるため、合計が上限をわずかに超えることがあります。超える分は最大で呼び出し 1 回分の費用です。超えたあとは、次の呼び出しが止められます。</p>
+
+    <h3>上限に達したときの表示</h3>
+    <p>以下は一時的な台帳を使って実際に再現したものです（台帳にはあらかじめ今日付けで 1.000000 ドルの記録を 1 行書いてあります。台帳のパスは例です）。ここでは既定の anthropic モードを使っています。予算の確認は Claude を呼ぶ<b>前</b>に行われ、上限に達していれば呼び出さないので、API キーがなくても再現できます。台本モードは使い捨ての一時台帳しか使わず <code>ECHOLAB_LEDGER</code> を読まないため、この再現には使えません。</p>
+    <div class="term" data-title="bash — 日次の上限に到達">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_LEDGER=/tmp/ledger_full.jsonl python -m core.agent \"攻击力 2000 的期望伤害？\" --fake-backend", "speed": 18},
+        {"pause": 500},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "warn", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031519Z-7df23c", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031519Z-7df23c.jsonl", "cls": "dim"},
+        {"pause": 600},
+        {"cmd": "echo $?"},
+        {"out": "1"},
+        {"pause": 600},
+        {"cmd": "grep '\"event\": \"budget_exceeded\"' .echolab/traces/20261003T031519Z-7df23c.jsonl"},
+        {"out": "{\"ts\": \"2026-10-03T03:15:19.195+00:00\", \"run_id\": \"20261003T031519Z-7df23c\", \"event\": \"budget_exceeded\", \"reason\": \"今日（UTC）のコストが上限に達しました: 1.000000 / 1.00 USD\"}", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>月次の上限に達した場合は、月次の上限額と設定項目が示されます（<code>ECHOLAB_DAILY_USD=5 ECHOLAB_MONTHLY_USD=0.5</code> で実測すると <code>今月（UTC）のコストが月次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 0.5 USD）。UTC の月が変わると使えるようになります。上限は環境変数 ECHOLAB_MONTHLY_USD か config/budget.yaml の caps_usd.monthly で変えられます。</code> となります）。同じ情報は実行トレースの <code>budget_exceeded</code> イベントにも記録されます。このとき Claude は一度も呼ばれておらず、費用は 0 です。回答中の金額は台帳と設定から来たもので AI が書いたものではないため、評価で数値の忠実度を集計するときも、出典のない数値としては扱いません。</p>
+    <p>対処法：UTC で日付・月が変わるのを待つか、意図して上限を引き上げます（環境変数または <code>config/budget.yaml</code>）。「リセット」のために台帳を消すことは<b>しないでください</b>。台帳は実際に使った金額の記録です。</p>
+
+    <h2>台帳ファイルの形式</h2>
+    <p>台帳は JSONL で、LLM を 1 回呼ぶごとに 1 行追記されます。以下は、例のトークン数を一時的な台帳に書き込んで得た実際の内容です：</p>
+    <pre><code>{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.0237"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 300, "output_tokens": 140, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2100}, "usd": "0.00442"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-sonnet-x", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.029625", "estimated": true}</code></pre>
+    <table>
+      <tr><th>フィールド</th><th>意味</th></tr>
+      <tr><td><code>ts</code></td><td>記録時刻（UTC、ISO 8601）。「今日」「今月」はこれで区切ります</td></tr>
+      <tr><td><code>model</code></td><td>実際に課金されたモデル</td></tr>
+      <tr><td><code>usage</code></td><td>4 種類のトークン数：入力、出力、キャッシュ書き込み、キャッシュ読み取り</td></tr>
+      <tr><td><code>usd</code></td><td>この呼び出しの費用。浮動小数点の誤差を避けるため、10 進数を文字列で保存します</td></tr>
+      <tr><td><code>estimated</code></td><td>モデルが料金表にない場合だけ現れ、値は <code>true</code> です（次の節を参照）</td></tr>
+    </table>
+    <ul>
+      <li>この台帳に書き込まれるのは <code>--llm anthropic</code> の呼び出しだけです。台本モードの模擬の使用量は実行ごとの一時台帳にだけ記録され、<code>.echolab/costs.jsonl</code> には現れません。</li>
+      <li>台帳に読めない行があると、EchoLab はその行を読み飛ばしません（読み飛ばすと使いすぎにつながるおそれがあるため）。代わりに Claude を呼ぶ前に止まり、終了コード 2 で終わって、ファイル名と行番号を示します。例：<code>エラー: コストの台帳 /tmp/broken.jsonl の 1 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: Expecting ',' delimiter: line 1 column 35 (char 34)）。その行を直すか消してください</code>（実測。Traceback は表示しません）。その行を直すか、別の場所へ移してください。</li>
+    </ul>
+
+    <h3>料金表にないモデル：控えめに見積もる</h3>
+    <p>フォールバックの際、サーバが料金表にないモデルを返すことがあります。呼び出しはすでに課金されているので EchoLab は記帳しますが、<b>料金表でいちばん高いモデルの料金で見積もり</b>、<code>"estimated": true</code> を付けます。上の 3 行目がその例です。同じトークン数でも <code>claude-opus-5-5</code> なら $0.0237 のところ、未知のモデルは最も高い料金で $0.029625 と見積もられます。こうすることで、上限の判定は厳しくなることはあっても緩くなることはありません（単に「料金を調べる」だけのときは推測をせず、<code>Budget.cost()</code> は未知のモデルに対して <code>料金表に無いモデルです（config/budget.yaml に追加してください）</code> というエラーを返します）。新しいモデルによく出会う場合は、その料金を <code>config/budget.yaml</code> の <code>pricing_usd_per_mtok</code> に追加してください。</p>
+
+    <h2>あなたのデータはどこへ送られるか</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph PC["あなたのコンピュータ"]
+    CLI["CLI と Agent"]
+    GW["ゲートウェイ"]
+    CE["calc-engine&lt;br/&gt;Java の子プロセス、stdio で通信"]
+    DATA["domains/wuwa/data&lt;br/&gt;サンプルデータ"]
+    LED[".echolab/costs.jsonl&lt;br/&gt;費用の台帳"]
+    TR[".echolab/traces/&lt;br/&gt;実行トレース"]
+  end
+  API["Anthropic&lt;br/&gt;Claude API"]
+  CLI --> GW --> CE --> DATA
+  CLI --> LED
+  CLI --> TR
+  CLI -- "anthropic モードのみ" --> API
+      </pre>
+      <div class="caption">図 4：外部ネットワークにアクセスするのは anthropic モードだけです。計算、台帳、トレースはすべて手元のマシン内で完結します</div>
+    </div>
+    <table>
+      <tr><th></th><th><code>--llm scripted</code>（台本モード）</th><th><code>--llm anthropic</code>（既定）</th></tr>
+      <tr><td>Anthropic に送られる内容</td><td>なし（API を呼ばず、API キーも不要）</td><td>システムプロンプト（<code>core/agent/prompts/core.md</code> + <code>domains/wuwa/prompts/system.md</code>）、ツール定義（入力スキーマ）、<b>あなたの質問の原文</b>、それまでの Claude の応答、ツールの結果（出典 ID と数値、未確認データの ID）、検証器の差し戻し理由</td></tr>
+      <tr><td>計算</td><td colspan="2">手元のマシン：Java の計算サービスを子プロセスとして起動し、標準入出力で通信します（<code>--fake-backend</code> のときは手元の Python 参照実装を使います）。ネットワークには接続しません</td></tr>
+      <tr><td>手元に保存されるもの</td><td colspan="2"><code>.echolab/traces/&lt;実行 ID&gt;.jsonl</code>（質問の原文、各下書き、ツールの入出力、最終回答を含む）と <code>.echolab/costs.jsonl</code>（anthropic モードの費用のみ）。どちらも Git の無視対象で、コミットされません</td></tr>
+    </table>
+    <div class="callout warn"><strong>プライバシーについて</strong>質問の原文はそのまま Anthropic に送られ、手元の実行トレースにもそのまま書き込まれます。計算に関係のない個人情報は質問に書かないでください。トレースファイルを人と共有するときは、先に中の質問文を確認してください。</div>
+
+    <h2>データの確かさ：確認済みとサンプル</h2>
+    <p>計算サービスの<b>計算式</b>は、Java と Python の 2 つの実装が同じゴールデンケースで照合しています。一方、<b>ゲームの数値</b>が正しいかどうかは、入力がどこから来たかで決まります：</p>
+    <table>
+      <tr><th>入力の出どころ</th><th>確かさ</th><th>回答での表れ方</th></tr>
+      <tr><td>あなたが質問の中で示した数値</td><td>あなたが示した数値と同じ</td><td>注記なし。出典表の「未確認データ」は <code>-</code></td></tr>
+      <tr><td>サンプルデータ <code>verified: false</code>（現在のデータはすべてこれ）</td><td>作者が手作業でまとめた<b>サンプル値</b>。<code>source</code> は <code>"TODO: 要確認"</code> で、公式の数値ではありません</td><td>注記 <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> が自動で付き、出典表に <code>gacha_rules:featured-character</code>、<code>echo_weights:sample-crit-attacker</code>、<code>echo_weights:max_roll</code> などの ID が並びます</td></tr>
+      <tr><td>確認済みのデータ <code>verified: true</code></td><td>データのスキーマで、<code>https://</code> の出典 URL、確認日 <code>checked_at</code>、ゲームの版 <code>game_version</code> を必須にしています</td><td>注記なし（現在、リポジトリにはこの種のデータはまだありません）</td></tr>
+    </table>
+    <p>比較ツールは、両側の入力の未確認マークを引き継ぎます。比べるどちらか一方でもサンプルデータを使っていれば、差や比にも同じ ID が付き、回答にも注記が付きます。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="data">サンプルデータ<small>verified: false</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="calc">計算ツール<small>unverified_inputs</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="cmp">比較ツール<small>マークを継承</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">回答<small>自動で注記</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["data"], "packet": {"at": "data", "text": "featured-character"}, "text": "「サンプルの限定キャラクターのガチャで」と質問すると、Claude はガチャのツールに <code>banner: featured-character</code> を渡します。このガチャは <code>gacha_rules.yaml</code> で <code>verified: false</code> になっています。"},
+        {"on": ["calc", "a1"], "done": ["data"], "packet": {"at": "calc", "text": "c1.probability"}, "text": "計算サービスはルールを読み込んで計算し、結果に <code>unverified_inputs: [\"gacha_rules:featured-character\"]</code> を付けます。そのため出典 <code>c1.probability</code> は「未確認」とマークされます。"},
+        {"on": ["cmp", "a2"], "done": ["data", "calc"], "packet": {"at": "cmp", "text": "ID を継承"}, "text": "そのあと比較ツールで別の結果と比べた場合も、比較結果は両側の未確認 ID をまとめて引き継ぎます。「未確認」が「確認済み」に化けることはありません。"},
+        {"on": ["out", "a3"], "done": ["data", "calc", "cmp"], "packet": {"at": "out", "text": "※ 注記"}, "text": "レンダラは回答が引用した出典を 1 つずつ確認し、未確認 ID を持つものが 1 つでもあれば、回答の末尾に注記を加えます。注記はプログラムが付けるため、Claude が省くことはできません。"},
+        {"on": ["out"], "done": ["calc"], "packet": {"at": "out", "text": "注記なし"}, "text": "逆に、ルール（<code>rules</code>）をすべて質問の中で自分で示した場合は、結果に未確認 ID が付かず、回答にも注記は付きません。このときの数値の確かさは、あなたが示したルール次第です。"}
+      ]</script>
+    </div>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="07-traces-evals.html">実行トレースと評価</a>：トレースから <code>llm_call</code> のトークン使用量や <code>budget_exceeded</code> の理由を探す。</li>
+        <li><a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>：<code>budget_exceeded</code>、<code>llm_error</code> への対処法。</li>
+        <li><a href="02-what-to-ask.html">何を聞けるか：機能一覧</a>：どの質問でサンプルデータが使われるか。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

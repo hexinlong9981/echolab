@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install &amp; first question | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* Page-specific: on narrow screens, keep wide content (tables, animations) from widening the page */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="01-quickstart.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Getting started</span><span>Installation</span><span>No API key needed</span></span><button id="theme-toggle">Light / Dark</button></header>
+    <h1>Install &amp; first question</h1>
+    <p class="lead">Go in order: first run the demo without any key, then connect the real Java calculation service, and finally (optionally) connect the real Claude to ask your own questions.</p>
+
+    <h2>What you need</h2>
+    <table>
+      <thead><tr><th>Item</th><th>Requirement</th><th>When it is needed</th></tr></thead>
+      <tbody>
+        <tr><td>Operating system</td><td>Linux, or WSL2 on Windows (all output in this guide was produced on Linux under WSL2)</td><td>Always</td></tr>
+        <tr><td>Python</td><td>3.12 (the project targets <code>py312</code>; verified with Python 3.12.11)</td><td>Always</td></tr>
+        <tr><td>git</td><td>To get the code</td><td>Always</td></tr>
+        <tr><td>JDK</td><td>21 (verified with Temurin 21.0.12.1)</td><td>Step 4: when using the real Java calculation service</td></tr>
+        <tr><td>Anthropic credentials</td><td><code>ANTHROPIC_API_KEY</code> or <code>ant auth login</code></td><td>Step 5 (optional): when the real Claude should answer your own questions</td></tr>
+        <tr><td>Network</td><td>To download Python and Gradle dependencies; to reach the Anthropic API when using the real Claude</td><td>During installation; step 5</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Which path to take</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  A["Finish steps 1–2&lt;br/&gt;get the code,&lt;br/&gt;install dependencies"] --> B["Step 3: key-free demo&lt;br/&gt;--llm scripted --fake-backend"]
+  B --> C{"JDK 21&lt;br/&gt;installed?"}
+  C -- No --> C1["Keep using --fake-backend&lt;br/&gt;(Python reference&lt;br/&gt;implementation instead of Java)"]
+  C -- Yes --> D["Step 4: build the jar&lt;br/&gt;drop --fake-backend"]
+  D --> E{"Have an&lt;br/&gt;API key?"}
+  C1 --> E
+  E -- No --> F["Scripted mode only&lt;br/&gt;answers come from the script"]
+  E -- Yes --> G["Step 5: set cost caps&lt;br/&gt;drop --llm scripted&lt;br/&gt;and ask freely"]
+      </pre>
+      <div class="caption">Figure 1: Choosing an installation path. Even without an API key you can try tool calculations, verification and the source table in full</div>
+    </div>
+
+    <h3>The whole installation (animation)</h3>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="get">Get the code<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="py">Python env<small>venv + pip</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="demo">Key-free demo<small>scripted + fake</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="java">Java service<small>JDK 21 + jar</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="claude">Real Claude<small>optional</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["get"], "packet": {"at": "get", "text": "echolab/"}, "text": "Get the code and change into the repository root. Run every later command from the <strong>repository root</strong> (<code>python -m core.agent</code> can only find the <code>core</code> package from there)."},
+        {"on": ["a1", "py"], "done": ["get"], "packet": {"at": "py", "text": ".venv"}, "text": "Create a virtual environment with Python 3.12 and install <code>requirements.txt</code> (anthropic, mcp, pyyaml, jsonschema)."},
+        {"on": ["a2", "demo"], "done": ["get", "py"], "packet": {"at": "demo", "text": "answered"}, "text": "Ask your first question with the bundled script <code>compare_builds.yaml</code> and the fake calculation service. Neither Java nor an API key is needed."},
+        {"on": ["a3", "java"], "done": ["get", "py", "demo"], "packet": {"at": "java", "text": "calc-engine-mcp.jar"}, "text": "Install JDK 21 and build the calculation service jar. Without <code>--fake-backend</code>, the CLI starts the jar as a child process by itself."},
+        {"on": ["a4", "claude"], "done": ["get", "py", "demo", "java"], "packet": {"at": "claude", "text": "ANTHROPIC_API_KEY"}, "text": "(Optional) Set credentials and cost caps, drop <code>--llm scripted</code>, and the real Claude answers any question you ask."}
+      ]</script>
+    </div>
+
+    <h2>Step 1: Get the code</h2>
+    <pre><code>git clone https://github.com/hexinlong9981/echolab.git
+cd echolab</code></pre>
+
+    <h2>Step 2: Python virtual environment and dependencies</h2>
+    <p>To use the CLI, installing <code>requirements.txt</code> is enough (<code>requirements-dev.txt</code> adds development tools such as pytest and ruff).</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "python3.12 -m venv .venv"},
+        {"cmd": ".venv/bin/pip install -q -r requirements.txt"},
+        {"out": "… (downloads and installs dependencies; almost no output with -q)", "cls": "dim", "delay": 900},
+        {"cmd": ".venv/bin/pip list | grep -i -E 'anthropic|^mcp|pyyaml|jsonschema '"},
+        {"out": "anthropic                 1.11.0"},
+        {"out": "jsonschema                4.26.0"},
+        {"out": "mcp                       1.30.0"},
+        {"out": "PyYAML                    6.0.3"},
+        {"cmd": "source .venv/bin/activate"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR]"},
+        {"out": "                            question"},
+        {"out": " "},
+        {"out": "出典付きで質問に答える", "cls": "hl"},
+        {"out": "…", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>If you see the help text (its description line 「出典付きで質問に答える」 means "answer questions with sources"), the installation worked. Each time you open a new terminal, first run <code>source .venv/bin/activate</code> in the repository root; <code>python</code> in the rest of this guide means the Python inside the virtual environment.</p>
+
+    <h2>Step 3: Your first question (no key, no Java)</h2>
+    <p>Two switches let the demo run entirely on your machine:</p>
+    <ul>
+      <li><code>--llm scripted --script script.yaml</code>: does not call a real AI; instead it "plays" the AI by following the steps written in the script file.</li>
+      <li><code>--fake-backend</code>: does not start the Java calculation service; it calculates with the Python reference implementation used for testing.</li>
+    </ul>
+    <div class="term" data-title="bash — first question">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 600},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The bundled example question and script are in Japanese. The question compares two builds by expected damage, and the answer reads: "Build B is stronger. Build A expected damage: 6,192. Build B expected damage: 7,128. Difference: 936 (15.1% more than A)." Below it come the source table (<code>出典</code>) and the status line (<code>状態</code> = status, <code>差し戻し</code> = rejected drafts, <code>費用</code> = cost, <code>実行 ID</code> = run ID, <code>トレース</code> = trace file). See <a href="03-reading-answers.html">Reading the answers</a> for every field.</p>
+    <div class="callout warn"><strong>Answers in scripted mode are written in advance</strong>Scripted mode is only a demo: which tools the AI calls and what drafts it writes are fixed by the script and have nothing to do with the question you type. For example, if you change the question to 「こんにちは」 ("hello"), the same script still gives the answer above. Actually understanding a question requires the real Claude from step 5.</div>
+    <p>Note <code>差し戻し: 1 回</code> (1 rejected draft): this script deliberately has the first draft write a number it worked out itself (936). The verifier rejects it, and the second draft passes only after it uses the compare tools.</p>
+
+    <h2>Step 4: Connect the real Java calculation service</h2>
+    <p>Without <code>--fake-backend</code>, the CLI follows <code>config/services.yaml</code> and starts <code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code> as a child process. That requires JDK 21 and a built jar.</p>
+    <ol>
+      <li>Install JDK 21 (a distribution package or a Temurin archive both work). The example below unpacks the JDK into <code>$HOME/.local/jdk/21</code>.</li>
+      <li>Set <code>JAVA_HOME</code>. <strong>Even if <code>java</code> is not on your PATH</strong>, the CLI falls back to <code>$JAVA_HOME/bin/java</code> as long as <code>JAVA_HOME</code> points to the JDK.</li>
+      <li>Build the jar in <code>services/calc-engine</code> (the first build downloads Gradle and dependencies, so it needs network access).</li>
+    </ol>
+    <div class="term" data-title="bash — build the calculation service">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "$JAVA_HOME/bin/java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"},
+        {"cmd": "cd services/calc-engine && ./gradlew bootJar -q"},
+        {"out": "… (building; with -q nothing is printed on success)", "cls": "dim", "delay": 1200},
+        {"cmd": "ls build/libs/"},
+        {"out": "calc-engine-mcp.jar"},
+        {"cmd": "cd ../.."}
+      ]</script>
+    </div>
+    <p>Then ask again with the same question and script, but without <code>--fake-backend</code>. Because a Java process has to start, the whole run took about 9 seconds in the verification environment.</p>
+    <div class="term" data-title="bash — with the Java calculation service">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、…（同上）…敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 14},
+        {"pause": 2000},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031434Z-0b1739", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031434Z-0b1739.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The answer and the source table are exactly the same as in step 3: the fake service, like the Java service, returns values such as expected damage with 6 decimal places (banker's rounding, HALF_EVEN), for example <code>6192.000000</code>. In the command, 「…（同上）…」 ("…same as above…") marks an omission; type the full question in practice.</p>
+    <div class="callout bad"><strong>If you get <code>エラー: サービス calc-engine の実行ファイル java が見つかりません。</code></strong>("Error: the executable java for service calc-engine was not found.") then there is no <code>java</code> on your PATH and <code>JAVA_HOME</code> is not set. If you get <code>jar がありません</code> ("the jar does not exist"), the jar has not been built yet. In both cases the CLI stops before starting Java, prints only a short explanation and how to fix it, and exits with code 2. See <a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>.</div>
+
+    <h2>Step 5 (optional): Use the real Claude</h2>
+    <p>Without <code>--llm</code>, the default is <code>anthropic</code>, which calls the real Claude (model <code>claude-opus-5-5</code>). You can then ask freely, and Claude decides which tools to call.</p>
+    <h3>5-1 Set up credentials</h3>
+    <p>Credentials are looked up in the default order of Anthropic's official Python SDK. The two simplest options:</p>
+    <pre><code># Option A: environment variable
+export ANTHROPIC_API_KEY=sk-ant-...(your key)
+
+# Option B: log in with Anthropic's CLI (the SDK reads the configuration it saves)
+ant auth login</code></pre>
+    <p>What happens if you run without credentials? Below is the real output: the CLI does not crash. It ends with status <code>llm_error</code> and exit code 1, and the answer states the cause and the fix directly.</p>
+    <div class="term" data-title="bash — no credentials">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
+        {"pause": 500},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T030610Z-028cc3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T030610Z-028cc3.jsonl", "cls": "dim"},
+        {"cmd": "grep llm_error .echolab/traces/20261003T030610Z-028cc3.jsonl | head -1"},
+        {"out": "{\"ts\": \"2026-10-03T03:06:10.811+00:00\", \"run_id\": \"20261003T030610Z-028cc3\", \"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The question asks for the expected damage at ATK 2000. The answer means: "Could not answer because no Claude API credentials were found. Set the environment variable ANTHROPIC_API_KEY (or log in with ant auth login), or use scripted mode (--llm scripted), which needs no API key." <code>（引用した出典はありません）</code> means "no sources were cited". The trace line records <code>"kind": "credentials"</code> and the error "Claude API credentials not found (set ANTHROPIC_API_KEY or similar)".</p>
+    <div class="callout"><strong>The answer depends on the cause</strong>For <code>llm_error</code>, the answer differs by the SDK's exception type: with no credentials or failed authentication (HTTP 401/403), it tells you to set <code>ANTHROPIC_API_KEY</code> or use <code>ant auth login</code>; only for rate limits, overload or network problems does it say 「時間をおいてお試しください」 ("please try again later"); for other API errors it points you to the trace. The trace's <code>llm_error</code> line contains the category <code>kind</code> and the SDK's original error message.</div>
+
+    <h3>5-2 Set cost caps first</h3>
+    <p>Before every call to Claude, the CLI checks the cost ledger (by default <code>.echolab/costs.jsonl</code>). The default caps are in <code>config/budget.yaml</code>: <strong>1.00 USD per day and 10.00 USD per month</strong>, with days counted in UTC (the day rolls over at 00:00 UTC). For your first try you can set them even lower temporarily:</p>
+    <pre><code>export ECHOLAB_DAILY_USD=0.20     # at most 0.20 USD today
+export ECHOLAB_MONTHLY_USD=2.00   # at most 2.00 USD this month</code></pre>
+    <p>Once a cap is reached, Claude is no longer called and the run ends with status <code>budget_exceeded</code>. How cost is computed and the ledger format are described in <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>.</p>
+
+    <h3>5-3 Ask a question</h3>
+    <pre><code>python -m core.agent "What is the expected damage, with a breakdown, for ATK 2000, skill multiplier 2.5, DMG bonus 0.3, crit rate 0.6, crit DMG 2.2, defense constant 1600, enemy DEF 1000, DEF ignore 0, enemy RES 0.1 and RES shred 0?"</code></pre>
+    <p>(The verification environment for this guide has no API key, so no real Claude answer is shown here; the format is the same as in scripted mode above.) Claude writes the answer text in the language of your question, while the labels and fixed messages stay in Japanese. Put every parameter the calculation needs into the question: the tools can only calculate with values you give or with the sample data that ships with the project.</p>
+    <div class="callout"><strong>Privacy</strong>Your question, the system prompt and the tools' results are sent to Anthropic only in <code>anthropic</code> mode. Scripted mode runs entirely on your machine. The trace of every run is saved locally in <code>.echolab/traces/</code>.</div>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="02-what-to-ask.html">What you can ask</a>: which calculation tools exist and how to phrase questions.</li>
+        <li><a href="03-reading-answers.html">Reading the answers</a>: every field of the source table and status line.</li>
+        <li><a href="04-cli-reference.html">CLI reference</a>: all options and environment variables.</li>
+        <li>If you hit an error: <a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

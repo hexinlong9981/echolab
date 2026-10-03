@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>裏側で起きていること（アニメーション） | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* このページ専用：ステップアニメーション内のトレース抜粋 */
+    #how .caption-box { min-height: 11em; }
+    #how .caption-box pre.tr { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; background: var(--surface); border: 1px solid var(--border); }
+    #how .caption-box .ev { display: inline-block; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 0 6px; margin-right: 4px; }
+    #how .node { font-size: 13.5px; padding: 10px 6px; }
+    @media (max-width: 760px) { #how .stage { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+    /* このページ専用：パイプラインの SVG アニメーション */
+    .pipe { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px 14px; margin: 16px 0; }
+    .pipe svg { width: 100%; height: auto; display: block; }
+    .pipe .edge { fill: none; stroke: var(--border); stroke-width: 3; }
+    .pipe .edge.draft { stroke: var(--accent); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .edge.reject { stroke: var(--bad); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .leg { fill: none; stroke: none; }
+    .pipe .st circle { fill: var(--bg); stroke: var(--muted); stroke-width: 2.5; transition: fill .3s, stroke .3s; }
+    .pipe .st.hit circle { fill: var(--accent-soft); stroke: var(--accent); }
+    .pipe .st.ok circle { fill: var(--ok-soft); stroke: var(--ok); }
+    .pipe .st.bad circle { fill: var(--bad-soft); stroke: var(--bad); }
+    .pipe .st text { fill: var(--text); font: 600 13px system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Meiryo", sans-serif; text-anchor: middle; }
+    .pipe .st .ico { font-size: 14px; dominant-baseline: central; fill: var(--muted); }
+    .pipe .st .sub { fill: var(--muted); font-weight: 400; font-size: 11px; }
+    .pipe .edge-label { fill: var(--muted); font: 11px system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", sans-serif; text-anchor: middle; }
+    .pipe #pk circle { fill: var(--accent); }
+    .pipe #pk.bad circle { fill: var(--bad); }
+    .pipe #pk.ok circle { fill: var(--ok); }
+    .pipe #pk text { fill: var(--text); font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans CJK JP", monospace; text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+    .pipe .pipe-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .pipe .pipe-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    .pipe .pipe-status { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--code-bg); font-size: 14px; min-height: 2.6em; }
+    .pipe .pipe-status b { color: var(--accent); margin-right: 6px; }
+  </style>
+</head>
+<body data-page="05-how-it-works.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>しくみ</span><span>アニメーション</span><span>実際の実行トレース</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>裏側で起きていること（アニメーション）</h1>
+    <p class="lead">Enter キーを押してから数秒のあいだに、EchoLab は十数個の処理を行います。このページでは、<strong>実際の実行</strong>で残った実行トレースをもとに、質問がどのように計算に変わるか、計算結果がどのように「出典 ID」になるか、誤った下書きがどのように差し戻されるか、そして最終的な回答のすべての数値をなぜたどれるのかを、順を追って見ていきます。</p>
+
+    <div class="callout"><strong>ひとことで言うと</strong>Claude（AI）が担当するのは「質問を理解する」「どの計算ツールを呼ぶか決める」「文章を組み立てる」ことだけです。回答に出る<strong>数値はすべて</strong>決定的なツールが計算します。Claude は回答に数値を直接書けず、<code>[[c1.total]]</code> のような「引用」しか書けません。実際の値は最後にプログラムが埋め込みます。</div>
+
+    <h2>まず結果から：実際の 1 回の実行</h2>
+    <p>以下は、リポジトリで実際に実行したコマンドと出力です（2 つのビルド「ビルド A」「ビルド B」の期待ダメージを比べる質問です。長いため途中を … で省略しています）。ここでは<strong>台本モード</strong>（<code>--llm scripted</code>。あらかじめ用意した台本どおりに Claude の役を演じるため、API キーは不要）と<strong>試験用の計算サービス</strong>（<code>--fake-backend</code>。Java を起動しない）を使っています。差し戻しの様子を見せるため、台本では最初の下書きにわざと誤りを入れています。</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、…）とビルド B（攻撃力 1800、…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 9},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "delay": 300},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": ""},
+        {"out": "出典:", "cls": "hl", "delay": 250},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl", "delay": 300},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>「出典」の表は、回答が引用した各数値がどのツールから来たかを示します。<code>差し戻し: 1 回</code> は、下書きが 1 回検証器に差し戻されたという意味です。最後の行はこの実行の<strong>実行トレース</strong>のファイルで、このページのアニメーションはこのファイルをもとに作っています。</p>
+    <div class="callout ok"><strong>本物の Java 計算サービスでも結果は同じ</strong><code>--fake-backend</code> を外して（<code>JAVA_HOME</code> を Java 21 に向けて）実行しても、回答の文面も出典表もまったく同じです。試験用の計算サービスも Java のサービスと同じく、数値を小数 6 桁（銀行丸め）で返します（例：<code>6192.000000</code>）。実測の実行 ID は <code>20261003T031434Z-0b1739</code> です。回答に表示する桁数は、レンダラがまとめて決めます。</div>
+
+    <h2>ステップアニメーション：1 つの質問の 12 ステップ</h2>
+    <p>「次へ ▶」で 1 ステップずつ、または「▶ 自動再生」で通して見られます。各ステップの下の灰色の枠には、そのステップに対応する実行トレース（<code>.jsonl</code>）の<strong>実際のイベント</strong>を載せています（読みやすくするため一部を省略し、<code>…</code> で示しています）。</p>
+    <div class="flow-anim" id="how" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="user">あなた<small>質問・回答を読む</small></div>
+        <div class="node" data-id="llm">Claude<small>理解・計画・テンプレート</small></div>
+        <div class="node" data-id="gw">ゲートウェイ<small>関門・採番</small></div>
+        <div class="node" data-id="calc">calc-engine<small>決定的な計算</small></div>
+        <div class="node" data-id="cmp">比較ツール<small>差・比</small></div>
+        <div class="node" data-id="ver">検証器<small>下書きを検査</small></div>
+        <div class="node" data-id="ren">レンダラ<small>数値を埋める</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "質問"},
+         "text": "<b>あなたが質問します。</b>EchoLab はこの質問に実行 ID を割り当て、新しいトレースファイルを作ります。最初のイベントには、質問、使うドメインパック（<code>wuwa</code>＝鳴潮）、今回使えるツールの一覧が記録されます。<pre class='tr'><span class='ev'>question</span>{&quot;run_id&quot;: &quot;20261003T031424Z-28df54&quot;, &quot;question&quot;: &quot;ビルド A（攻撃力 2000、…）…&quot;, &quot;domain&quot;: &quot;wuwa&quot;, &quot;llm&quot;: &quot;ScriptedLLM&quot;, &quot;model&quot;: &quot;claude-opus-5-5&quot;, &quot;tools&quot;: [&quot;compare_diff&quot;, &quot;compare_ratio&quot;, &quot;damage_expected&quot;, &quot;echo_score&quot;, &quot;gacha_probability_within&quot;]}</pre>"},
+        {"on": ["llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"},
+         "text": "<b>Claude が計画します。</b>Claude を呼ぶ前に、プログラムはまずコストの上限（日次・月次）を確認し、超えていればそこで止めて呼び出しません。Claude は質問を読み、期待ダメージの計算ツールを A・B それぞれ 1 回ずつ<strong>同時に</strong>呼ぶと決め、質問中のパラメータをそのまま入力にします。この時点では何も計算していません。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;usd&quot;: &quot;0.00&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, &quot;skill_multiplier&quot;: 2.5, …}}, {&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, &quot;skill_multiplier&quot;: 3.0, …}}]}</pre>"},
+        {"on": ["gw"], "done": ["user", "llm"], "packet": {"at": "gw", "text": "許可・形式 OK → c1, c2"},
+         "text": "<b>ゲートウェイが関門になります。</b>ツールの呼び出しはすべてゲートウェイを通ります。① ツールはドメインパックの <code>domain.yaml</code> に登録されていなければなりません（許可リスト方式・既定は拒否）。② 入力はツールが公開する形式（JSON Schema）に合っている必要があり、合わなければエラーを Claude に返してやり直させます。③ 呼び出しごとに <code>c1</code>、<code>c2</code>…と番号を振ります。<pre class='tr'><span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_01&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, …}}\n<span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_02&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, …}}</pre>"},
+        {"on": ["calc"], "done": ["user", "llm", "gw"], "packet": {"at": "calc", "text": "c1.total = 6192…"},
+         "text": "<b>calc-engine が計算し、「出典 ID」が付きます。</b>計算サービスは各数値と明細を返し、ゲートウェイがそれぞれの数値に <code>呼び出し番号.フィールド名</code> という名前を付けます。たとえば <code>c1.total</code> は「1 回目の呼び出しの合計ダメージ」です。以後、回答はこの名前を通してしか数値を引用できません。<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c1&quot;, &quot;tool&quot;: &quot;damage.expected&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c1.base&quot;, &quot;value&quot;: &quot;5000.000000&quot;}, … {&quot;source_id&quot;: &quot;c1.total&quot;, &quot;value&quot;: &quot;6192.000000&quot;, &quot;unverified_inputs&quot;: []}], &quot;error&quot;: null}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c2&quot;, … {&quot;source_id&quot;: &quot;c2.total&quot;, &quot;value&quot;: &quot;7128.000000&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "gw", "calc"], "packet": {"at": "llm", "text": "下書き 1"},
+         "text": "<b>Claude が 1 つ目の下書き（テンプレート）を書きます。</b>B のダメージは <code>[[c2.total|0]]</code> と正しく引用していますが、差は<strong>自分で暗算</strong>して 936 と直接書いてしまいました（台本でわざと入れた誤りですが、本物の Claude も同じ誤りをすることがあります）。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が [[c2.total|0]] で、A より 936 高いです。&quot;, &quot;tool_uses&quot;: []}</pre>"},
+        {"on": ["ver"], "done": ["user", "gw", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "× 差し戻し"},
+         "text": "<b>検証器が下書きを差し戻します。</b>検証器は <code>[[…]]</code> 以外の文中にある数字をすべて拾い、1 つずつ確かめます。あなたの質問に出てきた数字か？　許可された番号か？　936 はどちらでもないため<strong>不合格</strong>です。理由はフィードバックとして Claude に返され、書き直しを求めます。<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 1, &quot;ok&quot;: false, &quot;problems&quot;: [&quot;数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。&quot;], &quot;cited&quot;: [&quot;c2.total&quot;]}</pre>"},
+        {"on": ["llm", "gw"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"},
+         "text": "<b>Claude が比較ツールに切り替えます。</b>差や比もツールで計算しなければなりません。比較ツールの入力は数値ではなく<strong>出典 ID</strong>です（<code>a = c2.total</code>、<code>b = c1.total</code>）。これで Claude には「数値をツールに書き写す」機会すらありません。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;compare_diff&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}, {&quot;name&quot;: &quot;compare_ratio&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}]}</pre>"},
+        {"on": ["cmp"], "done": ["user", "calc", "gw"], "packet": {"at": "cmp", "text": "c3.diff · c4.change"},
+         "text": "<b>比較ツールが差と比を計算します。</b>比較ツールは EchoLab のコア内で動きます。ゲートウェイが出典 ID を実際の数値に戻してから計算し、結果にはやはり新しい出典 ID が付きます：<code>c3.diff</code>（差）、<code>c4.ratio</code>（比）、<code>c4.change</code>（増加率）。<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c3&quot;, &quot;tool&quot;: &quot;compare.diff&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c3.diff&quot;, &quot;value&quot;: &quot;936.000000&quot;}]}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c4&quot;, &quot;tool&quot;: &quot;compare.ratio&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c4.ratio&quot;, &quot;value&quot;: &quot;1.151163&quot;}, {&quot;source_id&quot;: &quot;c4.change&quot;, &quot;value&quot;: &quot;0.151163&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "calc", "cmp", "gw"], "packet": {"at": "llm", "text": "下書き 2"},
+         "text": "<b>Claude が 2 つ目の下書きを書きます。</b>今度はすべての数値が引用です。<code>|0</code> は小数 0 桁で表示、<code>|%1</code> はパーセントに換算して小数 1 桁で表示、という意味です。<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: [[c1.total|0]]\\n- ビルド B の期待ダメージ: [[c2.total|0]]\\n- 差: [[c3.diff|0]]（A に比べて [[c4.change|%1]] 増加）&quot;}</pre>"},
+        {"on": ["ver"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ver", "text": "合格"},
+         "text": "<b>検証器が通します。</b>引用された 4 つの出典 ID はどれも今回の質問で実際に生まれたもので、本文にも出所の分からない数字はありません。<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 2, &quot;ok&quot;: true, &quot;problems&quot;: [], &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;]}</pre>"},
+        {"on": ["ren"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ren", "text": "[[c4.change|%1]] → 15.1%"},
+         "text": "<b>レンダラが数値を埋めます。</b>プログラム（AI ではありません）が各プレースホルダを数値に置き換え、書式を整えます：<code>[[c1.total|0]]</code> → <code>6,192</code>、<code>[[c3.diff|0]]</code> → <code>936</code>、<code>[[c4.change|%1]]</code> → <code>15.1%</code>（0.151163 × 100 を銀行丸め）。引用した数値が「未確認のサンプルデータ」に基づく場合は、注記も自動で付けます。"},
+        {"on": ["user"], "done": ["llm", "gw", "calc", "cmp", "ver", "ren"], "packet": {"at": "user", "text": "回答 + 出典表"},
+         "text": "<b>回答が届きます。</b>端末に回答、出典表、状態、トレースファイルのパスが表示されます。全体では、Claude の呼び出し 4 回、ツールの呼び出し 4 回、下書き 2 つ（うち差し戻し 1 つ）でした。<pre class='tr'><span class='ev'>answer</span>{&quot;status&quot;: &quot;answered&quot;, &quot;answer&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: 6,192\\n…（A に比べて 15.1% 増加）&quot;, &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;], &quot;cost_usd&quot;: &quot;0.00&quot;, &quot;drafts&quot;: 2, &quot;drafts_rejected&quot;: 1, &quot;llm_calls&quot;: 4, &quot;tool_calls&quot;: 4}</pre>"}
+      ]</script>
+    </div>
+    <p>台本モードでは実際のトークンを消費しないため、<code>usd</code> はすべて 0 です。本物の Claude を使うと、<code>llm_call</code> ごとにトークン数と費用（米ドル）が記録されます。</p>
+
+    <h2>パイプラインアニメーション：「パケット」を 1 つ追いかける</h2>
+    <p>同じ実行を別の角度から見てみます。青い点は受け渡し中の内容、赤は差し戻された下書き、緑は検査に合格した回答です。上の点線は「下書きの提出」、下の赤い点線は「差し戻し」の経路です。</p>
+    <div class="pipe" id="pipe">
+      <svg viewBox="0 0 900 300" role="img" aria-label="1 つの質問が EchoLab の内部を流れるアニメーション：あなた、Claude、ゲートウェイ、calc-engine、比較ツール、検証器、レンダラ、回答">
+        <path class="edge" d="M50 150 L180 150 L320 150"/>
+        <path class="edge" d="M320 150 L460 85"/>
+        <path class="edge" d="M320 150 L460 215"/>
+        <path class="edge" d="M620 150 L745 150 L860 150"/>
+        <path class="edge draft" d="M180 150 C 230 0, 570 0, 620 150"/>
+        <path class="edge reject" d="M620 150 C 570 300, 230 300, 180 150"/>
+        <text class="edge-label" x="400" y="30">下書き（テンプレート）を提出</text>
+        <text class="edge-label" x="400" y="290">不合格 → 差し戻して書き直し</text>
+        <g class="legs"></g>
+        <g class="st" data-st="user"><circle cx="50" cy="150" r="22"/><text class="ico" x="50" y="150">問</text><text x="50" y="192">あなた</text></g>
+        <g class="st" data-st="llm"><circle cx="180" cy="150" r="22"/><text class="ico" x="180" y="150">AI</text><text x="180" y="192">Claude</text><text class="sub" x="180" y="207">数値を書かない</text></g>
+        <g class="st" data-st="gw"><circle cx="320" cy="150" r="22"/><text class="ico" x="320" y="150">門</text><text x="320" y="192">ゲートウェイ</text><text class="sub" x="320" y="207">許可リスト・形式</text></g>
+        <g class="st" data-st="calc"><circle cx="460" cy="85" r="22"/><text class="ico" x="460" y="85">算</text><text x="528" y="80">calc-engine</text><text class="sub" x="532" y="95">期待ダメージなど</text></g>
+        <g class="st" data-st="cmp"><circle cx="460" cy="215" r="22"/><text class="ico" x="460" y="215">比</text><text x="520" y="210">比較ツール</text><text class="sub" x="520" y="225">差・比</text></g>
+        <g class="st" data-st="ver"><circle cx="620" cy="150" r="22"/><text class="ico" x="620" y="150">検</text><text x="620" y="192">検証器</text></g>
+        <g class="st" data-st="ren"><circle cx="745" cy="150" r="22"/><text class="ico" x="745" y="150">埋</text><text x="745" y="192">レンダラ</text></g>
+        <g class="st" data-st="ans"><circle cx="860" cy="150" r="22"/><text class="ico" x="860" y="150">答</text><text x="860" y="192">回答</text></g>
+        <g id="pk" transform="translate(50,150)"><circle r="9"/><text y="-16">質問</text></g>
+      </svg>
+      <div class="pipe-ctl">
+        <button type="button" data-p="play">▶ 再生</button>
+        <button type="button" data-p="next">次の区間 ▶</button>
+        <button type="button" data-p="reset">最初から</button>
+      </div>
+      <div class="pipe-status"><b>0 / 12</b>「▶ 再生」で開始します（ここまでスクロールしたときにも 1 回自動で再生します）。</div>
+    </div>
+    <script>
+    (function () {
+      var root = document.getElementById("pipe");
+      if (!root) return;
+      var svg = root.querySelector("svg"), legsG = root.querySelector(".legs");
+      var pk = root.querySelector("#pk"), pkText = pk.querySelector("text");
+      var status = root.querySelector(".pipe-status"), playBtn = root.querySelector('[data-p="play"]');
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var NS = "http://www.w3.org/2000/svg";
+      // 各区間：経路、パケットの短いラベル、パケットの色、到着後に点灯する地点、説明
+      var LEGS = [
+        { d: "M50 150 L180 150", label: "質問", hit: { llm: "hit" }, say: "あなたの質問が Claude に渡ります。" },
+        { d: "M180 150 L320 150", label: "damage_expected ×2", hit: { gw: "hit" }, say: "Claude は期待ダメージのツールを 2 回並列で呼ぶと決めます（呼ぶ前にコストの上限を確認）。" },
+        { d: "M320 150 L460 85", label: "許可・形式 OK", hit: { gw: "ok", calc: "hit" }, say: "ゲートウェイは、ツールが許可リストにあり入力の形式が正しいことを確かめ、c1・c2 と採番して calc-engine に渡します。" },
+        { d: "M460 85 L320 150 L180 150", label: "c1.total · c2.total", hit: { calc: "ok", llm: "hit" }, say: "計算結果が出典 ID（c1.total = 6192、c2.total = 7128 など）付きで Claude に戻ります。" },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "下書き 1：…A より 936 高い", hit: { ver: "hit" }, say: "Claude は下書き 1 を提出しますが、差の 936 を自分で書いてしまいました。" },
+        { d: "M620 150 C 570 300, 230 300, 180 150", label: "× 936 に出典なし", cls: "bad", hit: { ver: "bad", llm: "hit" }, say: "検証器は、936 がツールの結果でも質問中の数値でもないと見抜き、理由を添えて差し戻します。" },
+        { d: "M180 150 L320 150", label: "compare_diff / compare_ratio", hit: { gw: "hit" }, say: "Claude は比較ツールに切り替えます。入力は出典 ID（a = c2.total、b = c1.total）です。" },
+        { d: "M320 150 L460 215", label: "許可・形式 OK", hit: { gw: "ok", cmp: "hit" }, say: "ゲートウェイは出典 ID を数値に戻して比較ツールに渡し、c3・c4 と採番します。" },
+        { d: "M460 215 L320 150 L180 150", label: "c3.diff · c4.change", hit: { cmp: "ok", llm: "hit" }, say: "差（c3.diff = 936）と増加率（c4.change = 0.151163）にも出典 ID が付きました。" },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "下書き 2：[[c3.diff|0]] …", hit: { ver: "hit" }, say: "Claude は下書き 2 を提出します。数値はすべて [[出典ID|書式]] の形です。" },
+        { d: "M620 150 L745 150", label: "合格", cls: "ok", hit: { ver: "ok", ren: "hit" }, say: "検証器が通し、レンダラが書式に従ってプレースホルダを数値に置き換えます。" },
+        { d: "M745 150 L860 150", label: "6,192 · 7,128 · 936 · 15.1%", cls: "ok", hit: { ren: "ok", ans: "ok", llm: "ok" }, say: "回答と出典表がそろってあなたに表示されます。完了です！" }
+      ];
+      var paths = LEGS.map(function (L) {
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("class", "leg"); p.setAttribute("d", L.d); legsG.appendChild(p);
+        return p;
+      });
+      var stations = {};
+      root.querySelectorAll(".st").forEach(function (g) { stations[g.dataset.st] = g; });
+      var idx = -1, t0 = 0, raf = 0, playing = false, holdTimer = 0, marks = {};
+      var MOVE = reduce ? 0 : 1500, HOLD = reduce ? 2200 : 1100;
+
+      function place(x, y) {
+        pk.setAttribute("transform", "translate(" + x.toFixed(1) + "," + y.toFixed(1) + ")");
+        // ラベルが描画領域からはみ出さないようにする
+        var w = Math.min(300, pkText.textContent.length * 8 + 10);
+        var lx = Math.max(w / 2 - x + 4, Math.min(0, 896 - w / 2 - x));
+        pkText.setAttribute("x", lx.toFixed(1));
+        pkText.setAttribute("y", y < 60 ? "26" : "-16");
+      }
+      function paintStations() {
+        Object.keys(stations).forEach(function (k) {
+          stations[k].classList.remove("hit", "ok", "bad");
+          if (marks[k]) stations[k].classList.add(marks[k]);
+        });
+      }
+      function begin(i) {
+        idx = i;
+        var L = LEGS[i];
+        pk.setAttribute("class", L.cls || "");
+        pkText.textContent = L.label;
+        status.innerHTML = "<b>" + (i + 1) + " / " + LEGS.length + "</b>" + L.say;
+        // 新しい区間に入ったら、前の「処理中」の強調を通常に戻す
+        Object.keys(marks).forEach(function (k) { if (marks[k] === "hit") delete marks[k]; });
+        paintStations();
+        t0 = performance.now();
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(tick);
+      }
+      function arrive() {
+        var L = LEGS[idx];
+        Object.keys(L.hit).forEach(function (k) { marks[k] = L.hit[k]; });
+        paintStations();
+        if (playing) {
+          if (idx < LEGS.length - 1) holdTimer = setTimeout(function () { begin(idx + 1); }, HOLD);
+          else stop();
+        }
+      }
+      function tick(now) {
+        var p = paths[idx], len = p.getTotalLength();
+        var k = MOVE ? Math.min(1, (now - t0) / MOVE) : 1;
+        var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        var pt = p.getPointAtLength(len * e);
+        place(pt.x, pt.y);
+        if (k < 1) raf = requestAnimationFrame(tick); else arrive();
+      }
+      function stop() { playing = false; clearTimeout(holdTimer); playBtn.textContent = "▶ 再生"; }
+      function reset() {
+        stop(); cancelAnimationFrame(raf); idx = -1; marks = {}; paintStations();
+        pk.setAttribute("class", ""); pkText.textContent = "質問"; place(50, 150);
+        status.innerHTML = "<b>0 / " + LEGS.length + "</b>「▶ 再生」で開始します。";
+      }
+      root.querySelector(".pipe-ctl").addEventListener("click", function (ev) {
+        var a = ev.target.dataset && ev.target.dataset.p;
+        if (a === "play") {
+          if (playing) return stop();
+          playing = true; playBtn.textContent = "一時停止";
+          if (idx >= LEGS.length - 1) { reset(); playing = true; playBtn.textContent = "一時停止"; }
+          begin(idx + 1);
+        } else if (a === "next") {
+          stop();
+          if (idx >= LEGS.length - 1) reset();
+          begin(idx + 1);
+        } else if (a === "reset") reset();
+      });
+      place(50, 150);
+      // 見える位置までスクロールしたら 1 回だけ自動再生（動きを減らす設定では再生しない）
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries, obs) {
+          if (entries.some(function (e) { return e.isIntersecting; })) {
+            obs.disconnect();
+            if (idx < 0) { playing = true; playBtn.textContent = "一時停止"; begin(0); }
+          }
+        }, { threshold: 0.5 }).observe(svg);
+      }
+    })();
+    </script>
+
+    <h2>シーケンス図：誰がいつ誰とやり取りするか</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as あなた
+  participant A as Claude（Agent 経由）
+  participant G as ゲートウェイ
+  participant C as calc-engine
+  participant K as 比較ツール
+  participant V as 検証器・レンダラ
+  U->>A: 質問：ビルド A と B はどちらがどれだけ強い？
+  Note over A: Claude を呼ぶたびに、先にコストの上限を確認
+  A->>G: damage_expected ×2（並列）
+  G->>G: 許可リスト・入力形式の検査、c1・c2 を採番
+  G->>C: 計算
+  C-->>A: 数値 + 出典 ID（c1.total、c2.total…）
+  A->>V: 下書き 1（936 を自分で書いた）
+  V-->>A: 差し戻し：数値 936 に出典がない
+  A->>G: compare_diff・compare_ratio（入力は出典 ID）
+  G->>K: 出典 ID を数値に戻して計算
+  K-->>A: c3.diff、c4.ratio、c4.change
+  A->>V: 下書き 2（数値はすべてプレースホルダ）
+  V->>V: 検査に合格 → 数値を埋める
+  V-->>U: 回答 + 出典表
+      </pre>
+      <div class="caption">図 1：このページで扱った実際の実行のシーケンス（トレース 20261003T031424Z-28df54 の 16 イベントに対応）</div>
+    </div>
+
+    <h2>なぜこれで数値を信頼できるのか</h2>
+    <div class="cards">
+      <div class="card"><h4>① AI には「数値を書く」経路がない</h4><p>Claude の最終出力はテンプレートにすぎず、数値の位置には <code>[[出典ID]]</code> しか書けません。実際の数値はレンダラというプログラムが埋めるので、書き写しの誤りや丸め方のばらつきが起きません。</p></div>
+      <div class="card"><h4>② すべての数値に出所がある</h4><p>出典 ID はゲートウェイが「何回目の呼び出し.どのフィールド」で採番します。回答の下の出典表で、各数値がどのツールから来たかを確認できます。</p></div>
+      <div class="card"><h4>③ 検証器が 1 字ずつ検査する</h4><p>下書きに出所の分からない数字（AI が暗算した差や「約 73%」のような概算も含む）があれば、差し戻されます。</p></div>
+      <div class="card"><h4>④ 直せなければ数値を出さない</h4><p>差し戻しによる書き直しは最大 2 回までです。3 つ目の下書きも不合格なら、EchoLab は疑わしい回答ではなく、<strong>数値を一切含まない</strong>定型の説明を返します。</p></div>
+      <div class="card"><h4>⑤ 登録済みのツールしか使えない</h4><p>ゲートウェイはドメインパックに登録されたツールだけを通し（既定は拒否）、呼び出しの前に入力の形式を検査します。</p></div>
+      <div class="card"><h4>⑥ サンプルデータは明示される</h4><p>数値が未確認のサンプルデータに依存する場合、回答の末尾に注記が自動で付きます：<code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code></p></div>
+      <div class="card"><h4>⑦ すべてを記録に残す</h4><p>質問のたびに実行トレースが 1 つ書き出され、あとから 1 件ずつ確認できます。<a href="07-traces-evals.html">実行トレースと評価</a>をご覧ください。</p></div>
+    </div>
+
+    <h3>検証器が許す「むき出しの数字」</h3>
+    <p>プレースホルダ以外の本文に直接書いてよい数字は、次のものだけです（全角数字は半角に変換してから比べます）：</p>
+    <table>
+      <tr><th>許される場合</th><th>例</th><th>補足</th></tr>
+      <tr><td>あなたの質問に出てきた数字の引用</td><td>「攻撃力 2000 のとき…」</td><td>桁区切りは無視します。<code>60%</code> と <code>0.6</code> は同じとみなします</td></tr>
+      <tr><td>行頭の箇条書きの番号</td><td><code>1.</code>、<code>2)</code>、<code>３．</code></td><td>小数（1.5 など）は番号とみなしません</td></tr>
+      <tr><td>10 以下の整数 + 特定の助数詞</td><td>「3 つの方法」</td><td>日本語の <code>つ・点・種類・位・番目</code>、中国語の <code>个・种・项・条・步</code>、英語の名詞 <code>ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds</code>（数字の直後。間の空白は 1 つまで）</td></tr>
+    </table>
+    <div class="callout"><strong>助数詞の許可リストには中国語と英語も含まれます</strong>回答は質問と同じ言語で書かれるため、中国語の「3 种方法」「2 个要点」や英語の「3 ways」「2 points」のような表現も同様に許されます。英語では名詞が数字の直後に必要で、「2 key points」のように間に別の語が入ると差し戻されます。10 を超える数は、やはりツールか質問に由来していなければなりません。</div>
+
+    <h3>そのほかの終わり方</h3>
+    <p>ここまでは正常な終わり方（状態 <code>answered</code>）です。次の場合、EchoLab は数値を含まない定型の説明を返し、トレースに状態を記録します：</p>
+    <table>
+      <tr><th>状態</th><th>どんなときか</th></tr>
+      <tr><td><code>fallback</code></td><td>2 回を超えて差し戻されても下書きが直らなかった</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>日次または月次のコストの上限に達した（Claude を呼ぶ前に確認するため、費用は発生しません）</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>ツール呼び出しの往復が 6 回を超えた</td></tr>
+      <tr><td><code>llm_error</code></td><td>Claude の呼び出しに失敗した（API キーが未設定の場合など）</td></tr>
+      <tr><td><code>refusal</code> / <code>max_tokens</code></td><td>モデルの安全機能が回答を拒否した／回答が長すぎて途中で切れた（どちらの場合も、途中までのツール呼び出しは実行しません）</td></tr>
+    </table>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>：コストの上限の設定方法と、「未確認のデータ」の注記の意味。</li>
+        <li><a href="07-traces-evals.html">実行トレースと評価</a>：トレースファイルを自分で開いて確認する方法と、数値の忠実度の評価。</li>
+        <li><a href="03-reading-answers.html">回答の読み方</a>：回答・出典表・状態行のそれぞれの意味。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

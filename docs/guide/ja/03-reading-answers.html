@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>回答の読み方 | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .mock { background: #0f1115; color: #c9d1d9; border: 1px solid #2a2f37; border-radius: 10px; margin: 16px 0; overflow: hidden;
+      font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK JP", monospace; }
+    .mock .mbar { background: #1a1d23; border-bottom: 1px solid #2a2f37; padding: 6px 12px; color: #8b93a1; font-size: 12px; }
+    .mock .mbody { padding: 10px 12px; overflow-x: auto; }
+    .mock .zone { position: relative; display: block; border: 1px dashed transparent; border-radius: 6px; padding: 2px 34px 2px 6px; margin: 2px 0; white-space: pre; }
+    .mock .zone.wrap { white-space: pre-wrap; word-break: break-word; }
+    .mock .zone[data-n] { border-color: #3a404a; }
+    .mock .zone[data-n]::after { content: attr(data-n); position: absolute; right: 6px; top: 4px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+    .mock .warn { color: #e3b341; } .mock .hl { color: #79c0ff; } .mock .dim { color: #8b93a1; } .mock .cmd { color: #fff; } .mock .prompt { color: #7ee787; }
+    ol.legend { padding-left: 0; list-style: none; counter-reset: lg; }
+    ol.legend li { counter-increment: lg; position: relative; padding-left: 32px; margin: 8px 0; }
+    ol.legend li::before { content: counter(lg); position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+  </style>
+</head>
+<body data-page="03-reading-answers.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>使い方</span><span>出力</span><span>検証</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>回答の読み方</h1>
+    <p class="lead">EchoLab の CLI は毎回 4 つの部分を出力します。回答本文、（必要なときの）未確認のデータの注記、出典の表、状態の行です。これらが読めれば、「この数字はどこから来て、どこまで信頼できるか」をご自分で確かめられます。</p>
+
+    <div class="callout"><strong>このページの例について</strong>このページの例はすべて実際の実行から取っています。<code>--llm scripted</code>（台本モード）で Claude の書きぶりを模していますが、計算・検証・出力は実際の結果です。コマンドに出てくる <code>gacha_banner.yaml</code> と <code>never_corrected.yaml</code> はこのガイド用に書いた台本で、リポジトリには含まれていません。回答本文は質問と同じ言語で書かれます（Claude が判断します）。一方、「出典」「状態」「差し戻し」「費用」「トレース」などのラベル、未確認のデータの注記、失敗したときの定型の回答は、CLI が決まった日本語の文で出力します。</div>
+
+    <h2>出力の構成</h2>
+    <p>「サンプルの限定キャラクターガチャで、いまの天井カウントは 30、すり抜け確定なし。あと 100 回以内にピックアップキャラクターが出る確率は？」に対する実際の出力（実際の Java 計算サービス）に、番号を付けて示します。</p>
+    <div class="mock" role="img" aria-label="番号付きで示したターミナル出力の例">
+      <div class="mbar">bash — 出力の構成</div>
+      <div class="mbody">
+<span class="zone wrap"><span class="prompt">$ </span><span class="cmd">python -m core.agent "サンプルの限定キャラクターガチャで、いまの天井カウントは 30、すり抜け確定なし。あと 100 回以内にピックアップキャラクターが出る確率は？" --llm scripted --script gacha_banner.yaml</span></span>
+<span class="zone wrap" data-n="1">サンプルのガチャのルールでは、天井カウント 30・すり抜け確定なしの状態から、100 回以内にピックアップキャラクターを獲得できる確率は 75.5% です。</span>
+<span class="zone wrap warn" data-n="2">※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</span>
+<span class="zone" data-n="3"><span class="hl">出典:</span>
+<span class="dim">出典 ID         値                  ツール                    未確認データ</span>
+<span class="dim">--------------  ------------------  ------------------------  ------------------------------</span>
+c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character</span>
+<span class="zone hl" data-n="4">状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T034114Z-cd1664</span>
+<span class="zone dim" data-n="5">トレース: /projects2/echolab/.echolab/traces/20261003T034114Z-cd1664.jsonl</span>
+      </div>
+    </div>
+    <ol class="legend">
+      <li><b>回答本文</b>：検証に通り、レンダラが数字を埋めた回答です。本文の数字はどれも、計算ツールから来たものか、質問に書かれていた数です（ここでは「30」と「100」が質問からの引用です）。</li>
+      <li><b>未確認のデータの注記</b>：回答が引用した結果のうち 1 つでも <code>verified: false</code> のデータを使っていれば、自動で付きます。</li>
+      <li><b>出典の表</b>：回答が実際に引用した値の一覧です。次の節で説明します。</li>
+      <li><b>状態の行</b>：<code>状態</code>、<code>差し戻し</code>（下書きが差し戻された回数）、<code>費用</code>（今回 LLM を呼んだ費用。ドル単位で、台本モードではふつう 0）、<code>実行 ID</code>。</li>
+      <li><b>実行トレースのファイル</b>：今回の実行の各ステップを記録した JSONL で、手元の <code>.echolab/traces/</code> に保存されます。詳しくは<a href="07-traces-evals.html">実行トレースと評価</a>をご覧ください。</li>
+    </ol>
+
+    <h2>出典の表の 4 つの列</h2>
+    <table>
+      <tr><th>列</th><th>意味</th><th>例</th></tr>
+      <tr><td><code>出典 ID</code></td><td><code>c&lt;何回目のツール呼び出しか&gt;.&lt;結果のフィールド&gt;</code>。番号はその質問の中だけで有効で、c1 から始まります</td><td><code>c1.probability</code>、<code>c4.change</code></td></tr>
+      <tr><td><code>値</code></td><td>ツールが返した<b>書式を整える前の元の値</b>。Java の十進数の結果は小数点以下 6 桁、確率は最短の十進表記です</td><td><code>0.7546548474342011</code>、<code>6192.000000</code></td></tr>
+      <tr><td><code>ツール</code></td><td>その値を計算したツール（ドメイン内の名前で、<code>.</code> 区切り）</td><td><code>gacha.probability_within</code>、<code>compare.ratio</code></td></tr>
+      <tr><td><code>未確認データ</code></td><td>計算に使った未確認のデータの ID。形式は <code>&lt;データファイル名&gt;:&lt;項目 ID&gt;</code> で、なければ <code>-</code></td><td><code>gacha_rules:featured-character</code>、<code>echo_weights:max_roll</code></td></tr>
+    </table>
+    <p>表に載るのは、<b>回答が実際に引用した</b>値だけです。ツールが計算しても回答で使わなかった値（たとえばダメージツールの <code>c1.base</code>）は表示されません。回答がどの値も引用していないときは <code>（引用した出典はありません）</code> と表示されます。</p>
+    <p>比較ツールを含む実際の出力の例です。比較結果（<code>c3.diff</code>、<code>c4.change</code>）の「ツール」列が <code>compare.*</code> になっている点に注目してください。比較する 2 つの値が未確認のデータを使っていれば、比較結果もその ID を引き継ぎます。</p>
+    <div class="term" data-title="bash — 2 つのビルドの比較（実際の Java 計算サービス）">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、…）とビルド B（攻撃力 1800、スキル倍率 3.0、…）では、どちらがどれだけ強い？…\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "ビルド B の方が強いです。", "delay": 400},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024449Z-4423a9", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024449Z-4423a9.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>（コマンド中の「…」は省略を表しています。実際の質問は<a href="index.html">トップページ</a>の例と同じく、両方のビルドのパラメータをすべて含みます。）</p>
+
+    <h2>数字の書式</h2>
+    <p>Claude が書く回答は、実は<b>テンプレート</b>です。数字の位置にはプレースホルダ <code>[[出典ID]]</code> または <code>[[出典ID|書式]]</code> を書き、レンダラ（<code>core/verifier/render.py</code>）が元の値を書式に従って文字に置き換えます。規則は次のとおりです。</p>
+    <ul>
+      <li>書式なし：小数点以下最大 2 桁で、末尾の 0 と小数点は省きます。</li>
+      <li><code>|N</code>（N は 0〜9）：小数点以下 N 桁に固定します。</li>
+      <li><code>|%N</code>：100 倍して小数点以下 N 桁に固定し、<code>%</code> を付けます。</li>
+      <li>整数部は 3 桁ごとにカンマで区切ります。丸めは<b>銀行丸め</b>（ROUND_HALF_EVEN。ちょうど半分のときは偶数側へ）で、「-0」は表示しません。</li>
+    </ul>
+    <p>次の表の「表示結果」は、実際のレンダラ <code>format_value()</code> で計算したものです。</p>
+    <table>
+      <tr><th>元の値（出典の表の「値」）</th><th>プレースホルダの書き方</th><th>表示結果</th></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|0]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|1]]</code></td><td>6,192.0</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier]]</code></td><td>0.62</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier|3]]</code></td><td>0.615</td></tr>
+      <tr><td><code>0.151163</code></td><td><code>[[c4.change|%1]]</code></td><td>15.1%</td></tr>
+      <tr><td><code>0.6058637851964593</code></td><td><code>[[c1.probability|%1]]</code> / <code>|%2</code></td><td>60.6% / 60.59%</td></tr>
+      <tr><td><code>0.7546548474342011</code></td><td><code>[[c1.probability|%0]]</code></td><td>75%</td></tr>
+      <tr><td><code>76.976190</code></td><td><code>[[c1.percent_of_ideal|1]]%</code></td><td>77.0%（このフィールドはそれ自体がパーセントなので、<code>|1</code> を使い、% は手で書きます）</td></tr>
+      <tr><td><code>1234567.891</code></td><td><code>[[c1.value|2]]</code></td><td>1,234,567.89</td></tr>
+      <tr><td><code>0.125</code> / <code>0.135</code></td><td><code>[[c1.value]]</code></td><td>0.12 / 0.14（銀行丸め）</td></tr>
+    </table>
+    <div class="callout"><strong>本文と出典の表で数字が違う？</strong>これは正常です。出典の表は元の値（例：<code>0.7546548474342011</code>）を、本文は書式を整えた値（例：75.5%）を表示します。もっと細かい桁が必要なら、質問に「小数第 2 位まで」などと書けば、Claude が書式を選びます。</div>
+
+    <h2>「未確認」の注記の意味</h2>
+    <p>注記の文は <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> です。これは<b>Claude が書いたものではなく</b>、次の場合にレンダラが自動で追加します：回答が引用した出典のうち、少なくとも 1 つの「未確認データ」列が <code>-</code> ではないとき。</p>
+    <ul>
+      <li>数値をすべて質問で与えた場合（ダメージ計算、ガチャのルールを自分で指定した場合など）→ 注記なし。</li>
+      <li>サンプルのガチャ <code>featured-character</code> やサンプルの重み <code>sample-crit-attacker</code> を参照した場合、または声骸の <code>max_roll</code> を省略した場合 → 注記あり。</li>
+    </ul>
+    <p>計算そのものは正しく行われています。「未確認」とは、<b>入力したゲームの数値</b>の出典が確認されておらず、実際のゲームと異なる可能性があるという意味です。詳しくは<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>をご覧ください。</p>
+
+    <h2>下書きの差し戻しとは</h2>
+    <p>Claude の回答の下書きは、まず検証器（<code>core/verifier/verify.py</code>）を通ります。検証器は次の点を確かめます。</p>
+    <ol>
+      <li>プレースホルダの形式が正しく、出典 ID がその質問の中で実際に発行されたものであること。</li>
+      <li>プレースホルダを除いた本文に出てくる数字が、どれも次のいずれかであること：質問に書かれた数字（桁区切りのカンマは無視し、<code>x%</code> と <code>x/100</code> は同じとみなす）、行頭の箇条書きの番号（<code>1.</code>、<code>2)</code>）、10 以下の整数の直後に助数詞が続くもの（日本語の「つ・点・種類・位・番目」、中国語の「个・种・项・条・步」、英語の名詞 ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds。間の空白は 1 つまで）。</li>
+    </ol>
+    <p>不合格の下書きは問題点の一覧とともに Claude へ返され、書き直しになります。これが状態の行の「差し戻し: N 回」です。次のアニメーションは、実際の実行トレース <code>20261003T024449Z-4423a9.jsonl</code> に沿って「差し戻し → 修正」を再現したものです。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="llm">Claude<small>下書きを書く</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="ver">検証器<small>どの数字にも出典がある？</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="ren">レンダラ<small>プレースホルダ → 数字</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">ターミナル出力<small>あなたが見る回答</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["llm"], "packet": {"at": "llm", "text": "c1.total / c2.total を計算済み"}, "text": "2 回の <code>damage_expected</code> が終わっています：<code>c1.total = 6192.000000</code>、<code>c2.total = 7128.000000</code>。Claude が 1 つ目の下書きを書き始めます。"},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "下書き 1"}, "text": "下書き 1：<code>ビルド B の方が [[c2.total|0]] で、A より 936 高いです。</code>――「936」は Claude が自分で暗算した差で、出典がありません。"},
+        {"on": ["ver"], "fail": ["ver"], "done": ["llm"], "packet": {"at": "ver", "text": "不合格"}, "text": "検証器は、936 がツールの結果の引用でもなく、質問にもない数字だと判定します。問題点の一覧：<code>数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code>"},
+        {"on": ["llm", "a1"], "fail": [], "packet": {"at": "llm", "text": "差し戻し 1 回目"}, "text": "下書きは差し戻され、指摘が新しいメッセージとして Claude に渡されます。差し戻しの回数が 1 増えます（上限：3 回目の差し戻しで打ち切り。後述）。"},
+        {"on": ["llm"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "Claude は比較ツールを呼ぶように改め、出典 ID を渡します。その結果 <code>c3.diff = 936.000000</code>、<code>c4.ratio = 1.151163</code>、<code>c4.change = 0.151163</code> が得られます。"},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "下書き 2"}, "text": "下書き 2：<code>差: [[c3.diff|0]]（A に比べて [[c4.change|%1]] 増加）</code> のように、すべての数字をプレースホルダで書きます。"},
+        {"on": ["ver", "a2"], "done": ["llm", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "検証に通ります。引用した出典は <code>c1.total</code>、<code>c2.total</code>、<code>c3.diff</code>、<code>c4.change</code> の 4 つです。"},
+        {"on": ["ren", "a3"], "done": ["llm", "ver"], "packet": {"at": "ren", "text": "936 / 15.1%"}, "text": "レンダラが数字を埋めます：<code>[[c3.diff|0]]</code> → 936、<code>[[c4.change|%1]]</code> → 15.1%。どれも未確認のデータを使っていないので、注記は付きません。"},
+        {"on": ["out"], "done": ["llm", "ver", "ren"], "packet": {"at": "out", "text": "差し戻し: 1 回"}, "text": "ターミナルに最終的な回答、出典の表、<code>状態: answered　差し戻し: 1 回</code> が表示されます。表示される 936 は下書き 1 と同じ数ですが、今回は<b>比較ツールから来た値</b>なので、出典の表で確かめられます。"}
+      ]</script>
+    </div>
+    <div class="callout"><strong>小さな個数はそのまま書けます</strong>「2 つのポイント」のように、10 以下の整数の直後に助数詞（日本語の つ・点・種類・位・番目、中国語の 个・种・项・条・步）が続く場合は、出典がなくてもそのまま書けます。英語で答える場合は、ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds の名詞が<b>数字の直後</b>に続くときだけ許されます。たとえば <code>2 つの要点：[[c1.total]]</code>、<code>有 2 个要点：[[c1.total]]</code>、<code>There are 2 points: [[c1.total]]</code> は合格しますが、<code>There are 2 key points: [[c1.total]]</code> は、数字と名詞の間に別の語があるため「2」が出典のない数字として差し戻されます。また 10 を超える数は、助数詞が付いていても差し戻されます。</div>
+
+    <h3>3 回差し戻されたときの定型の回答</h3>
+    <p>既定では、Claude に書き直させるのは最大 2 回です（<code>DEFAULT_MAX_RETRIES = 2</code>）。3 回目の差し戻しで EchoLab はその回答をあきらめ、<b>数字を一切含まない</b>定型の文を出力します。状態は <code>fallback</code>、終了コードは 1 です。</p>
+    <div class="term" data-title="bash — 直らなかったときの定型の回答">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"天井カウント 0 から 10 回以内にピックアップが出る確率は？ ルール：基本確率 0.1、5 回目から 1 回ごとに 0.1 ずつ上昇、天井 10、ピックアップ確率 0.5、すり抜け後は必ずピックアップ。\" --llm scripted --script never_corrected.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "delay": 400},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T034135Z-85e715", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T034135Z-85e715.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>この実行での 3 つの下書きは、それぞれ「確率はおよそ 73.4% です。」「確率は 0.734 です。」「確率は約 73%（[[c1.probability|%1]]）です。」でした。3 つ目はプレースホルダを使っていますが、出典のない「73%」も書いているため、やはり不合格になります。</p>
+
+    <h2>状態の一覧</h2>
+    <p>終了コードが 0 になるのは <code>answered</code> だけで、ほかはすべて 1 です。<code>answered</code> 以外では、回答本文は次の決まった文（数字を含まない）になります。詳しい原因は実行トレースに記録されます。</p>
+    <table>
+      <tr><th>状態</th><th>発生するとき</th><th>定型の回答</th></tr>
+      <tr><td><code>answered</code></td><td>下書きが検証に通った</td><td>（Claude の回答。数字を含まないこともあります）</td></tr>
+      <tr><td><code>fallback</code></td><td>下書きが 3 回目の差し戻しを受けた</td><td>申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>その日またはその月の費用が上限に達している。使用額と上限、使えるようになる時期、変更に使う環境変数と設定キーが示されます（月の上限の場合は「今月…月次…ECHOLAB_MONTHLY_USD」となります）。<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>を参照</td><td>今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.02 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。</td></tr>
+      <tr><td><code>refusal</code></td><td>モデルの安全機能が応答を止めた</td><td>この質問には回答できませんでした（モデルの安全機能により応答が止まりました）。</td></tr>
+      <tr><td><code>max_tokens</code></td><td>応答が長すぎて途中で切れた</td><td>応答が長くなりすぎて途中で切れたため、回答を完成できませんでした。質問を分けてお試しください。</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>ツールの呼び出しが 6 ラウンドを超えた</td><td>計算の手順が多くなりすぎたため、回答を完成できませんでした。質問を分けてお試しください。</td></tr>
+      <tr><td><code>llm_error</code></td><td>Claude API の呼び出しに失敗した（認証情報がない）</td><td>Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。</td></tr>
+      <tr><td><code>llm_error</code></td><td>認証に失敗した（HTTP 401/403）</td><td>Claude API の認証に失敗したため、回答できませんでした。ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</td></tr>
+      <tr><td><code>llm_error</code></td><td>レート制限・過負荷・ネットワークの問題</td><td>Claude API が混み合っているか、接続できなかったため、回答できませんでした。時間をおいてお試しください。</td></tr>
+      <tr><td><code>llm_error</code></td><td>その他の API エラー</td><td>Claude API の呼び出しに失敗したため、回答できませんでした。詳細はトレースの llm_error の行を確かめてください。</td></tr>
+    </table>
+    <div class="callout"><strong><code>llm_error</code> の回答は原因ごとに変わります</strong>CLI は Anthropic SDK の例外の種類で原因を分類し、「時間をおいてお試しください」と案内するのはレート制限・過負荷・ネットワークの問題のときだけです。認証情報がない、または認証に失敗したときは、<code>ANTHROPIC_API_KEY</code> を設定するよう直接案内します（認証情報がない状態で実測すると、上の表の 1 つ目が表示されました）。実行トレースの <code>llm_error</code> イベントには、分類 <code>kind</code>（<code>credentials</code>・<code>auth</code>・<code>transient</code>・<code>other</code>）と SDK の元のエラーメッセージも記録されます。<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>を参照してください。</div>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="04-cli-reference.html">コマンドリファレンス</a>：すべてのオプションと終了コード。</li>
+        <li><a href="05-how-it-works.html">裏側で起きていること（アニメーション）</a>：ゲートウェイ、計算サービス、検証器がどう連携するか。</li>
+        <li><a href="07-traces-evals.html">実行トレースと評価</a>：<code>.echolab/traces/*.jsonl</code> の読み方。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

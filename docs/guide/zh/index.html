@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首页・EchoLab 是什么 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* 本页专用：窄屏时防止宽内容（表格・动画）撑开整页 */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="index.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>概览</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>EchoLab 是什么</h1>
+    <p class="lead">一个「不让 AI 自己算数」的命令行问答助手：你用一句话提问，数字全部由确定性的计算工具算出，回答里每个数字都能查到出处。</p>
+
+    <h2>它能帮你做什么</h2>
+    <p>EchoLab 以游戏《鸣潮（Wuthering Waves）》的养成为题材（非官方、非营利的同人作品）。你在终端里输入一个问题，它会：</p>
+    <ul>
+      <li>理解你的问题，挑选合适的<strong>计算工具</strong>（期望伤害、声骸评分、抽卡概率，以及求差、求增长率的比较工具）；</li>
+      <li>让工具算出结果，再用这些结果写成一段说明；</li>
+      <li>在回答下方附上<strong>出典表</strong>：每个数字来自哪次计算、原始值是多少、是否用到了未确认的数据。</li>
+    </ul>
+    <div class="callout warn"><strong>目前只有命令行（CLI）</strong>EchoLab 现在只能在终端里用 <code>python -m core.agent "问题"</code> 提问，没有图形界面。Web 界面是路线图 M5 的计划，尚未实现（见 <a href="09-roadmap.html">今后的功能（路线图）</a>）。</div>
+    <div class="callout"><strong>关于界面语言</strong>CLI 的提示与输出（如 <code>状態</code>、<code>出典</code>、<code>差し戻し</code>）是日语。本说明原样展示真实输出，并用中文解释每一部分。示例问题也沿用项目自带的日语示例。</div>
+
+    <h2>为什么它的数字可信</h2>
+    <div class="cards">
+      <div class="card"><h4>数字只来自工具</h4><p>AI 不做任何算术，连两个数的差、增长率也交给比较工具（<code>compare.diff</code> / <code>compare.ratio</code>）计算。</p></div>
+      <div class="card"><h4>校验器逐个核对</h4><p>AI 写的是带占位符的草稿（如 <code>[[c1.total|0]]</code>）。草稿里出现没有出处的数字，就被「差し戻し」（退回重写）。</p></div>
+      <div class="card"><h4>出典表可追溯</h4><p>每个数字都有出典 ID（如 <code>c3.diff</code>），在回答下方列出原始值和计算工具。</p></div>
+      <div class="card"><h4>未确认数据会标注</h4><p>示例数据大多是 <code>verified: false</code>。用到它们时，回答末尾会自动加注「未確認のサンプルデータに基づいています」。</p></div>
+      <div class="card"><h4>改不对就不给数字</h4><p>退回 3 次仍不合格，就只给一句不含数字的固定回答（状态 <code>fallback</code>），而不是给出可疑的数字。</p></div>
+      <div class="card"><h4>费用有上限</h4><p>调用真实 Claude 时，每天 1 美元、每月 10 美元的上限会在每次调用前检查（可用环境变量调整）。</p></div>
+    </div>
+
+    <h2>一次提问的全过程（动画）</h2>
+    <p>下面用项目自带的示例「比较两套配置哪个更强」演示一次提问。点「下一步」逐步查看，或「自动播放」。</p>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="user">你<small>在终端提问</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">AI（Claude）<small>选工具・写草稿</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="calc">网关＋计算服务<small>检查并计算</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ver">校验器<small>核对每个数字</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="ans">回答<small>附出典表</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "A 和 B 哪个强？"}, "text": "你输入问题：两套配置（攻击力、倍率、暴击等参数都写在问题里）哪个期望伤害更高、高多少。"},
+        {"on": ["a1", "llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "AI 读懂问题后<strong>不自己算</strong>，而是决定调用两次期望伤害工具 <code>damage_expected</code>（A、B 各一次，并行）。"},
+        {"on": ["a2", "calc"], "done": ["user", "llm"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "网关先确认工具在许可名单里、参数符合格式，再交给 Java 计算服务。结果被编号为出典 ID：<code>c1.total</code> = 6192.000000，<code>c2.total</code> = 7128.000000。"},
+        {"on": ["llm", "a3", "ver"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "AI 的第一版草稿写了「A より 936 高い」——936 是它自己心算的。校验器发现：<code>数値「936」の出典がありません</code>，退回重写。"},
+        {"on": ["llm", "a2", "calc"], "done": ["user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "AI 改为调用比较工具 <code>compare_diff</code> 和 <code>compare_ratio</code>：<code>c3.diff</code> = 936.000000，<code>c4.change</code> = 0.151163。"},
+        {"on": ["a3", "ver"], "done": ["user", "llm", "calc", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "第二版草稿只用占位符引用数字，如 <code>[[c3.diff|0]]</code>、<code>[[c4.change|%1]]</code>。校验通过，程序把占位符换成真实数字（936、15.1%）。"},
+        {"on": ["a4", "ans"], "done": ["user", "llm", "calc", "ver", "ans"], "packet": {"at": "ans", "text": "answered"}, "text": "你看到回答、出典表和状态行：<code>状態: answered</code>、<code>差し戻し: 1 回</code>。完整过程还保存在 <code>.echolab/traces/</code> 下的执行轨迹里。"}
+      ]</script>
+    </div>
+
+    <h2>真实运行录像</h2>
+    <p>下面是同一个示例的真实输出（台本模式＋真实 Java 计算服务，不需要 API 密钥）。命令很长，是因为两套配置的全部参数都写在问题里。</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 6},
+        {"pause": 1500},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024449Z-4423a9", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024449Z-4423a9.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>怎么读这段输出：上半部分是回答；<code>出典:</code> 下面的表列出回答引用的每个数字（出典 ID、原始值、计算工具、用到的未确认数据，<code>-</code> 表示没有）；最后是状态行。<code>費用: $0.0000</code> 是因为台本模式不调用真实 AI。逐项说明见 <a href="03-reading-answers.html">回答怎么读</a>。</p>
+
+    <h3>用到未确认数据时的样子</h3>
+    <p>如果计算用了 <code>verified: false</code> 的示例数据（例如限定角色卡池的规则），回答会自动多一行注记，出典表的「未確認データ」列写出是哪条数据：</p>
+    <div class="term" data-title="bash — 未确认数据的注记">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"限定キャラクターのバナーで、天井カウント 0・すり抜け確定なしから 80 回以内にピックアップを獲得できる確率は？\" --llm scripted --script my-unverified.yaml", "speed": 10},
+        {"pause": 1200},
+        {"out": "80 回以内にピックアップを獲得できる確率は 60.6% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.6058637851964593  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024602Z-6a350f", "cls": "warn"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">（<code>my-unverified.yaml</code> 是为演示自写的台本：让工具用 <code>banner: featured-character</code> 引用示例卡池数据。台本的写法见 <a href="07-traces-evals.html">执行轨迹与评估</a>。）</p>
+
+    <h2>三步开始</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  S1["① 安装&lt;br/&gt;Python 3.12 + 依赖"] --> S2["② 无密钥试跑&lt;br/&gt;--llm scripted --fake-backend"]
+  S2 --> S3["③ 接上 Java 计算服务&lt;br/&gt;JDK 21 + 构建 jar"]
+  S3 -.-> OPT["（可选）真实 Claude&lt;br/&gt;设置 API 密钥"]
+      </pre>
+      <div class="caption">图 1：前三步都不需要 API 密钥；只有想自由提问时才需要真实 Claude</div>
+    </div>
+    <p>详细步骤见 <a href="01-quickstart.html">安装与第一次提问</a>。</p>
+
+    <h2>本说明的内容</h2>
+    <div class="cards">
+      <a class="card" href="01-quickstart.html" style="text-decoration:none"><h4>安装与第一次提问</h4><p>环境要求、安装、无密钥试跑、接 Java 服务、接真实 Claude。</p></a>
+      <a class="card" href="02-what-to-ask.html" style="text-decoration:none"><h4>能问什么：功能一览</h4><p>期望伤害、声骸评分、抽卡概率、比较——以及它不能回答什么。</p></a>
+      <a class="card" href="03-reading-answers.html" style="text-decoration:none"><h4>回答怎么读</h4><p>回答正文、出典表、未确认注记、状态行逐项解释。</p></a>
+      <a class="card" href="04-cli-reference.html" style="text-decoration:none"><h4>命令参考</h4><p>全部选项、运行模式、状态与退出码、环境变量。</p></a>
+      <a class="card" href="05-how-it-works.html" style="text-decoration:none"><h4>背后发生了什么（动画）</h4><p>用动画看提问、工具、校验、退回重写的完整流程。</p></a>
+      <a class="card" href="06-cost-and-safety.html" style="text-decoration:none"><h4>成本上限与数据可信度</h4><p>费用怎么算、上限怎么调、示例数据为什么是「未確認」。</p></a>
+      <a class="card" href="07-traces-evals.html" style="text-decoration:none"><h4>执行轨迹与评估</h4><p>查看每次运行的记录，运行忠实度评估。</p></a>
+      <a class="card" href="08-troubleshooting.html" style="text-decoration:none"><h4>故障排除与 FAQ</h4><p>找不到 java、没有密钥、超出预算等真实报错的处理。</p></a>
+      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>今后的功能（路线图）</h4><p>Web 界面等尚在计划中的功能。</p></a>
+    </div>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="01-quickstart.html">安装与第一次提问</a>：在自己的电脑上跑出上面那段输出。</li>
+        <li><a href="02-what-to-ask.html">能问什么：功能一览</a>：先看看它擅长回答哪类问题。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

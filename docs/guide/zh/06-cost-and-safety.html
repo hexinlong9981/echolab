@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>成本上限与数据可信度 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }</style>
+</head>
+<body data-page="06-cost-and-safety.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>理解</span><span>费用</span><span>隐私</span><span>数据</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>成本上限与数据可信度</h1>
+    <p class="lead">用真实的 Claude 回答问题会产生 API 费用。EchoLab 在每次调用 Claude 之前检查日、月两道上限，并把每次调用的费用记进本地台账。本页说明价格、上限、超限时的表现、台账格式，以及你的数据会被发往哪里、哪些数据可以信任。</p>
+
+    <h2>模型与价格</h2>
+    <p>默认模式（<code>--llm anthropic</code>）使用 <code>claude-opus-5-5</code>。价格表在 <code>config/budget.yaml</code>，单位是<b>每 100 万 token 的美元价格</b>：</p>
+    <table>
+      <tr><th>模型</th><th>输入</th><th>输出</th><th>缓存读取</th><th>缓存写入（5 分钟 TTL）</th><th>用途</th></tr>
+      <tr><td><code>claude-opus-5-5</code></td><td>4.00</td><td>20.00</td><td>0.20</td><td>5.00</td><td>默认模型</td></tr>
+      <tr><td><code>claude-opus-5</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>服务器端回退（fallback）可能用到</td></tr>
+      <tr><td><code>claude-opus-4-8</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>同上</td></tr>
+    </table>
+    <p>请求开启了服务器端回退（<code>fallbacks: "default"</code>）：当默认模型因安全分类器拒绝时，服务器可能改由其他模型作答。这时 EchoLab 会按每次尝试分别记账（每个模型按自己的价格）。台本模式（<code>--llm scripted</code>）不调用任何 API；台本里没写 <code>usage</code> 时费用为 0。台本若写了模拟的 <code>usage</code>，CLI 会按价格表算出这笔“模拟费用”并显示在状态行，但只记进本次运行专用的临时台账（运行结束即删除），<b>不写入真实台账</b>（评估 <code>python -m core.evals</code> 的台本模式也一样）。</p>
+
+    <h3>一个问题大约花多少钱</h3>
+    <p>下面用一组<b>示例 token 数</b>演示计算方法。这组数字取自 <code>evals/faithfulness/cases.yaml</code> 中 <code>damage-basic</code> 用例台本里写的 <code>usage</code>（说明用的假设值，<b>不是实测</b>）：一次伤害提问共 2 次 LLM 调用。</p>
+    <table>
+      <tr><th>LLM 调用</th><th>输入</th><th>输出</th><th>缓存写入</th><th>缓存读取</th><th>费用（claude-opus-5-5）</th></tr>
+      <tr><td>第 1 次（选工具）</td><td>2,400</td><td>180</td><td>2,100</td><td>0</td><td>$0.0237</td></tr>
+      <tr><td>第 2 次（写回答）</td><td>300</td><td>140</td><td>0</td><td>2,100</td><td>$0.00442</td></tr>
+      <tr><th>合计</th><th>2,700</th><th>320</th><th>2,100</th><th>2,100</th><th>$0.02812</th></tr>
+    </table>
+    <p>费用均由 <code>core/gateway/budget.py</code> 的 <code>Budget.cost()</code> 按上面的价格表算出。按这个规模，每天 1 美元的上限大约够 35 次这样的提问；实际 token 数会随问题长度、工具调用次数、草稿被退回次数而变化。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+pie showData
+  title 示例提问的费用构成（美元，claude-opus-5-5）
+  "输入 2,700 tok" : 0.0108
+  "输出 320 tok" : 0.0064
+  "缓存写入 2,100 tok" : 0.0105
+  "缓存读取 2,100 tok" : 0.00042
+      </pre>
+      <div class="caption">图 1：同一示例的费用构成。缓存读取只有输入价格的 1/20，所以第 2 次调用很便宜</div>
+    </div>
+    <div class="diagram">
+      <pre class="mermaid">
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2f6fdb"}}}}%%
+xychart-beta
+  title "同一示例在价格表各模型下的费用（美元）"
+  x-axis ["claude-opus-5-5", "claude-opus-5", "claude-opus-4-8"]
+  y-axis "USD" 0 --> 0.04
+  bar [0.02812, 0.035675, 0.035675]
+      </pre>
+      <div class="caption">图 2：同样的 token 数，如果由回退模型作答，费用为 $0.035675</div>
+    </div>
+
+    <h2>日上限与月上限</h2>
+    <table>
+      <tr><th>上限</th><th>默认值</th><th>环境变量</th><th>配置文件</th></tr>
+      <tr><td>每日</td><td>1.00 USD</td><td><code>ECHOLAB_DAILY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.daily</code></td></tr>
+      <tr><td>每月</td><td>10.00 USD</td><td><code>ECHOLAB_MONTHLY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.monthly</code></td></tr>
+      <tr><td>台账位置</td><td><code>.echolab/costs.jsonl</code></td><td><code>ECHOLAB_LEDGER</code></td><td><code>config/budget.yaml</code> → <code>ledger</code>（相对路径以仓库根目录为基准；只用于 anthropic 模式）</td></tr>
+    </table>
+    <ul>
+      <li>环境变量优先于配置文件。例如只放宽今天这次运行：<code>ECHOLAB_DAILY_USD=2 python -m core.agent "…"</code>。</li>
+      <li>“今天”“本月”按 <b>UTC</b> 划分：北京时间每天 <b>08:00</b> 换日，每月 1 日 08:00 换月。</li>
+      <li>上限必须是 0 以上的数字。写成 <code>abc</code> 这样的值时，CLI 不调用 Claude，在标准错误输出 <code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code>，以退出码 2 结束（实测；<code>config/budget.yaml</code> 里的值不对时同样报错，并写明是哪个键）。</li>
+    </ul>
+
+    <h3>每次调用 Claude 前后发生了什么</h3>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  participant U as 你（CLI）
+  participant A as Agent
+  participant B as 预算（台账）
+  participant C as Claude API
+  U->>A: 问题
+  loop 每次调用 LLM（一个问题通常 2 次以上）
+    A->>B: check()
+    B->>B: 汇总台账中今天、本月（UTC）的 usd
+    alt 今天 ≥ 日上限 或 本月 ≥ 月上限
+      B-->>A: BudgetExceeded
+      A-->>U: 固定回答，状态 budget_exceeded
+    else 未达上限
+      A->>C: 请求（提示词、工具定义、对话）
+      C-->>A: 回复和 token 用量
+      A->>B: record(model, usage)
+      B->>B: 追加一行 JSONL
+    end
+  end
+  A-->>U: 回答和本次费用
+      </pre>
+      <div class="caption">图 3：预算检查发生在每一次 LLM 调用之前，而不是每个问题之前</div>
+    </div>
+    <p>因为检查发生在调用<b>之前</b>，而费用要到调用<b>之后</b>才知道，所以总额可能略微超过上限，超出部分最多是一次调用的费用。超过之后，下一次调用就会被拦下。</p>
+
+    <h3>达到上限时会看到什么</h3>
+    <p>下面用一个临时台账真实重现（台账里事先写入一行今天 1.000000 美元的记录；台账路径为示例）。这里用默认的 anthropic 模式：预算检查在调用 Claude <b>之前</b>进行，达到上限就不会调用，所以没有 API key 也能重现。台本模式只用一次性的临时台账，不读 <code>ECHOLAB_LEDGER</code>，因此不能用来重现。</p>
+    <div class="term" data-title="bash — 达到日上限">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_LEDGER=/tmp/ledger_full.jsonl python -m core.agent \"攻击力 2000 的期望伤害？\" --fake-backend", "speed": 18},
+        {"pause": 500},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "warn", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031519Z-7df23c", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031519Z-7df23c.jsonl", "cls": "dim"},
+        {"pause": 600},
+        {"cmd": "echo $?"},
+        {"out": "1"},
+        {"pause": 600},
+        {"cmd": "grep '\"event\": \"budget_exceeded\"' .echolab/traces/20261003T031519Z-7df23c.jsonl"},
+        {"out": "{\"ts\": \"2026-10-03T03:15:19.195+00:00\", \"run_id\": \"20261003T031519Z-7df23c\", \"event\": \"budget_exceeded\", \"reason\": \"今日（UTC）のコストが上限に達しました: 1.000000 / 1.00 USD\"}", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>回答的意思是“今天（UTC）的费用达到了每日上限，现在无法回答（已用 1.000000 美元 / 上限 1.00 美元）。UTC 换日后即可使用。上限可以用环境变量 <code>ECHOLAB_DAILY_USD</code> 或 <code>config/budget.yaml</code> 的 <code>caps_usd.daily</code> 修改”。达到的是月上限时，回答会写月上限的金额和设置项（用 <code>ECHOLAB_DAILY_USD=5 ECHOLAB_MONTHLY_USD=0.5</code> 实测得到 <code>今月（UTC）のコストが月次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 0.5 USD）。UTC の月が変わると使えるようになります。上限は環境変数 ECHOLAB_MONTHLY_USD か config/budget.yaml の caps_usd.monthly で変えられます。</code>）。同样的信息也记录在执行轨迹的 <code>budget_exceeded</code> 事件里。这时 Claude 一次也没有被调用，费用为 0。回答里的金额来自台账和设置，不是 AI 写的，所以评估统计忠实度时不把它当作无出典的数字。</p>
+    <p>解决办法：等到 UTC 换日 / 换月；或者有意识地提高上限（环境变量或 <code>config/budget.yaml</code>）。<b>不要</b>为了“清零”而删除台账——它是你实际花费的记录。</p>
+
+    <h2>台账文件的格式</h2>
+    <p>台账是 JSONL：每次 LLM 调用追加一行。下面是用示例 token 数写入临时台账得到的真实内容：</p>
+    <pre><code>{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.0237"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 300, "output_tokens": 140, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2100}, "usd": "0.00442"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-sonnet-x", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.029625", "estimated": true}</code></pre>
+    <table>
+      <tr><th>字段</th><th>含义</th></tr>
+      <tr><td><code>ts</code></td><td>记录时间（UTC，ISO 8601）。按它划分“今天”“本月”</td></tr>
+      <tr><td><code>model</code></td><td>实际计费的模型</td></tr>
+      <tr><td><code>usage</code></td><td>4 类 token 数：输入、输出、缓存写入、缓存读取</td></tr>
+      <tr><td><code>usd</code></td><td>这次调用的费用，用字符串保存的十进制数（避免浮点误差）</td></tr>
+      <tr><td><code>estimated</code></td><td>仅当模型不在价格表里时出现，值为 <code>true</code>，见下节</td></tr>
+    </table>
+    <ul>
+      <li>只有 <code>--llm anthropic</code> 的调用会写进这个台账。台本模式的模拟用量只记在每次运行专用的临时台账里，不会出现在 <code>.echolab/costs.jsonl</code>。</li>
+      <li>如果台账中有读不懂的行，EchoLab 不会跳过（跳过可能导致超支），而是在调用 Claude 之前停止，以退出码 2 结束，并写明文件和行号，例如 <code>エラー: コストの台帳 /tmp/broken.jsonl の 1 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: Expecting ',' delimiter: line 1 column 35 (char 34)）。その行を直すか消してください</code>（实测；不打印 Traceback）。请修复或移走那一行。</li>
+    </ul>
+
+    <h3>价格表里没有的模型：保守估算</h3>
+    <p>回退时服务器可能返回价格表里没有的模型。调用已经计费了，所以 EchoLab 仍然记账，但<b>按价格表中最贵的模型估算</b>，并标记 <code>"estimated": true</code>。上面第 3 行就是例子：同样的 token 数，按 <code>claude-opus-5-5</code> 是 $0.0237，而未知模型按最贵的价格估为 $0.029625。这样上限判断只会偏严，不会偏松。（单纯“查询价格”时则不做推测：<code>Budget.cost()</code> 对未知模型报错 <code>料金表に無いモデルです（config/budget.yaml に追加してください）</code>。）如果你经常遇到某个新模型，把它的价格加进 <code>config/budget.yaml</code> 的 <code>pricing_usd_per_mtok</code> 即可。</p>
+
+    <h2>你的数据会被发到哪里</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph PC["你的电脑"]
+    CLI["CLI 和 Agent"]
+    GW["网关"]
+    CE["calc-engine&lt;br/&gt;Java 子进程，stdio 通信"]
+    DATA["domains/wuwa/data&lt;br/&gt;示例数据"]
+    LED[".echolab/costs.jsonl&lt;br/&gt;费用台账"]
+    TR[".echolab/traces/&lt;br/&gt;执行轨迹"]
+  end
+  API["Anthropic&lt;br/&gt;Claude API"]
+  CLI --> GW --> CE --> DATA
+  CLI --> LED
+  CLI --> TR
+  CLI -- "仅 anthropic 模式" --> API
+      </pre>
+      <div class="caption">图 4：只有 anthropic 模式会访问外部网络；计算、台账和轨迹都在本机</div>
+    </div>
+    <table>
+      <tr><th></th><th><code>--llm scripted</code>（台本模式）</th><th><code>--llm anthropic</code>（默认）</th></tr>
+      <tr><td>发往 Anthropic 的内容</td><td>无（不调用 API，不需要 API key）</td><td>系统提示词（<code>core/agent/prompts/core.md</code> + <code>domains/wuwa/prompts/system.md</code>）、工具定义（输入 schema）、<b>你的问题原文</b>、Claude 之前的回复、工具结果（出典 ID 和数值、未确认数据 ID）、验证器的退回意见</td></tr>
+      <tr><td>计算</td><td colspan="2">本机：Java 计算服务作为子进程通过标准输入输出通信（<code>--fake-backend</code> 时改用本机 Python 参照实现），不联网</td></tr>
+      <tr><td>本机保存</td><td colspan="2"><code>.echolab/traces/&lt;运行 ID&gt;.jsonl</code>（含问题原文、每份草稿、工具输入输出、最终回答）和 <code>.echolab/costs.jsonl</code>（只记 anthropic 模式的费用）。两者都已被 Git 忽略，不会被提交</td></tr>
+    </table>
+    <div class="callout warn"><strong>隐私提示</strong>问题原文会原样发送给 Anthropic，也会原样写入本机的执行轨迹。不要在问题里写与计算无关的个人信息。需要分享轨迹文件时，先检查里面的问题原文。</div>
+
+    <h2>数据可信度：已确认与示例</h2>
+    <p>计算服务的<b>公式</b>由 Java 与 Python 两套实现对同一批黄金用例交叉验证；但<b>游戏数值</b>是否准确，取决于输入从哪里来：</p>
+    <table>
+      <tr><th>输入来源</th><th>可信度</th><th>回答中的表现</th></tr>
+      <tr><td>你在问题里给出的数值</td><td>与你给的数一样可信</td><td>无注记；出典表“未確認データ”为 <code>-</code></td></tr>
+      <tr><td>示例数据 <code>verified: false</code>（目前全部数据都是这种）</td><td>作者手工整理的<b>示例值</b>，<code>source</code> 为 <code>"TODO: 要確認"</code>，不是官方数值</td><td>自动附加注记 <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code>，出典表列出 <code>gacha_rules:featured-character</code>、<code>echo_weights:sample-crit-attacker</code>、<code>echo_weights:max_roll</code> 等 ID</td></tr>
+      <tr><td>已确认数据 <code>verified: true</code></td><td>数据 schema 强制要求 <code>https://</code> 出处 URL、确认日期 <code>checked_at</code>、游戏版本 <code>game_version</code></td><td>不加注记（目前仓库里还没有这样的数据）</td></tr>
+    </table>
+    <p>比较工具会继承两边输入的未确认标记：只要比较的任一边用了示例数据，差值 / 比率也会带上同样的 ID，回答同样会附注记。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="data">示例数据<small>verified: false</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="calc">计算工具<small>unverified_inputs</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="cmp">比较工具<small>继承标记</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">回答<small>自动注记</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["data"], "packet": {"at": "data", "text": "featured-character"}, "text": "你说“用示例限定角色卡池”，Claude 就把 <code>banner: featured-character</code> 传给抽卡工具。这条卡池在 <code>gacha_rules.yaml</code> 里是 <code>verified: false</code>。"},
+        {"on": ["calc", "a1"], "done": ["data"], "packet": {"at": "calc", "text": "c1.probability"}, "text": "计算服务读取规则并计算，结果里带上 <code>unverified_inputs: [\"gacha_rules:featured-character\"]</code>。出典 <code>c1.probability</code> 因此被标为“未确认”。"},
+        {"on": ["cmp", "a2"], "done": ["data", "calc"], "packet": {"at": "cmp", "text": "继承 ID"}, "text": "如果之后用比较工具拿它和别的结果比较，比较结果会合并两边的未确认 ID，不会把“未确认”洗成“已确认”。"},
+        {"on": ["out", "a3"], "done": ["data", "calc", "cmp"], "packet": {"at": "out", "text": "※ 注记"}, "text": "渲染器检查回答引用的每个出典：只要有一个带未确认 ID，就在回答末尾追加日文注记。注记由程序添加，Claude 无法省略。"},
+        {"on": ["out"], "done": ["calc"], "packet": {"at": "out", "text": "无注记"}, "text": "反过来，如果你在问题里自己给出全部规则（<code>rules</code>），结果没有未确认 ID，回答也不会附注记——这时数值的可信度取决于你给的规则。"}
+      ]</script>
+    </div>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="07-traces-evals.html">执行轨迹与评估</a>：在轨迹里找 <code>llm_call</code> 的 token 用量和 <code>budget_exceeded</code> 的原因。</li>
+        <li><a href="08-troubleshooting.html">故障排除与 FAQ</a>：<code>budget_exceeded</code>、<code>llm_error</code> 的处理办法。</li>
+        <li><a href="02-what-to-ask.html">能问什么：功能一览</a>：哪些问题会用到示例数据。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

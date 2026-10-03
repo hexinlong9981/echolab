@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>命令参考 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* 本页专用：窄屏时防止宽内容（表格・动画）撑开整页 */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="04-cli-reference.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>使用</span><span>参考</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>命令参考</h1>
+    <p class="lead">EchoLab 目前提供两个命令：提问用的 <code>python -m core.agent</code> 和评估用的 <code>python -m core.evals</code>。本页列出它们的全部选项、运行模式、输出格式、状态与退出码、环境变量。</p>
+    <div class="callout"><strong>前提</strong>所有命令都在仓库根目录、已激活虚拟环境（<code>source .venv/bin/activate</code>）的状态下执行。目前只有命令行，没有 GUI。</div>
+
+    <h2>python -m core.agent（提问）</h2>
+    <div class="term" data-title="bash — 帮助">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR] [--debug]"},
+        {"out": "                            question"},
+        {"out": " "},
+        {"out": "出典付きで質問に答える"},
+        {"out": " "},
+        {"out": "positional arguments:"},
+        {"out": "  question              質問（例：攻撃力 2000 のときの期待ダメージは？）"},
+        {"out": " "},
+        {"out": "options:"},
+        {"out": "  -h, --help            show this help message and exit"},
+        {"out": "  --domain DOMAIN       ドメインパック（既定 wuwa）"},
+        {"out": "  --llm {anthropic,scripted}"},
+        {"out": "                        anthropic（実物の Claude。既定）か scripted（台本。API キー不要）"},
+        {"out": "  --script SCRIPT       --llm scripted の台本（YAML）"},
+        {"out": "  --fake-backend        計算サービスの代わりに試験用の偽物（Python の参照実装）を使う"},
+        {"out": "  --trace-dir TRACE_DIR"},
+        {"out": "                        トレースの保存先"},
+        {"out": "  --debug               設定・起動の誤りでもトレースバックを表示する"},
+        {"out": " "},
+        {"out": "コストの台帳:"},
+        {"out": "  --llm anthropic は実際の費用を本物の台帳（既定 .echolab/costs.jsonl）に記録し、"},
+        {"out": "  日次・月次の上限（config/budget.yaml、環境変数 ECHOLAB_DAILY_USD・ECHOLAB_MONTHLY_USD）を守る。"},
+        {"out": "  --llm scripted の使用量は台本に書いた架空の値なので、実行ごとの使い捨ての台帳に記録し、"},
+        {"out": "  本物の台帳には書かない（評価 python -m core.evals と同じ扱い）。"},
+        {"out": " "},
+        {"out": "終了コード:"},
+        {"out": "  0 回答した / 1 回答できなかった（定型の回答で終えた）/ 2 設定・使い方の誤り"}
+      ]</script>
+    </div>
+    <table>
+      <thead><tr><th>参数 / 选项</th><th>默认值</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>question</code>（必填）</td><td>—</td><td>问题文本。含空格时用引号括起来。缺少时 argparse 报 <code>error: the following arguments are required: question</code>，退出码 2。</td></tr>
+        <tr><td><code>--domain DOMAIN</code></td><td><code>wuwa</code></td><td>领域包（读取 <code>domains/&lt;DOMAIN&gt;/domain.yaml</code>）。目前只有 <code>wuwa</code>（鸣潮）。指定不存在的领域时，无论是否加 <code>--fake-backend</code>，都输出 <code>エラー: ドメインが見つかりません: &lt;DOMAIN&gt;（使えるドメイン: wuwa）</code>，退出码 2。</td></tr>
+        <tr><td><code>--llm {anthropic,scripted}</code></td><td><code>anthropic</code></td><td><code>anthropic</code>：调用真实 Claude（模型 <code>claude-opus-5-5</code>），需要凭据。<code>scripted</code>：按台本文件回放，不需要凭据。</td></tr>
+        <tr><td><code>--script SCRIPT</code></td><td>—</td><td>台本 YAML 文件路径（相对路径以<strong>当前目录</strong>为基准）。<code>--llm scripted</code> 时必填，缺少时输出 <code>エラー: --llm scripted には --script（台本の YAML）が必要です</code>；文件不存在时输出 <code>エラー: 台本が見つかりません: &lt;路径&gt;</code>。两者退出码都是 2。项目自带示例：<code>core/agent/examples/compare_builds.yaml</code>。</td></tr>
+        <tr><td><code>--fake-backend</code></td><td>关闭</td><td>不启动 Java 计算服务，改用测试用的 Python 参考实现。可与任一 <code>--llm</code> 组合。注意：假服务不提供 <code>gacha_simulate</code>（蒙特卡洛）工具。</td></tr>
+        <tr><td><code>--trace-dir TRACE_DIR</code></td><td><code>.echolab/traces</code></td><td>执行轨迹（JSONL）的保存目录。相对路径以<strong>仓库根目录</strong>为基准。</td></tr>
+        <tr><td><code>--debug</code></td><td>关闭</td><td>设置或启动出错（退出码 2）时，除了简短的说明，还打印 Python 的 Traceback。平时不需要；排查问题或报告缺陷时使用。</td></tr>
+        <tr><td><code>-h, --help</code></td><td>—</td><td>显示帮助并退出（退出码 0）。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>运行模式</h2>
+    <p><code>--llm</code> 决定「谁扮演 AI」，<code>--fake-backend</code> 决定「谁做计算」。两者可以自由组合：</p>
+    <table>
+      <thead><tr><th>组合</th><th>需要 API 凭据</th><th>需要 JDK + jar</th><th>会产生费用</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>--llm scripted --script … --fake-backend</code></td><td>否</td><td>否</td><td>否</td><td>最快的演示；只需 Python</td></tr>
+        <tr><td><code>--llm scripted --script …</code></td><td>否</td><td>是</td><td>否</td><td>确认 Java 计算服务能正常工作</td></tr>
+        <tr><td><code>--fake-backend</code>（即 anthropic）</td><td>是</td><td>否</td><td>是</td><td>没装 JDK 但想自由提问</td></tr>
+        <tr><td>不加任何选项（默认）</td><td>是</td><td>是</td><td>是</td><td>正式使用：真实 Claude + 真实计算服务</td></tr>
+      </tbody>
+    </table>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  Q["你的问题"] --> L{"--llm"}
+  L -- "anthropic（默认）" --> C["真实 Claude&lt;br/&gt;claude-opus-5-5"]
+  L -- scripted --> S["台本 YAML&lt;br/&gt;按步骤回放"]
+  C --> G["网关&lt;br/&gt;许可名单・参数检查・费用上限"]
+  S --> G
+  G --> B{"--fake-backend?"}
+  B -- 否 --> J["Java 计算服务&lt;br/&gt;calc-engine-mcp.jar"]
+  B -- 是 --> P["Python 参考实现&lt;br/&gt;（测试用假服务）"]
+      </pre>
+      <div class="caption">图 1：两个开关分别替换「AI」和「计算」。网关、校验器、出典表在所有模式下都一样工作</div>
+    </div>
+    <div class="callout"><strong>台本模式用一次性的台账</strong>台本里的用量是虚构的，所以 <code>--llm scripted</code> 时 CLI 把用量记到每次运行专用的临时台账里，运行结束即删除，<strong>不会写入真实台账</strong> <code>.echolab/costs.jsonl</code>（与 <code>python -m core.evals</code> 的台本模式相同；<code>--help</code> 末尾也有说明）。上限的检查仍然照常进行：把 <code>ECHOLAB_DAILY_USD</code> 设为 0 时，台本模式也会以 <code>budget_exceeded</code> 结束。只有 <code>--llm anthropic</code> 使用真实台账。</div>
+
+    <h2>输出的结构</h2>
+    <p>每次运行都按同一结构输出到标准输出：</p>
+    <div class="term" data-title="bash — 输出结构">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"pause": 800},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": "      ↑ ① 回答（校验通过后把占位符换成数字）", "cls": "dim"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ"},
+        {"out": "---------  -----------  ---------------  ------------"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": "      ↑ ② 出典表（回答引用过的数字）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024449Z-4423a9", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024449Z-4423a9.jsonl", "cls": "warn"},
+        {"out": "      ↑ ③ 状态行与轨迹文件路径", "cls": "dim"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">（带 ↑ 的灰色行是本说明加的标注，不是程序输出。）</p>
+    <table>
+      <thead><tr><th>部分</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>① 回答</td><td>通过校验、填入数字后的回答；未通过时是一句固定文本（见下方状态表）。计算用了未确认数据时，末尾多一行 <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code></td></tr>
+        <tr><td>② 出典表</td><td>列：<code>出典 ID</code>（<code>c&lt;第几次调用&gt;.&lt;结果字段&gt;</code>）、<code>値</code>（工具返回的原始值）、<code>ツール</code>（工具名）、<code>未確認データ</code>（用到的未确认数据 ID，没有则 <code>-</code>）。状态不是 <code>answered</code> 时显示 <code>（引用した出典はありません）</code>。</td></tr>
+        <tr><td><code>状態</code></td><td>运行结果状态，见下节。</td></tr>
+        <tr><td><code>差し戻し: N 回</code></td><td>草稿被校验器退回的次数。</td></tr>
+        <tr><td><code>費用: $x.xxxx</code></td><td>本次运行中调用 Claude 的费用（美元，显示 4 位小数）。台本模式为 <code>$0.0000</code>。</td></tr>
+        <tr><td><code>実行 ID</code></td><td>运行 ID，格式为 UTC 时间戳加 6 位十六进制，如 <code>20261003T024449Z-4423a9</code>。</td></tr>
+        <tr><td><code>トレース</code></td><td>本次运行的执行轨迹文件（<code>&lt;trace-dir&gt;/&lt;実行 ID&gt;.jsonl</code>）。查看方法见 <a href="07-traces-evals.html">执行轨迹与评估</a>。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>运行状态与退出码</h2>
+    <p>状态（<code>状態</code>）一共 7 种。只有 <code>answered</code> 的回答里含有来自工具的数字；其他状态都给出固定文本，不含计算结果（<code>budget_exceeded</code> 里的金额来自费用台账和设置，不是 AI 写的）。</p>
+    <table>
+      <thead><tr><th>状态</th><th>何时出现</th><th>屏幕上的回答（原文）</th><th>退出码</th></tr></thead>
+      <tbody>
+        <tr><td><code>answered</code></td><td>草稿通过校验</td><td>填好数字的回答 + 出典表</td><td>0</td></tr>
+        <tr><td><code>fallback</code></td><td>草稿被退回后再重写，累计退回 3 次（允许重写 2 次）仍不合格</td><td><code>申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。</code></td><td>1</td></tr>
+        <tr><td><code>budget_exceeded</code></td><td>调用 AI 之前发现今天或本月的费用已达上限</td><td>写明是哪个上限、已用金额与上限、何时恢复、怎么修改，例如：<code>今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.02 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。</code>（月上限时为 <code>今月（UTC）…月次の上限…ECHOLAB_MONTHLY_USD…caps_usd.monthly</code>）</td><td>1</td></tr>
+        <tr><td><code>llm_error</code></td><td>调用 Claude 失败。按 SDK 的异常类型分 4 类，回答各不相同</td><td>没有凭据：<code>Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。</code><br>认证失败（HTTP 401/403）：<code>Claude API の認証に失敗したため、回答できませんでした。ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</code><br>限流・过载・网络：<code>Claude API が混み合っているか、接続できなかったため、回答できませんでした。時間をおいてお試しください。</code><br>其他 API 错误：<code>Claude API の呼び出しに失敗したため、回答できませんでした。詳細はトレースの llm_error の行を確かめてください。</code></td><td>1</td></tr>
+        <tr><td><code>refusal</code></td><td>模型的安全机制停止了回答</td><td><code>この質問には回答できませんでした（モデルの安全機能により応答が止まりました）。</code></td><td>1</td></tr>
+        <tr><td><code>max_tokens</code></td><td>AI 的输出太长被截断</td><td><code>応答が長くなりすぎて途中で切れたため、回答を完成できませんでした。質問を分けてお試しください。</code></td><td>1</td></tr>
+        <tr><td><code>tool_round_limit</code></td><td>调用工具的轮数超过 6 轮</td><td><code>計算の手順が多くなりすぎたため、回答を完成できませんでした。質問を分けてお試しください。</code></td><td>1</td></tr>
+      </tbody>
+    </table>
+    <div class="diagram">
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> 检查上限
+  检查上限 --> budget_exceeded: 已达上限
+  检查上限 --> 调用AI: 未达上限
+  调用AI --> llm_error: 调用失败
+  调用AI --> refusal: 安全机制停止
+  调用AI --> max_tokens: 输出被截断
+  调用AI --> 调用工具: 要求调用工具
+  调用工具 --> tool_round_limit: 超过 6 轮
+  调用工具 --> 检查上限: 结果交回 AI
+  调用AI --> 校验草稿: 给出草稿
+  校验草稿 --> answered: 合格
+  校验草稿 --> 检查上限: 退回（第 1、2 次）
+  校验草稿 --> fallback: 第 3 次退回
+  budget_exceeded --> [*]
+  llm_error --> [*]
+  refusal --> [*]
+  max_tokens --> [*]
+  tool_round_limit --> [*]
+  answered --> [*]
+  fallback --> [*]
+      </pre>
+      <div class="caption">图 2：一次运行中的状态迁移。每次调用 AI 之前都会重新检查费用上限</div>
+    </div>
+    <h3>其他退出情形</h3>
+    <table>
+      <thead><tr><th>情形</th><th>表现</th><th>退出码</th></tr></thead>
+      <tbody>
+        <tr><td>参数错误（缺 <code>question</code>、<code>--llm</code> 取值不对等）</td><td>argparse 的 <code>usage:</code> 和 <code>error:</code> 行</td><td>2</td></tr>
+        <tr><td><code>--llm scripted</code> 但没有 <code>--script</code>，或台本文件不存在</td><td><code>エラー: --llm scripted には --script（台本の YAML）が必要です</code> / <code>エラー: 台本が見つかりません: …</code></td><td>2</td></tr>
+        <tr><td>设置或启动出错（领域不存在、找不到 <code>java</code>、找不到 jar、服务启动后立刻退出、费用上限的值不是数字、台账有读不了的行）</td><td>标准错误输出一行 <code>エラー: …</code>（原因和修复方法），再加一行 <code>（--debug を付けるとトレースバックを表示します）</code>；不打印 Traceback，没有状态行。加 <code>--debug</code> 时同时打印 Traceback</td><td>2</td></tr>
+      </tbody>
+    </table>
+    <div class="term" data-title="bash — 设置错误的输出">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --domain lol --fake-backend"},
+        {"pause": 400},
+        {"out": "エラー: ドメインが見つかりません: lol（使えるドメイン: wuwa）", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>在脚本中使用时，可以用 <code>$?</code> 区分「得到了有数字的回答（0）」「运行了但没得到回答（1）」和「设置或用法有误（2）」。</p>
+
+    <h2>python -m core.evals（忠实度评估）</h2>
+    <p>把 <code>evals/faithfulness/cases.yaml</code> 中的 8 个评估用例逐个跑一遍，统计回答里有没有「没有出处的数字」。默认用台本模式和假计算服务，不需要密钥和 Java。</p>
+    <table>
+      <thead><tr><th>选项</th><th>默认值</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>--llm {scripted,anthropic}</code></td><td><code>scripted</code></td><td>注意默认值与 <code>core.agent</code> 相反。<code>scripted</code> 时使用假计算服务和一次性的临时台账；<code>anthropic</code> 时使用真实 Claude、Java 计算服务和真实台账（会产生费用）。</td></tr>
+        <tr><td><code>--cases CASES</code></td><td><code>evals/faithfulness/cases.yaml</code></td><td>用例文件。</td></tr>
+        <tr><td><code>--out OUT</code></td><td>—</td><td>把 Markdown 报告另存到该文件（不指定时只打印到屏幕）。</td></tr>
+        <tr><td><code>--raw-dir RAW_DIR</code></td><td><code>evals/reports/raw</code></td><td>原始记录（每个用例一行 JSONL）和各用例轨迹（<code>traces/</code> 子目录）的保存位置。</td></tr>
+        <tr><td><code>--case ONLY</code></td><td>全部</td><td>只运行指定 ID 的用例；可重复指定多次。指定了不存在的 ID 时一个用例也不运行，列出可用的 ID 并以退出码 2 结束。</td></tr>
+        <tr><td><code>--debug</code></td><td>关闭</td><td>设置或启动出错时同时打印 Traceback（与 <code>core.agent</code> 相同）。</td></tr>
+      </tbody>
+    </table>
+    <div class="term" data-title="bash — 运行一个评估用例">
+      <script type="application/json">[
+        {"cmd": "python -m core.evals --case never-corrected"},
+        {"pause": 600},
+        {"out": "# 評価レポート：数値の忠実度", "cls": "hl"},
+        {"out": " "},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（1 件）"},
+        {"out": " "},
+        {"out": "## 指標", "cls": "hl"},
+        {"out": " "},
+        {"out": "| 指標 | 値 |"},
+        {"out": "|---|---|"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |"},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 1.000（3 / 3） |"},
+        {"out": "| 合格したケース | 1 / 1 |"},
+        {"out": "| 費用の合計（USD） | 0.000000 |"},
+        {"out": " "},
+        {"out": "## ケースごとの結果", "cls": "hl"},
+        {"out": "…", "cls": "dim"},
+        {"out": "| `never-corrected` | 差し戻しても直らなければ、数値を含まない回答に落とす | fallback | 3 | 3 | - | 合格 |"},
+        {"cmd": "echo $?"},
+        {"out": "0"}
+      ]</script>
+    </div>
+    <p>退出码：所有用例都「合格」时为 0，有不合格时为 1，<code>--case</code> 的 ID 写错等用法错误时为 2：</p>
+    <div class="term" data-title="bash — 写错用例 ID">
+      <script type="application/json">[
+        {"cmd": "python -m core.evals --case nope"},
+        {"pause": 400},
+        {"out": "エラー: ケースが見つかりません: nope（cases.yaml のケース: damage-basic, echo-score, gacha-unverified, compare-builds, tool-error-recovery, bad-draft-raw-number, bad-draft-derived-and-unknown-id, never-corrected）", "cls": "err"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p>指标含义见 <a href="07-traces-evals.html">执行轨迹与评估</a>。</p>
+
+    <h2>环境变量</h2>
+    <table>
+      <thead><tr><th>变量</th><th>默认（来源）</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td><code>ANTHROPIC_API_KEY</code></td><td>无</td><td>真实 Claude 的 API 密钥。也可以改用 <code>ant auth login</code> 等 Anthropic SDK 支持的其他凭据方式。仅 <code>--llm anthropic</code> 时使用。</td></tr>
+        <tr><td><code>ECHOLAB_DAILY_USD</code></td><td><code>1.00</code>（<code>config/budget.yaml</code>）</td><td>每天（UTC）的费用上限，美元。</td></tr>
+        <tr><td><code>ECHOLAB_MONTHLY_USD</code></td><td><code>10.00</code>（<code>config/budget.yaml</code>）</td><td>每月（UTC）的费用上限，美元。</td></tr>
+        <tr><td><code>ECHOLAB_LEDGER</code></td><td><code>.echolab/costs.jsonl</code>（<code>config/budget.yaml</code>）</td><td>费用台账文件。相对路径以仓库根目录为基准。只用于 <code>--llm anthropic</code>；台本模式每次用一次性的临时台账。</td></tr>
+        <tr><td><code>JAVA_HOME</code></td><td>无</td><td>PATH 上找不到 <code>java</code> 时，改用 <code>$JAVA_HOME/bin/java</code> 启动计算服务。</td></tr>
+        <tr><td><code>PATH</code></td><td>系统</td><td>优先从 PATH 查找 <code>java</code>。</td></tr>
+        <tr><td><code>ECHOLAB_DATA_ROOT</code></td><td><code>domains</code>（<code>config/services.yaml</code>）</td><td>Java 计算服务读取示例数据的根目录。<code>config/services.yaml</code> 里的 <code>domains</code> 只是默认值：shell 中设置了同名变量时，CLI 启动服务时优先使用 shell 的值（例如 <code>ECHOLAB_DATA_ROOT=/path/to/data python -m core.agent …</code>）。一般无需设置。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>相关文件</h2>
+    <table>
+      <thead><tr><th>路径</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td><code>config/budget.yaml</code></td><td>费用上限、台账位置、各模型的单价（每百万 token 的美元价格）</td></tr>
+        <tr><td><code>config/services.yaml</code></td><td>计算服务的启动命令：<code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code></td></tr>
+        <tr><td><code>domains/wuwa/domain.yaml</code></td><td>领域包允许使用的工具清单</td></tr>
+        <tr><td><code>core/agent/examples/compare_builds.yaml</code></td><td>自带的演示台本</td></tr>
+        <tr><td><code>.echolab/traces/&lt;実行 ID&gt;.jsonl</code></td><td>每次运行的执行轨迹（已在 <code>.gitignore</code> 中）</td></tr>
+        <tr><td><code>.echolab/costs.jsonl</code></td><td>费用台账（已在 <code>.gitignore</code> 中）</td></tr>
+      </tbody>
+    </table>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="05-how-it-works.html">背后发生了什么（动画）</a>：状态图中各步骤的详细动画。</li>
+        <li><a href="06-cost-and-safety.html">成本上限与数据可信度</a>：费用如何计算与限制。</li>
+        <li><a href="08-troubleshooting.html">故障排除与 FAQ</a>：非 0 退出时怎么办。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

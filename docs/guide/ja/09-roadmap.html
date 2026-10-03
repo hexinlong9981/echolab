@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今後の機能（ロードマップ） | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    #ms .node.plan { border-style: dashed; }
+    #ms .caption-box { min-height: 6.5em; }
+    .badge { display: inline-block; font-size: 12px; border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 2px; font-weight: 600; }
+    .badge.done { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
+    .badge.plan { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+    @media (max-width: 760px) { #ms .stage { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; } #ms .arrow { transform: rotate(90deg); } }
+  </style>
+</head>
+<body data-page="09-roadmap.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>応用</span><span>ロードマップ</span><span>予定</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>今後の機能（ロードマップ）</h1>
+    <p class="lead">EchoLab は段階（M1～M5）に分けて開発しています。このページでは、プロジェクトの設計文書（<code>docs/architecture.md</code>、README のロードマップ、設計判断の記録 ADR）をもとに今後の予定をまとめます。あわせて、どんな機能が加わっても「数値を信頼できる」という点は変わらないことを説明します。</p>
+
+    <div class="callout warn"><strong>ご注意：このページの M3～M5 はすべて予定で、まだ実装されていません</strong>現在使えるのはコマンドライン（CLI）だけです：<code>python -m core.agent "質問"</code> と評価のコマンド <code>python -m core.evals</code>。Web の画面（Web UI）、スクリーンショットの読み取り、住宅ローン試算は<strong>まだ存在しません</strong>。具体的な時期は文書でも公表しておらず、予定の内容は変わる可能性があります。</div>
+
+    <h2>段階の一覧</h2>
+    <table>
+      <tr><th>段階</th><th>内容</th><th>状態</th></tr>
+      <tr><td>M1</td><td>計算エンジン calc-engine（Java）、ゴールデンケース、CI</td><td><span class="badge done">完了</span></td></tr>
+      <tr><td>M2</td><td>CLI で端から端まで：質問 → ゲートウェイ（許可リスト・形式・コストの上限）→ calc-engine → 検証器・比較ツール → 出典付きの回答。数値の忠実度の評価、実行トレース</td><td><span class="badge done">完了（このガイドで紹介しているもの）</span></td></tr>
+      <tr><td>M3</td><td>2 つ目のドメインパック：住宅ローン試算（最小例）</td><td><span class="badge plan">予定</span></td></tr>
+      <tr><td>M4</td><td>スクリーンショットの読み取り、プロンプトインジェクションの評価セット（台本モードで CI に追加、実物の LLM では手元で実行）</td><td><span class="badge plan">予定</span></td></tr>
+      <tr><td>M5</td><td>Web UI、トレースの再生、評価ダッシュボード、デモの公開</td><td><span class="badge plan">予定</span></td></tr>
+    </table>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  M1["M1 計算エンジン<br/>Java・ゴールデンケース・CI"] --> M2["M2 CLI の縦の切片<br/>出典 ID・検証器・<br/>評価・トレース"]
+  M2 --> M3["M3 住宅ローンの<br/>ドメインパック<br/>コアの差分ゼロを実証"]
+  M3 --> M4["M4 スクリーンショット<br/>読み取り<br/>注入の評価"]
+  M4 --> M5["M5 Web UI<br/>トレース再生・<br/>評価ダッシュボード"]
+  NOW(["現在地"]) -.-> M2
+  classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class M1,M2 done
+  class M3,M4,M5 plan
+      </pre>
+      <div class="caption">図 1：開発の段階（緑の実線＝完了、黄色の点線＝予定。まず 1 本の流れを端から端まで通し、それから横に広げます）</div>
+    </div>
+
+    <h3>アニメーション：段階を 1 つずつ見る</h3>
+    <div class="flow-anim" id="ms" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="m1">M1<small>計算エンジン</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="m2">M2<small>CLI</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node plan" data-id="m3">M3<small>住宅ローン</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node plan" data-id="m4">M4<small>画像・注入</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["m1"], "packet": {"at": "m1", "text": "完了"},
+         "text": "<b>M1：計算エンジン。</b>Java 21 で書いた決定的な計算ライブラリです（期待ダメージ、声骸スコア、ガチャの確率）。どのツールも、手計算や式の導出から作ったゴールデンケースで照合しています。"},
+        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "完了 · 現在"},
+         "text": "<b>M2：CLI の縦の切片（いまお使いの版）。</b>計算エンジンを MCP サーバとしてつなぎ、ゲートウェイ、出典 ID、検証器、比較ツール、コストの上限、実行トレース、数値の忠実度の評価がすべて使えます。"},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "予定"},
+         "text": "<b>M3（予定）：住宅ローン試算。</b>2 つ目のドメインパックを加え、元利均等返済と元金均等返済の比較や、繰り上げ返済の効果を計算します。「コアのコードを 1 行も変えずに」追加することを目標とし、それを CI で検査します。<strong>あくまで計算の例であり、金融に関する助言ではありません。</strong>"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2"], "packet": {"at": "m4", "text": "予定"},
+         "text": "<b>M4（予定）：スクリーンショットの読み取りと注入の評価。</b>ゲームのスクリーンショットを構造化データに読み取ります（形式の検証付き）。また「プロンプトインジェクション」の評価セットを加え（ゲームの元画像ではなく合成したスクリーンショットを使用）、評価を CI に組み込みます。"},
+        {"on": ["m5", "a4"], "done": ["m1", "m2"], "packet": {"at": "m5", "text": "予定"},
+         "text": "<b>M5（予定）：Web UI。</b>Web で対話し、実行トレースを（フローチャートの形で）再生し、評価ダッシュボードを見られるようにして、デモを公開します。実現すれば、このガイドの 5・7 ページのアニメーションで見せている内容を、画面上で直接確認できるようになります。"}
+      ]</script>
+    </div>
+
+    <h2>M3（予定）：2 つ目のドメインパック――住宅ローン試算</h2>
+    <p>EchoLab のコア（ゲートウェイ、検証器、評価、トレース）は、ゲームの概念を一切含みません。ドメインの知識はすべて「ドメインパック」に置き、使えるツールを <code>domain.yaml</code> で宣言します。M3 では、ごく小さな住宅ローンのパックでこれを実証する予定です：</p>
+    <ul>
+      <li>予定している内容：元利均等返済と元金均等返済の比較、繰り上げ返済の効果。計算部分は Python で書き、同じくゴールデンケースとプロンプトを用意します。</li>
+      <li>目標：新しいコードは約 300 行、<strong>コアの差分はゼロ</strong>。「このパックを加えても <code>core/</code> が変わっていない」ことを CI で検査します。</li>
+      <li>README と回答の両方に、<strong>これは計算の例であり、金融に関する助言ではない</strong>ことを明記します。</li>
+    </ul>
+    <p>利用者にとっては：将来は <code>--domain</code> 引数で別のドメインに切り替えられるようになる見込みです（この引数はすでにあり、既定は <code>wuwa</code> です。現在のドメインパックは <code>wuwa</code> の 1 つだけです）。</p>
+
+    <h2>M4（予定）：スクリーンショットの読み取りと注入の評価</h2>
+    <table>
+      <tr><th>予定している部分</th><th>役割</th></tr>
+      <tr><td><code>servers/vision_mcp/</code></td><td>スクリーンショットを構造化された JSON に変換します（形式の検証付き、Python）。たとえば声骸のスクリーンショットからステータスを読み取り、手入力の手間を省きます</td></tr>
+      <tr><td><code>evals/redteam/</code></td><td>プロンプトインジェクションの評価セットです。画像や文章に「これまでの指示を無視せよ」のような内容が紛れ込んでいても、EchoLab がそれに従わないことを確かめます。ゲームの画像ではなく、合成したスクリーンショットを使います</td></tr>
+      <tr><td>CI での評価</td><td>注入の評価セットも CI に加えます（README によれば、台本モードは CI で実行し、本物の Claude による評価は引き続き手元で手動実行します）</td></tr>
+    </table>
+    <p>EchoLab はすでに、外部から来た文字列（ツールの結果、ユーザーの入力）を指示ではなく<strong>データ</strong>として扱っています。M4 では、これを専用の評価セットで測ります。</p>
+
+    <h2>M5（予定）：Web UI とトレースの再生</h2>
+    <p><code>web/</code> ディレクトリに React + TypeScript で Web の画面を作り、Vite で静的ファイルにビルドして Cloudflare Pages に置く予定です。予定している機能：</p>
+    <div class="cards">
+      <div class="card"><h4>対話</h4><p>コマンドを打たずに、Web 上で質問し、出典付きの回答を読めます。</p></div>
+      <div class="card"><h4>トレースの再生</h4><p><code>.jsonl</code> の実行トレースをフローチャート（React Flow）として描き、1 ステップずつ再生します。このガイドの 5 ページのアニメーションに近いものです。</p></div>
+      <div class="card"><h4>評価ダッシュボード</h4><p>数値の忠実度や差し戻し率などの評価指標とその推移をグラフで示します。</p></div>
+      <div class="card"><h4>デモの公開</h4><p>公開デモで費用が膨らまないようにする方法は未定です。現在の日次・月次のコストの上限をそのまま使うか、あらかじめ録っておいた回答を使うか、などを検討しています（構想・未決定）。</p></div>
+    </div>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  A["Web ページを開く"] --> B["質問を入力"]
+  B --> C["回答 + 出典表"]
+  C --> D{"数値の出どころを<br/>知りたい？"}
+  D -->|"「トレースを再生」を押す"| E["フローチャートで<br/>1 ステップずつ再生<br/>Claude → ゲートウェイ<br/>→ 計算 → 検証"]
+  D -->|"数値を押す"| F["対応する出典 ID と<br/>ツールの結果を強調"]
+  C --> G["評価ダッシュボード<br/>忠実度・差し戻し率の推移"]
+  classDef idea fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
+  class A,B,C,D,E,F,G idea
+      </pre>
+      <div class="caption">図 2：構想（未実装）――将来の Web UI の使い方のイメージ。文書に挙がっている機能は「対話・トレースの再生・評価ダッシュボード」の 3 つだけで、画面の細部（「数値を押すと出典を強調」など）は、このガイドが説明のために描いた想定であり、確定した設計ではありません</div>
+    </div>
+
+    <h2>変わらないこと</h2>
+    <p>新しいドメインでも、スクリーンショットの入力でも、Web の画面でも、通るのは同じコアの流れです。そのため、利用者にとって次の保証はこれからも変わりません：</p>
+    <div class="cards">
+      <div class="card"><h4>数値は計算ツールからだけ</h4><p>AI は <code>[[出典ID]]</code> を含むテンプレートを書くだけで、数値はプログラムが埋めます。</p></div>
+      <div class="card"><h4>検証器が関門になる</h4><p>出所の分からない数値は差し戻され、直らなければ数値を含まない説明を返します。</p></div>
+      <div class="card"><h4>出典をたどれる</h4><p>どの数値もツールと元の値までたどることができ、実行トレースに残ります。</p></div>
+      <div class="card"><h4>コストには上限がある</h4><p>日次・月次の上限に達したら、Claude をそれ以上呼びません。</p></div>
+      <div class="card"><h4>未確認のデータには注記が付く</h4><p>サンプルデータを使った数値には、自動で注意書きが付きます。</p></div>
+    </div>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="index.html">トップに戻る</a>：EchoLab がいま何をできるかを改めて確認する。</li>
+        <li><a href="05-how-it-works.html">裏側で起きていること（アニメーション）</a>：これらの保証が現在の CLI でどう実現されているか。</li>
+        <li><a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>：使っていて困ったときに。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

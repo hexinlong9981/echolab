@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>安装与第一次提问 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* 本页专用：窄屏时防止宽内容（表格・动画）撑开整页 */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="01-quickstart.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>开始</span><span>安装</span><span>无需 API 密钥</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>安装与第一次提问</h1>
+    <p class="lead">按顺序做：先不用任何密钥跑通演示，再接上真实的 Java 计算服务，最后（可选）接上真实的 Claude 自由提问。</p>
+
+    <h2>准备什么</h2>
+    <table>
+      <thead><tr><th>项目</th><th>要求</th><th>什么时候需要</th></tr></thead>
+      <tbody>
+        <tr><td>操作系统</td><td>Linux，或 Windows 上的 WSL2（本说明的输出都在 WSL2 中的 Linux 上实际运行得到）</td><td>始终</td></tr>
+        <tr><td>Python</td><td>3.12（项目按 <code>py312</code> 设定；验证用的是 Python 3.12.11）</td><td>始终</td></tr>
+        <tr><td>git</td><td>用于取得代码</td><td>始终</td></tr>
+        <tr><td>JDK</td><td>21（验证用的是 Temurin 21.0.12.1）</td><td>第 4 步：使用真实 Java 计算服务时</td></tr>
+        <tr><td>Anthropic 凭据</td><td><code>ANTHROPIC_API_KEY</code> 或 <code>ant auth login</code></td><td>第 5 步（可选）：让真实 Claude 回答你自己的问题时</td></tr>
+        <tr><td>网络</td><td>下载 Python 依赖、Gradle 依赖；使用真实 Claude 时访问 Anthropic API</td><td>安装时；第 5 步</td></tr>
+      </tbody>
+    </table>
+
+    <h2>该走哪条路</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  A["完成第 1–2 步&lt;br/&gt;取得代码、安装依赖"] --> B["第 3 步：无密钥演示&lt;br/&gt;--llm scripted --fake-backend"]
+  B --> C{"装了 JDK 21 吗？"}
+  C -- 没有 --> C1["继续用 --fake-backend&lt;br/&gt;（Python 参考实现代替 Java）"]
+  C -- 有 --> D["第 4 步：构建 jar&lt;br/&gt;去掉 --fake-backend"]
+  D --> E{"有 API 密钥吗？"}
+  C1 --> E
+  E -- 没有 --> F["只能运行台本（scripted）&lt;br/&gt;回答内容由台本决定"]
+  E -- 有 --> G["第 5 步：设置费用上限&lt;br/&gt;去掉 --llm scripted 自由提问"]
+      </pre>
+      <div class="caption">图 1：安装路线的选择。没有 API 密钥也能完整体验工具计算、校验和出典表</div>
+    </div>
+
+    <h3>整个安装流程（动画）</h3>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="get">取得代码<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="py">Python 环境<small>venv + pip</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="demo">无密钥演示<small>scripted + fake</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="java">Java 服务<small>JDK 21 + jar</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="claude">真实 Claude<small>可选</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["get"], "packet": {"at": "get", "text": "echolab/"}, "text": "取得代码并进入仓库根目录。之后所有命令都在<strong>仓库根目录</strong>执行（<code>python -m core.agent</code> 要从这里才能找到 <code>core</code> 包）。"},
+        {"on": ["a1", "py"], "done": ["get"], "packet": {"at": "py", "text": ".venv"}, "text": "用 Python 3.12 建虚拟环境，安装 <code>requirements.txt</code>（anthropic、mcp、pyyaml、jsonschema）。"},
+        {"on": ["a2", "demo"], "done": ["get", "py"], "packet": {"at": "demo", "text": "answered"}, "text": "用自带台本 <code>compare_builds.yaml</code> 和假计算服务跑第一次提问。不需要 Java，也不需要 API 密钥。"},
+        {"on": ["a3", "java"], "done": ["get", "py", "demo"], "packet": {"at": "java", "text": "calc-engine-mcp.jar"}, "text": "装 JDK 21，构建计算服务的 jar。去掉 <code>--fake-backend</code> 后，CLI 会自己把 jar 作为子进程启动。"},
+        {"on": ["a4", "claude"], "done": ["get", "py", "demo", "java"], "packet": {"at": "claude", "text": "ANTHROPIC_API_KEY"}, "text": "（可选）设置凭据和费用上限，去掉 <code>--llm scripted</code>，由真实 Claude 回答你的任意问题。"}
+      ]</script>
+    </div>
+
+    <h2>第 1 步：取得代码</h2>
+    <pre><code>git clone https://github.com/hexinlong9981/echolab.git
+cd echolab</code></pre>
+
+    <h2>第 2 步：Python 虚拟环境与依赖</h2>
+    <p>只为使用 CLI，安装 <code>requirements.txt</code> 就够了（<code>requirements-dev.txt</code> 额外包含 pytest、ruff 等开发工具）。</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "python3.12 -m venv .venv"},
+        {"cmd": ".venv/bin/pip install -q -r requirements.txt"},
+        {"out": "…（下载并安装依赖，-q 时几乎不输出）", "cls": "dim", "delay": 900},
+        {"cmd": ".venv/bin/pip list | grep -i -E 'anthropic|^mcp|pyyaml|jsonschema '"},
+        {"out": "anthropic                 1.11.0"},
+        {"out": "jsonschema                4.26.0"},
+        {"out": "mcp                       1.30.0"},
+        {"out": "PyYAML                    6.0.3"},
+        {"cmd": "source .venv/bin/activate"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR]"},
+        {"out": "                            question"},
+        {"out": " "},
+        {"out": "出典付きで質問に答える", "cls": "hl"},
+        {"out": "…", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>看到帮助信息就说明安装成功。以后每次新开终端，先在仓库根目录执行 <code>source .venv/bin/activate</code>，下文的 <code>python</code> 都指虚拟环境里的 Python。</p>
+
+    <h2>第 3 步：第一次提问（无需密钥、无需 Java）</h2>
+    <p>两个开关让演示完全在本机运行：</p>
+    <ul>
+      <li><code>--llm scripted --script 台本.yaml</code>：不调用真实 AI，按台本文件里写好的步骤「扮演」AI。</li>
+      <li><code>--fake-backend</code>：不启动 Java 计算服务，改用测试用的 Python 参考实现计算。</li>
+    </ul>
+    <div class="term" data-title="bash — 第一次提问">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 600},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <div class="callout warn"><strong>台本模式的回答是事先写好的</strong>台本模式只是演示：AI 调哪些工具、写什么草稿都由台本决定，与你输入的问题无关。比如把问题换成「こんにちは」，用同一个台本仍然会得到上面同样的回答。真正「理解问题」需要第 5 步的真实 Claude。</div>
+    <p>注意 <code>差し戻し: 1 回</code>：这个台本故意让第一版草稿写了一个自己算的数字（936），被校验器退回，第二版改用比较工具后才通过。</p>
+
+    <h2>第 4 步：接上真实的 Java 计算服务</h2>
+    <p>去掉 <code>--fake-backend</code> 后，CLI 会按 <code>config/services.yaml</code> 以子进程方式启动 <code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code>。因此需要 JDK 21 和构建好的 jar。</p>
+    <ol>
+      <li>安装 JDK 21（发行版的包或 Temurin 压缩包均可）。下例把 JDK 解压在 <code>$HOME/.local/jdk/21</code>。</li>
+      <li>设置 <code>JAVA_HOME</code>。<strong>即使 <code>java</code> 不在 PATH 上</strong>，只要 <code>JAVA_HOME</code> 指向 JDK，CLI 也会改用 <code>$JAVA_HOME/bin/java</code>。</li>
+      <li>在 <code>services/calc-engine</code> 下构建 jar（第一次会下载 Gradle 及依赖，需要联网）。</li>
+    </ol>
+    <div class="term" data-title="bash — 构建计算服务">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "$JAVA_HOME/bin/java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"},
+        {"cmd": "cd services/calc-engine && ./gradlew bootJar -q"},
+        {"out": "…（构建中；-q 时成功不输出）", "cls": "dim", "delay": 1200},
+        {"cmd": "ls build/libs/"},
+        {"out": "calc-engine-mcp.jar"},
+        {"cmd": "cd ../.."}
+      ]</script>
+    </div>
+    <p>然后用同样的问题和台本、但不加 <code>--fake-backend</code> 再问一次。由于要启动 Java 进程，验证环境中整次运行约需 9 秒。</p>
+    <div class="term" data-title="bash — 使用 Java 计算服务">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、…（同上）…敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 14},
+        {"pause": 2000},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031434Z-0b1739", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031434Z-0b1739.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>回答和出典表都与第 3 步完全相同：假服务也和 Java 服务一样，把期待伤害等数值按小数 6 位（银行家舍入 HALF_EVEN）返回，例如 <code>6192.000000</code>。命令中的「…（同上）…」表示省略，实际要输入完整的问题。</p>
+    <div class="callout bad"><strong>如果报 <code>エラー: サービス calc-engine の実行ファイル java が見つかりません。</code></strong>说明既找不到 PATH 上的 <code>java</code>，也没有设置 <code>JAVA_HOME</code>；如果报 <code>jar がありません</code>，说明还没构建 jar。两种情况 CLI 都会在启动 Java 之前停下，只打印一段说明和修复方法，退出码为 2。见 <a href="08-troubleshooting.html">故障排除与 FAQ</a>。</div>
+
+    <h2>第 5 步（可选）：使用真实的 Claude</h2>
+    <p>不加 <code>--llm</code> 时默认就是 <code>anthropic</code>，即调用真实的 Claude（模型 <code>claude-opus-5-5</code>）。这时你可以自由提问，Claude 会自己决定调用哪些工具。</p>
+    <h3>5-1 准备凭据</h3>
+    <p>凭据按 Anthropic 官方 Python SDK 的默认顺序查找。最简单的两种：</p>
+    <pre><code># 方式 A：环境变量
+export ANTHROPIC_API_KEY=sk-ant-...（你的密钥）
+
+# 方式 B：用 Anthropic 的 CLI 登录（SDK 会读取它保存的配置）
+ant auth login</code></pre>
+    <p>没有凭据时运行会怎样？下面是实际输出：CLI 不会崩溃，而是以状态 <code>llm_error</code> 结束，退出码为 1，回答里直接写明原因（没有认证信息）和解决办法。</p>
+    <div class="term" data-title="bash — 没有凭据">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
+        {"pause": 500},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T030610Z-028cc3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T030610Z-028cc3.jsonl", "cls": "dim"},
+        {"cmd": "grep llm_error .echolab/traces/20261003T030610Z-028cc3.jsonl | head -1"},
+        {"out": "{\"ts\": \"2026-10-03T03:06:10.811+00:00\", \"run_id\": \"20261003T030610Z-028cc3\", \"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"}
+      ]</script>
+    </div>
+    <div class="callout"><strong>回答按原因区分</strong><code>llm_error</code> 的回答会按 SDK 的异常类型给出不同的提示：没有凭据或认证失败（HTTP 401/403）时提示设置 <code>ANTHROPIC_API_KEY</code> 或 <code>ant auth login</code>；限流、过载、网络问题时才提示「時間をおいてお試しください」（请稍后再试）；其他 API 错误则提示查看轨迹。轨迹的 <code>llm_error</code> 行里有分类 <code>kind</code> 和 SDK 的原始错误信息。</div>
+
+    <h3>5-2 先设好费用上限</h3>
+    <p>每次调用 Claude 之前，CLI 都会检查费用台账（默认 <code>.echolab/costs.jsonl</code>）。默认上限在 <code>config/budget.yaml</code>：<strong>每天 1.00 美元、每月 10.00 美元</strong>，按 UTC 划分日期（北京时间每天 8:00 换日）。第一次试用时可以临时调得更低：</p>
+    <pre><code>export ECHOLAB_DAILY_USD=0.20     # 今天最多 0.20 美元
+export ECHOLAB_MONTHLY_USD=2.00   # 本月最多 2.00 美元</code></pre>
+    <p>达到上限时不会再调用 Claude，而是以状态 <code>budget_exceeded</code> 结束。费用的计算方式和台账格式见 <a href="06-cost-and-safety.html">成本上限与数据可信度</a>。</p>
+
+    <h3>5-3 提问</h3>
+    <pre><code>python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージを、明細つきで教えて。"</code></pre>
+    <p>（本说明的验证环境没有 API 密钥，因此这里不展示真实 Claude 的回答；回答的格式与上面台本模式相同。）计算需要的参数最好都写进问题里——工具只能用你给出的数值或项目自带的示例数据来计算。</p>
+    <div class="callout"><strong>隐私</strong>只有在 <code>anthropic</code> 模式下，你的问题、系统提示和工具的计算结果才会发送给 Anthropic。台本模式完全在本机运行。每次运行的轨迹都保存在本机的 <code>.echolab/traces/</code>。</div>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="02-what-to-ask.html">能问什么：功能一览</a>：有哪些计算工具、问题该怎么写。</li>
+        <li><a href="03-reading-answers.html">回答怎么读</a>：出典表和状态行的每一项。</li>
+        <li><a href="04-cli-reference.html">命令参考</a>：所有选项和环境变量。</li>
+        <li>遇到报错：<a href="08-troubleshooting.html">故障排除与 FAQ</a>。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

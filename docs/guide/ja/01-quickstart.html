@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>インストールと最初の質問 | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* このページ専用：狭い画面で幅の広い要素（表・アニメーション）がページ全体を押し広げないようにする */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="01-quickstart.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>はじめに</span><span>インストール</span><span>API キー不要</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>インストールと最初の質問</h1>
+    <p class="lead">順番に進めます。まず API キーなしでデモを動かし、次に実際の Java 計算サービスにつなぎ、最後に（任意で）実際の Claude につないで自由に質問します。</p>
+
+    <h2>用意するもの</h2>
+    <table>
+      <thead><tr><th>項目</th><th>要件</th><th>必要になるとき</th></tr></thead>
+      <tbody>
+        <tr><td>OS</td><td>Linux、または Windows の WSL2（このガイドの出力はすべて WSL2 上の Linux で実際に実行して得たものです）</td><td>常に</td></tr>
+        <tr><td>Python</td><td>3.12（プロジェクトは <code>py312</code> 前提。検証には Python 3.12.11 を使用）</td><td>常に</td></tr>
+        <tr><td>git</td><td>コードの取得に使います</td><td>常に</td></tr>
+        <tr><td>JDK</td><td>21（検証には Temurin 21.0.12.1 を使用）</td><td>ステップ 4：実際の Java 計算サービスを使うとき</td></tr>
+        <tr><td>Anthropic の認証情報</td><td><code>ANTHROPIC_API_KEY</code> または <code>ant auth login</code></td><td>ステップ 5（任意）：実際の Claude に自分の質問へ答えさせるとき</td></tr>
+        <tr><td>ネットワーク</td><td>Python と Gradle の依存パッケージのダウンロード、実際の Claude を使うときの Anthropic API へのアクセス</td><td>インストール時、ステップ 5</td></tr>
+      </tbody>
+    </table>
+
+    <h2>どの手順で進めるか</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  A["ステップ 1–2 を完了&lt;br/&gt;コード取得・依存パッケージ"] --> B["ステップ 3：API キーなしのデモ&lt;br/&gt;--llm scripted --fake-backend"]
+  B --> C{"JDK 21 は&lt;br/&gt;入っている？"}
+  C -- いいえ --> C1["--fake-backend のまま使う&lt;br/&gt;（Java の代わりに Python の参照実装）"]
+  C -- はい --> D["ステップ 4：jar をビルド&lt;br/&gt;--fake-backend を外す"]
+  D --> E{"API キーは&lt;br/&gt;ある？"}
+  C1 --> E
+  E -- いいえ --> F["台本（scripted）のみ実行可&lt;br/&gt;回答の内容は台本で決まる"]
+  E -- はい --> G["ステップ 5：コストの上限を設定&lt;br/&gt;--llm scripted を外して自由に質問"]
+      </pre>
+      <div class="caption">図 1：インストール手順の選び方。API キーがなくても、ツールによる計算・検証・出典の表はひととおり体験できます</div>
+    </div>
+
+    <h3>インストール全体の流れ（アニメーション）</h3>
+    <div class="flow-anim" data-cols="9">
+      <div class="stage">
+        <div class="node" data-id="get">コードの取得<small>git clone</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="py">Python 環境<small>venv + pip</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="demo">キーなしデモ<small>scripted + fake</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="java">Java サービス<small>JDK 21 + jar</small></div>
+        <div class="arrow" data-id="a4">→</div>
+        <div class="node" data-id="claude">実際の Claude<small>任意</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["get"], "packet": {"at": "get", "text": "echolab/"}, "text": "コードを取得し、リポジトリのルートに移動します。以降のコマンドはすべて<strong>リポジトリのルート</strong>で実行します（<code>python -m core.agent</code> はここからでないと <code>core</code> パッケージを見つけられません）。"},
+        {"on": ["a1", "py"], "done": ["get"], "packet": {"at": "py", "text": ".venv"}, "text": "Python 3.12 で仮想環境を作り、<code>requirements.txt</code>（anthropic、mcp、pyyaml、jsonschema）をインストールします。"},
+        {"on": ["a2", "demo"], "done": ["get", "py"], "packet": {"at": "demo", "text": "answered"}, "text": "付属の台本 <code>compare_builds.yaml</code> と試験用の計算サービスで、最初の質問を実行します。Java も API キーも要りません。"},
+        {"on": ["a3", "java"], "done": ["get", "py", "demo"], "packet": {"at": "java", "text": "calc-engine-mcp.jar"}, "text": "JDK 21 をインストールし、計算サービスの jar をビルドします。<code>--fake-backend</code> を外すと、CLI が jar を子プロセスとして自動で起動します。"},
+        {"on": ["a4", "claude"], "done": ["get", "py", "demo", "java"], "packet": {"at": "claude", "text": "ANTHROPIC_API_KEY"}, "text": "（任意）認証情報とコストの上限を設定し、<code>--llm scripted</code> を外すと、実際の Claude がどんな質問にも答えます。"}
+      ]</script>
+    </div>
+
+    <h2>ステップ 1：コードを取得する</h2>
+    <pre><code>git clone https://github.com/hexinlong9981/echolab.git
+cd echolab</code></pre>
+
+    <h2>ステップ 2：Python の仮想環境と依存パッケージ</h2>
+    <p>CLI を使うだけなら、<code>requirements.txt</code> のインストールで足ります（<code>requirements-dev.txt</code> には pytest や ruff などの開発用ツールが追加で入っています）。</p>
+    <div class="term" data-title="bash — ~/echolab">
+      <script type="application/json">[
+        {"cmd": "python3.12 -m venv .venv"},
+        {"cmd": ".venv/bin/pip install -q -r requirements.txt"},
+        {"out": "…（依存パッケージをダウンロードしてインストール。-q のためほとんど出力されません）", "cls": "dim", "delay": 900},
+        {"cmd": ".venv/bin/pip list | grep -i -E 'anthropic|^mcp|pyyaml|jsonschema '"},
+        {"out": "anthropic                 1.11.0"},
+        {"out": "jsonschema                4.26.0"},
+        {"out": "mcp                       1.30.0"},
+        {"out": "PyYAML                    6.0.3"},
+        {"cmd": "source .venv/bin/activate"},
+        {"cmd": "python -m core.agent --help"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
+        {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR]"},
+        {"out": "                            question"},
+        {"out": " "},
+        {"out": "出典付きで質問に答える", "cls": "hl"},
+        {"out": "…", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>ヘルプが表示されればインストールは成功です。新しいターミナルを開いたら、まずリポジトリのルートで <code>source .venv/bin/activate</code> を実行してください。以下の <code>python</code> はすべて仮想環境の Python を指します。</p>
+
+    <h2>ステップ 3：最初の質問（API キーも Java も不要）</h2>
+    <p>次の 2 つのオプションで、デモを手元だけで完結させます。</p>
+    <ul>
+      <li><code>--llm scripted --script 台本.yaml</code>：実際の AI を呼ばず、台本ファイルに書かれた手順どおりに AI の役を「演じ」ます。</li>
+      <li><code>--fake-backend</code>：Java 計算サービスを起動せず、試験用の Python の参照実装で計算します。</li>
+    </ul>
+    <div class="term" data-title="bash — 最初の質問">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 6},
+        {"pause": 600},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <div class="callout warn"><strong>台本モードの回答はあらかじめ決まっています</strong>台本モードはデモ用です。AI がどのツールを呼び、どんな下書きを書くかは台本で決まっていて、入力した質問とは関係ありません。たとえば質問を「こんにちは」に変えても、同じ台本なら上と同じ回答が返ります。質問を本当に「理解」させるには、ステップ 5 の実際の Claude が必要です。</div>
+    <p><code>差し戻し: 1 回</code> に注目してください。この台本では、1 回目の下書きにわざと自分で計算した数字（936）を書かせています。それが検証器に差し戻され、2 回目に比較ツールを使って書き直したことで合格しています。</p>
+
+    <h2>ステップ 4：実際の Java 計算サービスにつなぐ</h2>
+    <p><code>--fake-backend</code> を外すと、CLI は <code>config/services.yaml</code> に従い、<code>java -jar services/calc-engine/build/libs/calc-engine-mcp.jar</code> を子プロセスとして起動します。そのため JDK 21 とビルド済みの jar が必要です。</p>
+    <ol>
+      <li>JDK 21 をインストールします（ディストリビューションのパッケージでも Temurin のアーカイブでもかまいません）。以下の例では <code>$HOME/.local/jdk/21</code> に展開しています。</li>
+      <li><code>JAVA_HOME</code> を設定します。<strong><code>java</code> が PATH になくても</strong>、<code>JAVA_HOME</code> が JDK を指していれば、CLI は <code>$JAVA_HOME/bin/java</code> を使います。</li>
+      <li><code>services/calc-engine</code> で jar をビルドします（初回は Gradle と依存ライブラリをダウンロードするため、ネットワーク接続が必要です）。</li>
+    </ol>
+    <div class="term" data-title="bash — 計算サービスのビルド">
+      <script type="application/json">[
+        {"cmd": "export JAVA_HOME=$HOME/.local/jdk/21"},
+        {"cmd": "$JAVA_HOME/bin/java -version"},
+        {"out": "openjdk version \"21.0.12.1\" 2026-08-18 LTS"},
+        {"out": "OpenJDK Runtime Environment Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS)"},
+        {"out": "OpenJDK 64-Bit Server VM Temurin-21.0.12.1+1 (build 21.0.12.1+1-LTS, mixed mode, sharing)"},
+        {"cmd": "cd services/calc-engine && ./gradlew bootJar -q"},
+        {"out": "…（ビルド中。-q のため成功時は何も出力されません）", "cls": "dim", "delay": 1200},
+        {"cmd": "ls build/libs/"},
+        {"out": "calc-engine-mcp.jar"},
+        {"cmd": "cd ../.."}
+      ]</script>
+    </div>
+    <p>続いて、同じ質問と台本で、<code>--fake-backend</code> を付けずにもう一度質問します。Java のプロセスを起動するため、検証環境では 1 回の実行に約 9 秒かかりました。</p>
+    <div class="term" data-title="bash — Java 計算サービスを使う">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"ビルド A（攻撃力 2000、…（同上）…敵の耐性 0.1。\" --llm scripted --script core/agent/examples/compare_builds.yaml", "speed": 14},
+        {"pause": 2000},
+        {"out": "ビルド B の方が強いです。", "cls": "hl"},
+        {"out": "- ビルド A の期待ダメージ: 6,192", "cls": "hl"},
+        {"out": "- ビルド B の期待ダメージ: 7,128", "cls": "hl"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031434Z-0b1739", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031434Z-0b1739.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>回答も出典の表もステップ 3 とまったく同じです。試験用の計算サービスも Java のサービスと同じく、期待ダメージなどの数値を小数点以下 6 桁（銀行丸め HALF_EVEN）で返します（例：<code>6192.000000</code>）。コマンド中の「…（同上）…」は省略を表しています。実際には質問を省略せずに入力してください。</p>
+    <div class="callout bad"><strong><code>エラー: サービス calc-engine の実行ファイル java が見つかりません。</code> と表示されたら</strong>PATH 上に <code>java</code> がなく、<code>JAVA_HOME</code> も設定されていません。<code>jar がありません</code> と表示された場合は、jar がまだビルドされていません。どちらの場合も CLI は Java を起動する前に止まり、原因と直し方を表示して終了コード 2 で終わります。<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>もご覧ください。</div>
+
+    <h2>ステップ 5（任意）：実際の Claude を使う</h2>
+    <p><code>--llm</code> を指定しないときの既定値は <code>anthropic</code> で、実際の Claude（モデル <code>claude-opus-5-5</code>）を呼びます。この場合は自由に質問でき、どのツールを呼ぶかは Claude が自分で判断します。</p>
+    <h3>5-1 認証情報を用意する</h3>
+    <p>認証情報は、Anthropic 公式 Python SDK の既定の順序で探されます。いちばん簡単なのは次の 2 つです。</p>
+    <pre><code># 方法 A：環境変数
+export ANTHROPIC_API_KEY=sk-ant-...（ご自分のキー）
+
+# 方法 B：Anthropic の CLI でログイン（SDK がその保存した設定を読み込みます）
+ant auth login</code></pre>
+    <p>認証情報がないまま実行するとどうなるでしょうか。実際の出力を下に示します。CLI は異常終了せず、状態 <code>llm_error</code>・終了コード 1 で終わり、回答に原因（認証情報がないこと）と対処法がそのまま書かれます。</p>
+    <div class="term" data-title="bash — 認証情報なし">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
+        {"pause": 500},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T030610Z-028cc3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T030610Z-028cc3.jsonl", "cls": "dim"},
+        {"cmd": "grep llm_error .echolab/traces/20261003T030610Z-028cc3.jsonl | head -1"},
+        {"out": "{\"ts\": \"2026-10-03T03:06:10.811+00:00\", \"run_id\": \"20261003T030610Z-028cc3\", \"event\": \"llm_error\", \"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"}", "cls": "hl"}
+      ]</script>
+    </div>
+    <div class="callout"><strong>回答は原因ごとに変わります</strong><code>llm_error</code> の回答は、SDK の例外の種類に応じて案内が変わります。認証情報がない、または認証に失敗した（HTTP 401/403）ときは <code>ANTHROPIC_API_KEY</code> の設定か <code>ant auth login</code> を案内します。レート制限・過負荷・ネットワークの問題のときに限り「時間をおいてお試しください」と案内します。それ以外の API エラーでは、トレースを確認するよう案内します。トレースの <code>llm_error</code> の行には、分類 <code>kind</code> と SDK の元のエラーメッセージが記録されます。</div>
+
+    <h3>5-2 先にコストの上限を設定する</h3>
+    <p>CLI は Claude を呼ぶ前に毎回、費用の台帳（既定は <code>.echolab/costs.jsonl</code>）を確認します。既定の上限は <code>config/budget.yaml</code> にあり、<strong>1 日 1.00 ドル・1 か月 10.00 ドル</strong>です。日付は UTC で区切ります（日本時間では毎日 9:00 に日付が変わります）。初めて試すときは、一時的にもっと低くしておくこともできます。</p>
+    <pre><code>export ECHOLAB_DAILY_USD=0.20     # 今日は最大 0.20 ドル
+export ECHOLAB_MONTHLY_USD=2.00   # 今月は最大 2.00 ドル</code></pre>
+    <p>上限に達すると Claude は呼ばれず、状態 <code>budget_exceeded</code> で終了します。費用の計算方法と台帳の形式は<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>をご覧ください。</p>
+
+    <h3>5-3 質問する</h3>
+    <pre><code>python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージを、明細つきで教えて。"</code></pre>
+    <p>（このガイドの検証環境には API キーがないため、実際の Claude の回答は載せていません。回答の形式は上の台本モードと同じです。）計算に必要なパラメータは、できるだけすべて質問に書いてください。ツールが計算に使えるのは、質問で与えた数値か、プロジェクト付属のサンプルデータだけです。</p>
+    <div class="callout"><strong>プライバシー</strong>質問、システムプロンプト、ツールの計算結果が Anthropic に送信されるのは、<code>anthropic</code> モードのときだけです。台本モードは完全に手元で動きます。各実行のトレースは手元の <code>.echolab/traces/</code> に保存されます。</div>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="02-what-to-ask.html">何を聞けるか：機能一覧</a>：どんな計算ツールがあり、質問をどう書けばよいか。</li>
+        <li><a href="03-reading-answers.html">回答の読み方</a>：出典の表と状態の行の各項目。</li>
+        <li><a href="04-cli-reference.html">コマンドリファレンス</a>：すべてのオプションと環境変数。</li>
+        <li>エラーが出たら：<a href="08-troubleshooting.html">トラブルシューティングと FAQ</a>。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

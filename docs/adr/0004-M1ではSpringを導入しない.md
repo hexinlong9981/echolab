@@ -1,3 +1,5 @@
+**日本語** ｜ [English](en/0004-no-spring-in-m1.md) ｜ [中文](zh-CN/0004-M1不引入Spring.md)
+
 # ADR-0004: M1 では Spring を導入せず、純粋な Java ライブラリとして作る
 
 - 状態: 採用

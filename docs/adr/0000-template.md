@@ -1,3 +1,5 @@
+**日本語** ｜ [English](en/0000-template.md) ｜ [中文](zh-CN/0000-模板.md)
+
 # ADR-XXXX: タイトル
 
 - 状態: 提案 / 採用 / 却下 / 置き換え（ADR-YYYY）

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>能问什么：功能一览 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    .qa > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--surface); font-size: 14.5px; }
+    .qa .good { border-left: 4px solid var(--ok); }
+    .qa .bad { border-left: 4px solid var(--bad); }
+    .qa h4 { margin: 0 0 4px; font-size: 14px; }
+    .qa .good h4 { color: var(--ok); }
+    .qa .bad h4 { color: var(--bad); }
+    .qa p { margin: 4px 0; }
+    @media (max-width: 700px) { .qa { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-page="02-what-to-ask.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>使用</span><span>功能</span><span>提问方法</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>能问什么：功能一览</h1>
+    <p class="lead">EchoLab 不会“凭感觉”给数字：每个数字都来自一个计算工具。所以“能问什么”就等于“有哪些计算工具、它们需要哪些输入”。这一页把 6 个工具翻译成玩家的语言，并告诉你提问时要带上哪些信息。</p>
+
+    <div class="callout warn"><strong>先说清楚现状</strong>
+      目前 EchoLab 只有命令行（CLI）：<code>python -m core.agent "你的问题"</code>。Web 界面是路线图 M5 的计划，<b>现在还不存在</b>。<br>
+      真正理解自然语言问题的是 Claude，需要用默认的 <code>--llm anthropic</code> 模式并配置 <code>ANTHROPIC_API_KEY</code>。本页的终端示例都是用 <code>--llm scripted</code>（台本模式）跑出来的：<b>“选哪个工具、填什么参数、怎么措辞”是事先写好的台本，模拟 Claude 的行为</b>；但工具的计算结果、验证器的判定和终端输出都是真实运行得到的。示例里的 <code>gacha_banner.yaml</code>、<code>out_of_scope.yaml</code>、<code>tool_error.yaml</code> 等台本是为本说明另外编写的，不在仓库里；仓库自带的台本示例是 <code>core/agent/examples/compare_builds.yaml</code>。
+    </div>
+
+    <h2>功能全景</h2>
+    <p>EchoLab 当前只有一个领域包 <code>wuwa</code>（《鸣潮》养成顾问，非官方同人作品）。Claude 能调用的工具共 6 个：领域包在 <code>domains/wuwa/domain.yaml</code> 里声明的 4 个计算工具，加上核心自带的 2 个比较工具。</p>
+    <div class="diagram">
+      <pre class="mermaid">
+mindmap
+  root((EchoLab 能算的))
+    伤害期望
+      damage_expected
+      总期望伤害
+      各乘区明细
+    声骸评分
+      echo_score
+      加权得分
+      理想值百分比
+    抽卡概率 精确
+      gacha_probability_within
+      N 抽以内出 UP 的概率
+    抽卡模拟 蒙特卡洛
+      gacha_simulate
+      概率估计和标准误差
+    比较
+      compare_diff 差值
+      compare_ratio 比率和增幅
+      </pre>
+      <div class="caption">图 1：6 个工具。前 4 个由 Java 计算服务 calc-engine 计算，比较工具由 Python 核心计算</div>
+    </div>
+
+    <div class="cards">
+      <div class="card"><h4>伤害期望</h4><p><code>damage_expected</code>：给出攻击力、倍率、加成、暴击、敌人防御与抗性，算出期望伤害和每个乘区。</p></div>
+      <div class="card"><h4>声骸评分</h4><p><code>echo_score</code>：按权重给声骸的副词条打分，并换算成“理想值的百分之几”。</p></div>
+      <div class="card"><h4>抽卡概率（精确）</h4><p><code>gacha_probability_within</code>：从当前保底状态出发，N 抽以内拿到 UP 的精确概率（马尔可夫链）。</p></div>
+      <div class="card"><h4>抽卡模拟（蒙特卡洛）</h4><p><code>gacha_simulate</code>：同一个概率的随机模拟估计，附带标准误差。</p></div>
+      <div class="card"><h4>差值</h4><p><code>compare_diff</code>：两个计算结果之差 a − b。</p></div>
+      <div class="card"><h4>比率</h4><p><code>compare_ratio</code>：两个结果之比 a / b，以及增幅 a / b − 1（“高百分之几”）。</p></div>
+    </div>
+
+    <h2>一个问题是怎样变成工具调用的</h2>
+    <p>你只需要用自然语言提问。Claude 读题、挑工具、把题目里的数值填进工具参数；网关检查参数是否合法，再交给计算服务。需要比较时，Claude 不自己做减法，而是再调用比较工具。下面用“两套配装哪个强、强多少”的真实运行过程演示（台本模式，结果为真实计算）。</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="q">你的问题<small>自然语言</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="llm">Claude<small>选工具・填参数</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="gw">网关 + 计算服务<small>校验・计算・编号</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="ans">回答<small>验证后显示</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["q"], "packet": {"at": "q", "text": "配装 A 和 B 哪个强、强多少？"}, "text": "你在问题里写出两套配装的全部数值：攻击 2000 / 1800、技能倍率 2.5 / 3.0、伤害加成、暴击率、暴击伤害、敌人防御、减抗，以及共同的防御常数 1600、无视防御 0、敌人抗性 0.1。"},
+        {"on": ["llm", "a1"], "done": ["q"], "packet": {"at": "llm", "text": "damage_expected × 2"}, "text": "Claude 判断这是“伤害期望”问题，并且两套配装互不依赖，于是在一次回复里<b>并行</b>调用两次 <code>damage_expected</code>，把题目里的数值原样填进 10 个参数。"},
+        {"on": ["gw", "a2"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c1.total / c2.total"}, "text": "网关按输入 schema 检查参数（范围、必填、未知字段），然后交给 Java 计算服务。每次调用按顺序编号 <code>c1</code>、<code>c2</code>，每个结果字段得到一个出典 ID，例如 <code>c1.total = 6192.000000</code>、<code>c2.total = 7128.000000</code>。"},
+        {"on": ["llm", "a2"], "done": ["q", "gw"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "要回答“强多少”，Claude 不能自己做减法。它调用比较工具，传入的是<b>出典 ID</b> 而不是数字：<code>{\"a\": \"c2.total\", \"b\": \"c1.total\"}</code>。"},
+        {"on": ["gw"], "done": ["q", "llm"], "packet": {"at": "gw", "text": "c3.diff / c4.change"}, "text": "比较工具在 Python 核心里计算：<code>c3.diff = 936.000000</code>，<code>c4.ratio = 1.151163</code>，<code>c4.change = 0.151163</code>。"},
+        {"on": ["ans", "a3"], "done": ["q", "llm", "gw"], "packet": {"at": "ans", "text": "6,192 / 7,128 / 936 / 15.1%"}, "text": "Claude 用占位符写回答模板（如 <code>[[c4.change|%1]]</code>），验证器确认每个数字都有出典后，渲染器填入数值：“差值：936（比 A 高 15.1%）”。详见 <a href=\"03-reading-answers.html\">回答怎么读</a>。"},
+        {"on": ["llm"], "fail": ["q"], "packet": {"at": "llm", "text": "缺少数值 → 反问你"}, "text": "如果问题里缺少必要数值（比如没说敌人防御），规则要求 Claude <b>不要猜测、不要用自己记忆里的游戏数值</b>，而是使用示例数据的 ID（卡池、权重配置）或者反问你。"}
+      ]</script>
+    </div>
+
+    <h2>各功能需要你提供的信息</h2>
+    <p>下面的字段名、范围都取自计算服务的输入 schema（<code>services/calc-engine/src/main/resources/tools/*.schema.json</code>）。你不需要写字段名，用自然语言说清楚即可；但<b>表里标“必填”的信息必须在问题里出现</b>（或者能从示例数据取得），否则 Claude 应当反问你。所有“比例”类数值在工具内部都用小数表示（0.3 = 30%），你写 30% 或 0.3 都可以，由 Claude 换算。</p>
+
+    <h3>1. 伤害期望 <code>damage_expected</code></h3>
+    <p>10 个参数<b>全部必填</b>。工具里不含任何游戏常数，所以防御常数、敌人防御、抗性这些也要由你给出。</p>
+    <table>
+      <tr><th>你要说的</th><th>字段</th><th>允许范围</th><th>说明</th></tr>
+      <tr><td>最终攻击力</td><td><code>atk</code></td><td>≥ 0</td><td>面板上的最终攻击力</td></tr>
+      <tr><td>技能倍率</td><td><code>skill_multiplier</code></td><td>≥ 0</td><td>小数，2.5 = 250%</td></tr>
+      <tr><td>伤害加成合计</td><td><code>dmg_bonus</code></td><td>≥ 0</td><td>小数，0.3 = 30%</td></tr>
+      <tr><td>暴击率</td><td><code>crit_rate</code></td><td>≥ 0</td><td>超过 1（100%）的部分按 1 计算</td></tr>
+      <tr><td>暴击伤害倍率</td><td><code>crit_dmg</code></td><td>≥ 1</td><td>2.2 = 220%（是“倍率”，不是“额外 120%”）</td></tr>
+      <tr><td>防御常数 C</td><td><code>defense_constant</code></td><td>&gt; 0</td><td>由攻击方等级等决定。防御乘区 = C / (C + 防御 × (1 − 无视防御))</td></tr>
+      <tr><td>敌人防御力</td><td><code>enemy_def</code></td><td>≥ 0</td><td></td></tr>
+      <tr><td>无视防御</td><td><code>def_ignore</code></td><td>0〜1</td><td>小数</td></tr>
+      <tr><td>敌人属性抗性</td><td><code>enemy_res</code></td><td>可为负</td><td>0.1 = 10%</td></tr>
+      <tr><td>减抗</td><td><code>res_shred</code></td><td>任意</td><td>有效抗性 = 抗性 − 减抗，必须小于 1；有效抗性为负时乘区 = 1 − 有效抗性 / 2</td></tr>
+    </table>
+    <p><b>返回值</b>：<code>base</code>（基础伤害 = 攻击 × 倍率）、<code>bonus_multiplier</code>（加成乘区）、<code>crit_multiplier</code>（暴击期望乘区）、<code>defense_multiplier</code>、<code>resistance_multiplier</code>、<code>total</code>（期望伤害）。想看明细就在问题里说“带明细”。</p>
+    <div class="qa">
+      <div class="good"><h4>○ 信息充分</h4><p>“攻击力 2000、技能倍率 2.5、伤害加成 0.3、暴击率 0.6、暴击伤害 2.2、防御常数 1600、敌人防御 1000、无视防御 0、敌人抗性 0.1、减抗 0 时的期望伤害是多少？带明细。”</p><p>（这组输入的真实结果：期望伤害 6192，基础伤害 5000，各乘区 1.3 / 1.72 / 0.615385 / 0.9。）</p></div>
+      <div class="bad"><h4>× 信息不足</h4><p>“我攻击 2000，这招能打多少？”——缺倍率、加成、暴击和敌人数据。Claude 不能用自己“记得”的倍率补上，只能反问你。</p></div>
+    </div>
+
+    <h3>2. 声骸评分 <code>echo_score</code></h3>
+    <table>
+      <tr><th>你要说的</th><th>字段</th><th>允许范围</th><th>说明</th></tr>
+      <tr><td>声骸名称</td><td><code>echo.name</code></td><td>任意字符串</td><td>必填，只用于显示</td></tr>
+      <tr><td>COST</td><td><code>echo.cost</code></td><td>整数 1〜4</td><td>必填</td></tr>
+      <tr><td>主词条</td><td><code>echo.main</code></td><td>属性 + 数值（≥ 0）</td><td>必填，但<b>不计入得分</b>（主词条由 COST 决定，不属于“刷副词条”的评价）</td></tr>
+      <tr><td>副词条</td><td><code>echo.subs</code></td><td>最多 5 条</td><td>每条：属性 + 数值（≥ 0，比例类用小数，0.08 = 8%）</td></tr>
+      <tr><td>权重</td><td><code>weights</code> <b>或</b> <code>profile</code></td><td>权重 ≥ 0</td><td>二选一，不能同时给。不给权重时，可以说“用会心型输出的示例配置”（<code>profile: sample-crit-attacker</code>）</td></tr>
+      <tr><td>单条副词条最大值</td><td><code>max_roll</code></td><td>≥ 0；有权重的属性必须为正</td><td>可省略，省略时用示例数据 <code>echo_weights.yaml</code> 的 <code>max_roll</code>（未确认）</td></tr>
+    </table>
+    <p>属性名（工具内部的枚举值）对应如下：</p>
+    <table>
+      <tr><th>枚举值</th><th>含义</th><th>枚举值</th><th>含义</th></tr>
+      <tr><td><code>CRIT_RATE</code></td><td>暴击率</td><td><code>CRIT_DMG</code></td><td>暴击伤害</td></tr>
+      <tr><td><code>ATK_PERCENT</code> / <code>ATK_FLAT</code></td><td>攻击百分比 / 固定攻击</td><td><code>HP_PERCENT</code> / <code>HP_FLAT</code></td><td>生命百分比 / 固定生命</td></tr>
+      <tr><td><code>DEF_PERCENT</code> / <code>DEF_FLAT</code></td><td>防御百分比 / 固定防御</td><td><code>ENERGY_REGEN</code></td><td>共鸣效率</td></tr>
+      <tr><td><code>BASIC_ATTACK_DMG_BONUS</code></td><td>普攻伤害加成</td><td><code>HEAVY_ATTACK_DMG_BONUS</code></td><td>重击伤害加成</td></tr>
+      <tr><td><code>SKILL_DMG_BONUS</code></td><td>共鸣技能伤害加成</td><td><code>LIBERATION_DMG_BONUS</code></td><td>共鸣解放伤害加成</td></tr>
+      <tr><td><code>ELEMENTAL_DMG_BONUS</code></td><td>属性伤害加成</td><td><code>HEALING_BONUS</code></td><td>治疗效果加成</td></tr>
+    </table>
+    <p><b>返回值</b>：<code>score</code> = 每条副词条的 权重 × 数值 ÷ 最大值 之和；<code>percent_of_ideal</code> = score ÷ 理想值 × 100，理想值是“权重最大的 5 个属性各出一条满值”时的得分。例如示例配置的权重 1.0 / 1.0 / 0.75 / 0.25 / 0.5，理想值就是 3.5。注意 <code>percent_of_ideal</code> 本身已经是百分数（如 76.976190 表示约 77%）。</p>
+    <div class="qa">
+      <div class="good"><h4>○ 信息充分（使用示例权重）</h4><p>“帮我给这个 COST 4 声骸打分：主词条暴击伤害 44%，副词条暴击 8.7%、暴击伤害 17.4%、攻击 8.6%、生命 430、共鸣效率 10%。权重用会心型输出的示例配置。”</p><p>（真实结果：得分 2.694167，理想值的 76.976190%，并带“未确认数据”注记。）</p></div>
+      <div class="bad"><h4>× 信息不足</h4><p>“我这个声骸几分？双暴还不错。”——没有具体词条数值。也不要期待 Claude 知道“官方”的满值或权重：工具只用你给的值或示例数据。</p></div>
+    </div>
+
+    <h3>3. 抽卡概率（精确）<code>gacha_probability_within</code></h3>
+    <table>
+      <tr><th>你要说的</th><th>字段</th><th>允许范围</th><th>说明</th></tr>
+      <tr><td>当前保底计数</td><td><code>start_pity</code></td><td>整数 0〜9999，且小于硬保底</td><td>必填。距上次出最高稀有度已经抽了几次</td></tr>
+      <tr><td>是否“大保底”</td><td><code>guaranteed</code></td><td>是 / 否</td><td>必填。上次歪了（没出 UP）则下一次最高稀有度必定是 UP → 是</td></tr>
+      <tr><td>还要抽几次</td><td><code>pulls</code></td><td>整数 0〜10000</td><td>必填</td></tr>
+      <tr><td>卡池规则</td><td><code>rules</code> <b>或</b> <code>banner</code></td><td>见下表</td><td>二选一。可以自己给全部 6 项规则，也可以说“用示例限定角色卡池”（<code>banner: featured-character</code>，未确认数据）</td></tr>
+    </table>
+    <table>
+      <tr><th>规则项（<code>rules</code> 的字段）</th><th>允许范围</th><th>含义</th></tr>
+      <tr><td><code>base_rate</code></td><td>0〜1</td><td>基础最高稀有度概率</td></tr>
+      <tr><td><code>soft_pity_start</code></td><td>整数 1〜10000，≤ 硬保底</td><td>软保底从第几抽开始（从上次最高稀有度算起，从 1 数）</td></tr>
+      <tr><td><code>soft_pity_increment</code></td><td>0〜1</td><td>软保底期间每抽增加的概率</td></tr>
+      <tr><td><code>hard_pity</code></td><td>整数 1〜10000</td><td>硬保底：这一抽必出最高稀有度</td></tr>
+      <tr><td><code>featured_rate</code></td><td>0〜1</td><td>出最高稀有度时是 UP 的概率</td></tr>
+      <tr><td><code>guarantee_after_loss</code></td><td>是 / 否</td><td>歪了之后下一次最高稀有度是否必定 UP</td></tr>
+    </table>
+    <p><b>返回值</b>：<code>probability</code>（0〜1 的精确值）。</p>
+
+    <h3>4. 抽卡模拟（蒙特卡洛）<code>gacha_simulate</code></h3>
+    <p>输入与精确版相同，另外有 3 个可选项：</p>
+    <table>
+      <tr><th>字段</th><th>允许范围</th><th>省略时</th><th>说明</th></tr>
+      <tr><td><code>trials</code></td><td>整数 1〜1,000,000</td><td>100000</td><td>模拟次数。标准误差与 1/√trials 成正比</td></tr>
+      <tr><td><code>seed</code></td><td>64 位整数</td><td>0</td><td>随机种子，相同种子结果相同</td></tr>
+      <tr><td><code>method</code></td><td><code>sequential</code> / <code>parallel_stream</code> / <code>virtual_threads</code></td><td><code>sequential</code></td><td>只影响速度，不影响结果</td></tr>
+    </table>
+    <p><b>返回值</b>：<code>probability</code>（估计值）和 <code>std_error</code>（标准误差）。日常使用时精确版更合适；想看“模拟和精确值是否一致”时，可以在问题里明确说“也用模拟算一下”。</p>
+    <div class="callout"><strong>小提示</strong>领域提示词（<code>domains/wuwa/prompts/system.md</code>）的工具说明表也列出了 <code>gacha_simulate</code>，并告诉 Claude：平时的概率问题用精确版 <code>gacha_probability_within</code>，只有你要求用模拟确认时才用模拟。想用模拟，请在问题里明确提出。另外，<code>--fake-backend</code>（测试用假计算服务）不提供模拟，也不支持 <code>banner</code> / <code>profile</code> 这类数据引用，只能在真实 Java 服务上使用。</div>
+
+    <h3>5. 差值 <code>compare_diff</code> 与 6. 比率 <code>compare_ratio</code></h3>
+    <p>比较工具的输入不是数字，而是<b>同一个问题里</b>前面工具结果的出典 ID（如 <code>c1.total</code>）。因此：</p>
+    <ul>
+      <li>“配装 A 和 B 差多少 / 高百分之几”这类问题，要在<b>同一个问题里</b>给出两边的完整条件，让两边都先算出来。</li>
+      <li>每次运行 CLI 都是独立的问题，不记得上一次的结果。不能先问 A、再另起一问“刚才的 A 和 B 比呢”。</li>
+      <li>单纯“1234 比 1000 高多少”的算术题无法用比较工具（没有出典 ID 可传），回答里也不能出现 Claude 自己算的数字。</li>
+    </ul>
+    <p><b>返回值</b>：<code>compare_diff</code> → <code>diff</code>（a − b）；<code>compare_ratio</code> → <code>ratio</code>（a / b）和 <code>change</code>（a / b − 1，回答中常以百分数显示）。b 为 0 时返回错误“b が 0 のため、比を計算できません”。比较结果保留小数 6 位（银行家舍入）。</p>
+
+    <h2>示例数据：可以直接引用的卡池与权重配置</h2>
+    <p>当你没有给出卡池规则或声骸权重时，可以让 Claude 引用 <code>domains/wuwa/data/v2.x/</code> 里的示例数据。<b>这些值全部是 <code>verified: false</code>（未确认），不是官方数值</b>，用到它们的回答会自动带上注记（见 <a href="06-cost-and-safety.html">成本上限与数据可信度</a>）。</p>
+    <table>
+      <tr><th>引用方式</th><th>ID</th><th>内容（原样摘自数据文件）</th></tr>
+      <tr><td>卡池 <code>banner</code></td><td><code>featured-character</code><br>限定キャラクター（サンプル）</td><td>base_rate 0.008，soft_pity_start 66，soft_pity_increment 0.04，hard_pity 80，featured_rate 0.5，guarantee_after_loss true</td></tr>
+      <tr><td>权重配置 <code>profile</code></td><td><code>sample-crit-attacker</code><br>会心型アタッカー（サンプル）</td><td>CRIT_RATE 1.0，CRIT_DMG 1.0，ATK_PERCENT 0.75，ATK_FLAT 0.25，ENERGY_REGEN 0.5</td></tr>
+      <tr><td>副词条最大值（省略 <code>max_roll</code> 时）</td><td><code>max_roll</code></td><td>CRIT_RATE 0.1，CRIT_DMG 0.2，ATK_PERCENT 0.12，ATK_FLAT 60，ENERGY_REGEN 0.12，HP_PERCENT 0.12，HP_FLAT 600，DEF_PERCENT 0.15，DEF_FLAT 60</td></tr>
+    </table>
+    <p>只有这一个卡池和一个权重配置。引用不存在的 ID 时，计算服务会返回错误，例如 <code>banner 'standard' は gacha_rules.yaml の banners にありません</code>（实测）。</p>
+    <p>下面是引用示例卡池的一次真实运行（台本模式 + 真实 Java 计算服务）：</p>
+    <div class="term" data-title="bash — 引用示例卡池">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"示例限定角色卡池，我现在保底计数 30，没有大保底，再抽 100 次以内出 UP 角色的概率是多少？\" --llm scripted --script gacha_banner.yaml"},
+        {"pause": 600},
+        {"out": "按示例卡池的规则，从当前保底计数 30、未处于“大保底”状态开始，100 抽以内拿到 UP 角色的概率是 75.5%。", "delay": 400},
+        {"out": " "},
+        {"out": "※ この回答の数値の一部は、未確認のサンプルデータに基づいています。", "cls": "warn"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID         値                  ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ------------------  ------------------------  ------------------------------", "cls": "dim"},
+        {"out": "c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024515Z-d54276", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024515Z-d54276.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+
+    <h2>好问题的写法</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  Q["你想问的事"] --> K{"属于 4 类计算之一？&lt;br/&gt;伤害 / 声骸 / 抽卡概率 / 抽卡模拟"}
+  K -- 否 --> X["无法给出数字&lt;br/&gt;Claude 会说明范围或反问"]
+  K -- 是 --> V{"必填数值都写在问题里了？"}
+  V -- 是 --> OK["可以计算"]
+  V -- 否 --> D{"可以用示例数据代替？&lt;br/&gt;卡池 / 权重配置"}
+  D -- 是 --> OK2["可以计算&lt;br/&gt;回答带未确认注记"]
+  D -- 否 --> ASK["Claude 应反问你&lt;br/&gt;不会猜测数值"]
+  OK --> C{"要比较两个结果？"}
+  OK2 --> C
+  C -- 是 --> SAME["两边条件写在同一个问题里"]
+      </pre>
+      <div class="caption">图 2：提问前的自查流程</div>
+    </div>
+    <ul>
+      <li><b>把数值写全</b>：工具不内置任何游戏数值，Claude 也被要求不要用记忆补数值。</li>
+      <li><b>比例写成 30% 或 0.3 都行</b>；验证器把 <code>x%</code> 和 <code>x/100</code> 看作同一个数，所以回答里引用你问题中的“30%”或“0.3”都不会被拦下。</li>
+      <li><b>想用示例数据就明说</b>：“用示例限定角色卡池”“权重用会心型输出的示例配置”。</li>
+      <li><b>要比较就一次问完</b>：两边的条件放在同一个问题里。</li>
+      <li><b>一次只问一件事</b>：每个问题最多 6 轮工具调用，超出会以“計算の手順が多くなりすぎた…”结束（见 <a href="03-reading-answers.html">回答怎么读</a>）。</li>
+    </ul>
+
+    <h2>回答不了的问题，以及这时会发生什么</h2>
+    <table>
+      <tr><th>问题类型</th><th>例子</th><th>原因</th></tr>
+      <tr><td>主观评价、排名、配队推荐</td><td>“现在版本哪个角色最强？”</td><td>没有对应的计算工具</td></tr>
+      <tr><td>需要游戏内数据但你没给</td><td>“某角色大招倍率是多少？”</td><td>EchoLab 不含游戏数据（只有未确认的示例），Claude 也不得凭记忆给数值</td></tr>
+      <tr><td>纯算术</td><td>“1234 比 1000 高几成？”</td><td>比较工具只接受本问题内工具结果的出典 ID</td></tr>
+      <tr><td>接着上一次问</td><td>“刚才那个再加 10% 暴击呢？”</td><td>每次运行是独立的，没有对话记忆；请把完整条件重写一遍</td></tr>
+      <tr><td>截图识别、房贷试算等</td><td>“看这张截图打分”</td><td>截图读取（M4）、房贷领域包（M3）都还只是路线图计划，见 <a href="09-roadmap.html">今后的功能（路线图）</a></td></tr>
+    </table>
+    <p>这时 Claude 应当用不含数字的文字说明能做什么，或者反问缺少的信息。无论 Claude 写什么，<b>验证器都会拦下没有出典的数字</b>，所以最坏情况也只是“没有数字的回答”，而不是“编出来的数字”。下面两个都是真实运行（台本模拟 Claude 的回复）：</p>
+    <div class="term" data-title="bash — 范围外的问题">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"现在版本哪个角色最强？给我排个名。\" --llm scripted --script out_of_scope.yaml --fake-backend"},
+        {"pause": 500},
+        {"out": "抱歉，这个问题（角色强度排名）不在可用计算工具的范围内。我能做的是：按你给出的数值计算期望伤害、给声骸打分、计算抽卡概率，以及对这些结果做差值和比率比较。", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024550Z-6e665f", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024550Z-6e665f.jsonl", "cls": "dim"},
+        {"pause": 900},
+        {"cmd": "python -m core.agent \"示例限定角色卡池，从 0 开始抽 20000 次以内出 UP 的概率？\" --llm scripted --script tool_error.yaml"},
+        {"pause": 600},
+        {"out": "你给的抽数超过了计算工具允许的上限，没能算出结果。请把抽数改小后再问一次。", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031634Z-7f52d1", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031634Z-7f52d1.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>第二个例子里，网关在调用计算服务之前就按 schema 拒绝了 <code>pulls: 20000</code>，执行轨迹里记录的错误原文是 <code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code>（日语，带字段路径；缺必填项、类型不对、超出范围、不在可选值内、多余字段、格式不符等常见错误都会这样用日语说明）。Claude 收到错误后可以改参数重试，或者像这里一样向你说明。注意：状态 <code>answered</code> 只表示“回答通过了验证”，<b>不代表一定给出了数字</b>；“出典”一栏为空就说明这次回答没有引用任何计算结果。</p>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="03-reading-answers.html">回答怎么读</a>：出典表、状态行、数字格式和“未确认”注记的含义。</li>
+        <li><a href="04-cli-reference.html">命令参考</a>：<code>--llm</code>、<code>--script</code>、<code>--fake-backend</code> 等选项。</li>
+        <li><a href="06-cost-and-safety.html">成本上限与数据可信度</a>：示例数据为什么是“未确认”。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

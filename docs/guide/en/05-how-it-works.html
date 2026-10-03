@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What Happens Behind the Scenes (Animated) | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* Page-specific: trace excerpts in the step-by-step animation */
+    #how .caption-box { min-height: 11em; }
+    #how .caption-box pre.tr { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; background: var(--surface); border: 1px solid var(--border); }
+    #how .caption-box .ev { display: inline-block; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 0 6px; margin-right: 4px; }
+    #how .node { font-size: 13.5px; padding: 10px 6px; }
+    @media (max-width: 760px) { #how .stage { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+    /* Page-specific: pipeline SVG animation */
+    .pipe { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px 14px; margin: 16px 0; }
+    .pipe svg { width: 100%; height: auto; display: block; }
+    .pipe .edge { fill: none; stroke: var(--border); stroke-width: 3; }
+    .pipe .edge.draft { stroke: var(--accent); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .edge.reject { stroke: var(--bad); stroke-dasharray: 6 6; opacity: .55; }
+    .pipe .leg { fill: none; stroke: none; }
+    .pipe .st circle { fill: var(--bg); stroke: var(--muted); stroke-width: 2.5; transition: fill .3s, stroke .3s; }
+    .pipe .st.hit circle { fill: var(--accent-soft); stroke: var(--accent); }
+    .pipe .st.ok circle { fill: var(--ok-soft); stroke: var(--ok); }
+    .pipe .st.bad circle { fill: var(--bad-soft); stroke: var(--bad); }
+    .pipe .st text { fill: var(--text); font: 600 13px system-ui, -apple-system, "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+    .pipe .st .ico { font-size: 14px; dominant-baseline: central; fill: var(--muted); }
+    .pipe .st .sub { fill: var(--muted); font-weight: 400; font-size: 11px; }
+    .pipe .edge-label { fill: var(--muted); font: 11px system-ui, -apple-system, "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", sans-serif; text-anchor: middle; }
+    .pipe #pk circle { fill: var(--accent); }
+    .pipe #pk.bad circle { fill: var(--bad); }
+    .pipe #pk.ok circle { fill: var(--ok); }
+    .pipe #pk text { fill: var(--text); font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans CJK SC", monospace; text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+    .pipe .pipe-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .pipe .pipe-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    .pipe .pipe-status { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--code-bg); font-size: 14px; min-height: 2.6em; }
+    .pipe .pipe-status b { color: var(--accent); margin-right: 6px; }
+  </style>
+</head>
+<body data-page="05-how-it-works.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Concepts</span><span>Animated</span><span>Real execution trace</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <h1>What Happens Behind the Scenes (Animated)</h1>
+    <p class="lead">Within a few seconds of pressing Enter, EchoLab does more than a dozen things. This page uses the execution trace left by one <strong>real run</strong> to walk through them step by step: how a question turns into calculations, how calculation results become “source IDs”, how a faulty draft gets rejected, and why every number in the final answer can be traced back to its origin.</p>
+
+    <div class="callout"><strong>The one-sentence version</strong>Claude (the AI) only understands the question, decides which calculation tools to call, and writes the wording. <strong>Every number</strong> in the answer comes from a deterministic calculation tool. When Claude writes the answer it cannot write numbers directly; it can only write “citations” such as <code>[[c1.total]]</code>, and the program fills in the real values at the end.</div>
+
+    <h2>The result first: one real run</h2>
+    <p>Below are the command and output from an actual run in the repository. The question is in the original Japanese and compares the expected damage of two character builds, “Build A” and “Build B”; because it is long, parts are elided with …. This run uses <strong>scripted mode</strong> (<code>--llm scripted</code>, which plays Claude's role from a prewritten script and needs no API key) and the <strong>test calculation service</strong> (<code>--fake-backend</code>, which does not start Java). The script deliberately makes the first draft wrong so you can see how a rejection happens.</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（攻撃力 2000、…）とビルド B（攻撃力 1800、…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 9},
+        {"pause": 500},
+        {"out": "ビルド B の方が強いです。", "delay": 300},
+        {"out": "- ビルド A の期待ダメージ: 6,192"},
+        {"out": "- ビルド B の期待ダメージ: 7,128"},
+        {"out": "- 差: 936（A に比べて 15.1% 増加）"},
+        {"out": ""},
+        {"out": "出典:", "cls": "hl", "delay": 250},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": ""},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl", "delay": 300},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>The answer reads: “Build B is stronger. Build A's expected damage is 6,192, Build B's is 7,128, a difference of 936 (15.1% higher than A).” The <code>出典</code> (“Sources”) table below it lists which tool produced each number the answer cites, with the columns source ID, value, tool and unverified data. <code>差し戻し: 1 回</code> (“rejected: 1 time”) means one draft was sent back by the verifier. The last line, <code>トレース</code> (“Trace”), is the path of this run's <strong>execution trace</strong> file; the animations on this page are built from it.</p>
+    <div class="callout ok"><strong>Same result with the real Java calculation service</strong>Remove <code>--fake-backend</code> (and set <code>JAVA_HOME</code> to Java 21) and run again: the answer text and the sources table are exactly the same. Like the Java service, the test calculation service returns values with 6 decimal places (banker's rounding), for example <code>6192.000000</code>. Measured run ID: <code>20261003T031434Z-0b1739</code>. How many digits the answer displays is decided centrally by the renderer.</div>
+
+    <h2>Step-by-step animation: the 12 steps of one question</h2>
+    <p>Click “Next ▶” to go step by step, or “▶ Autoplay”. The gray box under each step shows the <strong>real event</strong> recorded for that step in the execution trace (<code>.jsonl</code>), shortened for readability (<code>…</code> marks omissions).</p>
+    <div class="flow-anim" id="how" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="user">You<small>ask / read answer</small></div>
+        <div class="node" data-id="llm">Claude<small>understand, plan, write template</small></div>
+        <div class="node" data-id="gw">Gateway<small>guard, assign IDs</small></div>
+        <div class="node" data-id="calc">calc-engine<small>deterministic math</small></div>
+        <div class="node" data-id="cmp">Compare tools<small>diff, ratio</small></div>
+        <div class="node" data-id="ver">Verifier<small>check drafts</small></div>
+        <div class="node" data-id="ren">Renderer<small>fill in numbers</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["user"], "packet": {"at": "user", "text": "question"},
+         "text": "<b>You ask.</b>EchoLab creates a run ID for this question and a new trace file. The first event records the question, the domain pack in use (<code>wuwa</code>, Wuthering Waves) and the list of tools available for this run.<pre class='tr'><span class='ev'>question</span>{&quot;run_id&quot;: &quot;20261003T031424Z-28df54&quot;, &quot;question&quot;: &quot;ビルド A（攻撃力 2000、…）…&quot;, &quot;domain&quot;: &quot;wuwa&quot;, &quot;llm&quot;: &quot;ScriptedLLM&quot;, &quot;model&quot;: &quot;claude-opus-5-5&quot;, &quot;tools&quot;: [&quot;compare_diff&quot;, &quot;compare_ratio&quot;, &quot;damage_expected&quot;, &quot;echo_score&quot;, &quot;gacha_probability_within&quot;]}</pre>"},
+        {"on": ["llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"},
+         "text": "<b>Claude plans.</b>Before calling Claude, the program checks the cost caps (daily / monthly); if a cap is exceeded it stops without making the call. Claude reads the question and decides to call the expected-damage tool twice <strong>in parallel</strong> (once for A, once for B), passing the parameters from the question as input unchanged. It has not calculated anything at this point.<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;usd&quot;: &quot;0.00&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, &quot;skill_multiplier&quot;: 2.5, …}}, {&quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, &quot;skill_multiplier&quot;: 3.0, …}}]}</pre>"},
+        {"on": ["gw"], "done": ["user", "llm"], "packet": {"at": "gw", "text": "allowed, schema OK → c1, c2"},
+         "text": "<b>The gateway checks the calls.</b>Every tool call goes through the gateway: ① the tool must be registered in the domain pack's <code>domain.yaml</code> (allowlist, default deny); ② the input must match the tool's published schema (JSON Schema), and if it does not, the error is sent back to Claude to try again; ③ each call gets an ID: <code>c1</code>, <code>c2</code>, and so on.<pre class='tr'><span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_01&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 2000, …}}\n<span class='ev'>tool_call</span>{&quot;tool_use_id&quot;: &quot;toolu_scripted_02&quot;, &quot;name&quot;: &quot;damage_expected&quot;, &quot;input&quot;: {&quot;atk&quot;: 1800, …}}</pre>"},
+        {"on": ["calc"], "done": ["user", "llm", "gw"], "packet": {"at": "calc", "text": "c1.total = 6192…"},
+         "text": "<b>calc-engine calculates, and the results get source IDs.</b>The calculation service returns each value along with a breakdown, and the gateway names every value <code>callID.field</code>. For example, <code>c1.total</code> means “the total damage from call 1”. From here on, the answer can refer to numbers only through these names.<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c1&quot;, &quot;tool&quot;: &quot;damage.expected&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c1.base&quot;, &quot;value&quot;: &quot;5000.000000&quot;}, … {&quot;source_id&quot;: &quot;c1.total&quot;, &quot;value&quot;: &quot;6192.000000&quot;, &quot;unverified_inputs&quot;: []}], &quot;error&quot;: null}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c2&quot;, … {&quot;source_id&quot;: &quot;c2.total&quot;, &quot;value&quot;: &quot;7128.000000&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "gw", "calc"], "packet": {"at": "llm", "text": "draft 1"},
+         "text": "<b>Claude writes the first draft (a template).</b>It correctly cites B's damage with <code>[[c2.total|0]]</code>, but then <strong>works out the difference itself</strong> and writes 936 directly. (The script makes this mistake on purpose; the real Claude could make the same kind of mistake.)<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が [[c2.total|0]] で、A より 936 高いです。&quot;, &quot;tool_uses&quot;: []}</pre>"},
+        {"on": ["ver"], "done": ["user", "gw", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "× rejected"},
+         "text": "<b>The verifier rejects the draft.</b>The verifier finds every number in the text outside <code>[[…]]</code> and checks each one: did it appear in your question? Is it an allowed list number? 936 is neither, so the draft <strong>fails</strong>. The problem description goes back to Claude as feedback with a request to rewrite. (The message says: “The number 936 has no source. Cite tool results as [[source ID]] and compute differences and ratios with the compare tools; quoting numbers from the question is allowed.”)<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 1, &quot;ok&quot;: false, &quot;problems&quot;: [&quot;数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。&quot;], &quot;cited&quot;: [&quot;c2.total&quot;]}</pre>"},
+        {"on": ["llm", "gw"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"},
+         "text": "<b>Claude switches to the compare tools.</b>Differences and ratios must also be calculated by tools. The compare tools take <strong>source IDs</strong> as input, not numbers: <code>a = c2.total</code>, <code>b = c1.total</code>. So Claude never even gets the chance to copy a number into a tool.<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;tool_use&quot;, &quot;tool_uses&quot;: [{&quot;name&quot;: &quot;compare_diff&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}, {&quot;name&quot;: &quot;compare_ratio&quot;, &quot;input&quot;: {&quot;a&quot;: &quot;c2.total&quot;, &quot;b&quot;: &quot;c1.total&quot;}}]}</pre>"},
+        {"on": ["cmp"], "done": ["user", "calc", "gw"], "packet": {"at": "cmp", "text": "c3.diff · c4.change"},
+         "text": "<b>The compare tools compute the difference and ratio.</b>The compare tools run inside the EchoLab core. The gateway first resolves the source IDs back to the real values, then the calculation runs, and the results again get new source IDs: <code>c3.diff</code> (difference), <code>c4.ratio</code> (ratio) and <code>c4.change</code> (rate of increase).<pre class='tr'><span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c3&quot;, &quot;tool&quot;: &quot;compare.diff&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c3.diff&quot;, &quot;value&quot;: &quot;936.000000&quot;}]}}\n<span class='ev'>tool_result</span>{&quot;outcome&quot;: {&quot;call_id&quot;: &quot;c4&quot;, &quot;tool&quot;: &quot;compare.ratio&quot;, &quot;sources&quot;: [{&quot;source_id&quot;: &quot;c4.ratio&quot;, &quot;value&quot;: &quot;1.151163&quot;}, {&quot;source_id&quot;: &quot;c4.change&quot;, &quot;value&quot;: &quot;0.151163&quot;}]}}</pre>"},
+        {"on": ["llm"], "done": ["user", "calc", "cmp", "gw"], "packet": {"at": "llm", "text": "draft 2"},
+         "text": "<b>Claude writes the second draft.</b>This time every number is a citation. <code>|0</code> means “show 0 decimal places”, and <code>|%1</code> means “convert to a percentage with 1 decimal place”.<pre class='tr'><span class='ev'>llm_call</span>{&quot;stop_reason&quot;: &quot;end_turn&quot;, &quot;text&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: [[c1.total|0]]\\n- ビルド B の期待ダメージ: [[c2.total|0]]\\n- 差: [[c3.diff|0]]（A に比べて [[c4.change|%1]] 増加）&quot;}</pre>"},
+        {"on": ["ver"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ver", "text": "passed"},
+         "text": "<b>The verifier lets it through.</b>All 4 cited source IDs were actually produced during this question, and the text contains no numbers of unknown origin.<pre class='tr'><span class='ev'>verdict</span>{&quot;draft&quot;: 2, &quot;ok&quot;: true, &quot;problems&quot;: [], &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;]}</pre>"},
+        {"on": ["ren"], "done": ["user", "calc", "cmp", "gw", "llm", "ver"], "packet": {"at": "ren", "text": "[[c4.change|%1]] → 15.1%"},
+         "text": "<b>The renderer fills in the numbers.</b>A program (not the AI) replaces each placeholder with its value and formats it: <code>[[c1.total|0]]</code> → <code>6,192</code>, <code>[[c3.diff|0]]</code> → <code>936</code>, <code>[[c4.change|%1]]</code> → <code>15.1%</code> (0.151163 × 100, round half to even). If a cited value comes from unverified sample data, a warning note is added automatically."},
+        {"on": ["user"], "done": ["llm", "gw", "calc", "cmp", "ver", "ren"], "packet": {"at": "user", "text": "answer + sources"},
+         "text": "<b>You get the answer.</b>The terminal shows the answer, the sources table, the status and the trace file path. In total: 4 Claude calls, 4 tool calls and 2 drafts (1 rejected).<pre class='tr'><span class='ev'>answer</span>{&quot;status&quot;: &quot;answered&quot;, &quot;answer&quot;: &quot;ビルド B の方が強いです。\\n- ビルド A の期待ダメージ: 6,192\\n…（A に比べて 15.1% 増加）&quot;, &quot;cited&quot;: [&quot;c1.total&quot;, &quot;c2.total&quot;, &quot;c3.diff&quot;, &quot;c4.change&quot;], &quot;cost_usd&quot;: &quot;0.00&quot;, &quot;drafts&quot;: 2, &quot;drafts_rejected&quot;: 1, &quot;llm_calls&quot;: 4, &quot;tool_calls&quot;: 4}</pre>"}
+      ]</script>
+    </div>
+    <p>Scripted mode uses no real tokens, so every <code>usd</code> is 0. With the real Claude, each <code>llm_call</code> records the token counts and the cost (in US dollars).</p>
+
+    <h2>Pipeline animation: follow one “packet”</h2>
+    <p>The same run from a different angle: the blue dot is the content being passed along, red is a rejected draft, and green is an answer that passed the checks. The dashed line at the top is the route for “submit draft”; the red dashed line at the bottom is the route for “rejected”.</p>
+    <div class="pipe" id="pipe">
+      <svg viewBox="0 0 900 300" role="img" aria-label="Animation of one question flowing through EchoLab: You, Claude, Gateway, calc-engine, Compare tools, Verifier, Renderer, Answer">
+        <path class="edge" d="M50 150 L180 150 L320 150"/>
+        <path class="edge" d="M320 150 L460 85"/>
+        <path class="edge" d="M320 150 L460 215"/>
+        <path class="edge" d="M620 150 L745 150 L860 150"/>
+        <path class="edge draft" d="M180 150 C 230 0, 570 0, 620 150"/>
+        <path class="edge reject" d="M620 150 C 570 300, 230 300, 180 150"/>
+        <text class="edge-label" x="400" y="30">Submit draft (template)</text>
+        <text class="edge-label" x="400" y="290">Failed → sent back for rewrite</text>
+        <g class="legs"></g>
+        <g class="st" data-st="user"><circle cx="50" cy="150" r="22"/><text class="ico" x="50" y="150">Q</text><text x="50" y="192">You</text></g>
+        <g class="st" data-st="llm"><circle cx="180" cy="150" r="22"/><text class="ico" x="180" y="150">AI</text><text x="180" y="192">Claude</text><text class="sub" x="180" y="207">no numbers</text></g>
+        <g class="st" data-st="gw"><circle cx="320" cy="150" r="22"/><text class="ico" x="320" y="150">GW</text><text x="320" y="192">Gateway</text><text class="sub" x="320" y="207">allowlist, schema</text></g>
+        <g class="st" data-st="calc"><circle cx="460" cy="85" r="22"/><text class="ico" x="460" y="85">=</text><text x="535" y="80">calc-engine</text><text class="sub" x="535" y="95">damage, etc.</text></g>
+        <g class="st" data-st="cmp"><circle cx="460" cy="215" r="22"/><text class="ico" x="460" y="215">±</text><text x="540" y="210">Compare tools</text><text class="sub" x="540" y="225">diff, ratio</text></g>
+        <g class="st" data-st="ver"><circle cx="620" cy="150" r="22"/><text class="ico" x="620" y="150">V</text><text x="620" y="192">Verifier</text></g>
+        <g class="st" data-st="ren"><circle cx="745" cy="150" r="22"/><text class="ico" x="745" y="150">#</text><text x="745" y="192">Renderer</text></g>
+        <g class="st" data-st="ans"><circle cx="860" cy="150" r="22"/><text class="ico" x="860" y="150">A</text><text x="860" y="192">Answer</text></g>
+        <g id="pk" transform="translate(50,150)"><circle r="9"/><text y="-16">question</text></g>
+      </svg>
+      <div class="pipe-ctl">
+        <button type="button" data-p="play">▶ Play</button>
+        <button type="button" data-p="next">Next leg ▶</button>
+        <button type="button" data-p="reset">Restart</button>
+      </div>
+      <div class="pipe-status"><b>0 / 12</b>Click “▶ Play” to start (it also plays once automatically when you scroll here).</div>
+    </div>
+    <script>
+    (function () {
+      var root = document.getElementById("pipe");
+      if (!root) return;
+      var svg = root.querySelector("svg"), legsG = root.querySelector(".legs");
+      var pk = root.querySelector("#pk"), pkText = pk.querySelector("text");
+      var status = root.querySelector(".pipe-status"), playBtn = root.querySelector('[data-p="play"]');
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var NS = "http://www.w3.org/2000/svg";
+      // Each leg: path, short label on the packet, packet color, stations lit on arrival, description
+      var LEGS = [
+        { d: "M50 150 L180 150", label: "question", hit: { llm: "hit" }, say: "Your question is handed to Claude." },
+        { d: "M180 150 L320 150", label: "damage_expected ×2", hit: { gw: "hit" }, say: "Claude decides to call the expected-damage tool twice in parallel (the cost caps are checked before the call)." },
+        { d: "M320 150 L460 85", label: "allowed, schema OK", hit: { gw: "ok", calc: "hit" }, say: "The gateway confirms the tool is on the allowlist and the input matches the schema, assigns IDs c1 and c2, and forwards the calls to calc-engine." },
+        { d: "M460 85 L320 150 L180 150", label: "c1.total · c2.total", hit: { calc: "ok", llm: "hit" }, say: "The results return to Claude with source IDs (c1.total = 6192, c2.total = 7128, and so on)." },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "draft 1: …A より 936 高い", hit: { ver: "hit" }, say: "Claude submits draft 1, but writes the difference 936 itself." },
+        { d: "M620 150 C 570 300, 230 300, 180 150", label: "× 936 has no source", cls: "bad", hit: { ver: "bad", llm: "hit" }, say: "The verifier finds that 936 is neither a tool result nor in your question, and sends the draft back with the reason." },
+        { d: "M180 150 L320 150", label: "compare_diff / compare_ratio", hit: { gw: "hit" }, say: "Claude switches to the compare tools, with source IDs as input: a = c2.total, b = c1.total." },
+        { d: "M320 150 L460 215", label: "allowed, schema OK", hit: { gw: "ok", cmp: "hit" }, say: "The gateway resolves the source IDs to values and passes them to the compare tools as calls c3 and c4." },
+        { d: "M460 215 L320 150 L180 150", label: "c3.diff · c4.change", hit: { cmp: "ok", llm: "hit" }, say: "The difference (c3.diff = 936) and the rate of increase (c4.change = 0.151163) now have source IDs too." },
+        { d: "M180 150 C 230 0, 570 0, 620 150", label: "draft 2: [[c3.diff|0]] …", hit: { ver: "hit" }, say: "Claude submits draft 2, with every number written as [[sourceID|format]]." },
+        { d: "M620 150 L745 150", label: "passed", cls: "ok", hit: { ver: "ok", ren: "hit" }, say: "The verifier lets it through, and the renderer replaces the placeholders with formatted numbers." },
+        { d: "M745 150 L860 150", label: "6,192 · 7,128 · 936 · 15.1%", cls: "ok", hit: { ren: "ok", ans: "ok", llm: "ok" }, say: "The answer is shown to you together with the sources table. Done!" }
+      ];
+      var paths = LEGS.map(function (L) {
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("class", "leg"); p.setAttribute("d", L.d); legsG.appendChild(p);
+        return p;
+      });
+      var stations = {};
+      root.querySelectorAll(".st").forEach(function (g) { stations[g.dataset.st] = g; });
+      var idx = -1, t0 = 0, raf = 0, playing = false, holdTimer = 0, marks = {};
+      var MOVE = reduce ? 0 : 1500, HOLD = reduce ? 2200 : 1100;
+
+      function place(x, y) {
+        pk.setAttribute("transform", "translate(" + x.toFixed(1) + "," + y.toFixed(1) + ")");
+        // Keep the label inside the canvas
+        var w = Math.min(300, pkText.textContent.length * 8 + 10);
+        var lx = Math.max(w / 2 - x + 4, Math.min(0, 896 - w / 2 - x));
+        pkText.setAttribute("x", lx.toFixed(1));
+        pkText.setAttribute("y", y < 60 ? "26" : "-16");
+      }
+      function paintStations() {
+        Object.keys(stations).forEach(function (k) {
+          stations[k].classList.remove("hit", "ok", "bad");
+          if (marks[k]) stations[k].classList.add(marks[k]);
+        });
+      }
+      function begin(i) {
+        idx = i;
+        var L = LEGS[i];
+        pk.setAttribute("class", L.cls || "");
+        pkText.textContent = L.label;
+        status.innerHTML = "<b>" + (i + 1) + " / " + LEGS.length + "</b>" + L.say;
+        // When a new leg starts, clear the previous "in progress" highlights
+        Object.keys(marks).forEach(function (k) { if (marks[k] === "hit") delete marks[k]; });
+        paintStations();
+        t0 = performance.now();
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(tick);
+      }
+      function arrive() {
+        var L = LEGS[idx];
+        Object.keys(L.hit).forEach(function (k) { marks[k] = L.hit[k]; });
+        paintStations();
+        if (playing) {
+          if (idx < LEGS.length - 1) holdTimer = setTimeout(function () { begin(idx + 1); }, HOLD);
+          else stop();
+        }
+      }
+      function tick(now) {
+        var p = paths[idx], len = p.getTotalLength();
+        var k = MOVE ? Math.min(1, (now - t0) / MOVE) : 1;
+        var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        var pt = p.getPointAtLength(len * e);
+        place(pt.x, pt.y);
+        if (k < 1) raf = requestAnimationFrame(tick); else arrive();
+      }
+      function stop() { playing = false; clearTimeout(holdTimer); playBtn.textContent = "▶ Play"; }
+      function reset() {
+        stop(); cancelAnimationFrame(raf); idx = -1; marks = {}; paintStations();
+        pk.setAttribute("class", ""); pkText.textContent = "question"; place(50, 150);
+        status.innerHTML = "<b>0 / " + LEGS.length + "</b>Click “▶ Play” to start.";
+      }
+      root.querySelector(".pipe-ctl").addEventListener("click", function (ev) {
+        var a = ev.target.dataset && ev.target.dataset.p;
+        if (a === "play") {
+          if (playing) return stop();
+          playing = true; playBtn.textContent = "Pause";
+          if (idx >= LEGS.length - 1) { reset(); playing = true; playBtn.textContent = "Pause"; }
+          begin(idx + 1);
+        } else if (a === "next") {
+          stop();
+          if (idx >= LEGS.length - 1) reset();
+          begin(idx + 1);
+        } else if (a === "reset") reset();
+      });
+      place(50, 150);
+      // Autoplay once when scrolled into view (not when reduced motion is preferred)
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries, obs) {
+          if (entries.some(function (e) { return e.isIntersecting; })) {
+            obs.disconnect();
+            if (idx < 0) { playing = true; playBtn.textContent = "Pause"; begin(0); }
+          }
+        }, { threshold: 0.5 }).observe(svg);
+      }
+    })();
+    </script>
+
+    <h2>Sequence diagram: who talks to whom, and when</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant U as You
+  participant A as Claude (via Agent)
+  participant G as Gateway
+  participant C as calc-engine
+  participant K as Compare tools
+  participant V as Verifier and renderer
+  U->>A: Question - which build is stronger, A or B, and by how much?
+  Note over A: Cost caps checked before every Claude call
+  A->>G: damage_expected ×2 (parallel)
+  G->>G: Allowlist and input schema check, IDs c1, c2
+  G->>C: Calculate
+  C-->>A: Values + source IDs (c1.total, c2.total…)
+  A->>V: Draft 1 (wrote 936 itself)
+  V-->>A: Rejected - the number 936 has no source
+  A->>G: compare_diff, compare_ratio (input is source IDs)
+  G->>K: Resolve source IDs to values, then calculate
+  K-->>A: c3.diff, c4.ratio, c4.change
+  A->>V: Draft 2 (every number is a placeholder)
+  V->>V: Checks pass → fill in numbers
+  V-->>U: Answer + sources table
+      </pre>
+      <div class="caption">Figure 1: Sequence of the real run shown on this page (the 16 events in trace 20261003T031424Z-28df54)</div>
+    </div>
+
+    <h2>Why this makes the numbers trustworthy</h2>
+    <div class="cards">
+      <div class="card"><h4>① The AI has no channel for writing numbers</h4><p>Claude's final output is only a template, and number positions can only contain <code>[[sourceID]]</code>. The actual numbers are filled in by the renderer program, so there are no copying mistakes or inconsistent rounding.</p></div>
+      <div class="card"><h4>② Every number has an origin</h4><p>The gateway assigns source IDs as “call number.field”, and the sources table under the answer tells you which tool each number came from.</p></div>
+      <div class="card"><h4>③ The verifier checks every number</h4><p>Any number of unknown origin in a draft (including a difference the AI worked out itself, or an estimate such as “about 73%”) gets the draft rejected.</p></div>
+      <div class="card"><h4>④ No fix, no numbers</h4><p>At most 2 rewrites are allowed. If the 3rd draft still fails, EchoLab returns a fixed message <strong>containing no numbers at all</strong> instead of a questionable answer.</p></div>
+      <div class="card"><h4>⑤ Only registered tools can be used</h4><p>The gateway only lets through tools registered in the domain pack (default deny), and checks the input schema before each call.</p></div>
+      <div class="card"><h4>⑥ Sample data is flagged</h4><p>If a value depends on sample data that has not been verified yet, a note is automatically added to the end of the answer: <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> (“Some numbers in this answer are based on unverified sample data.”)</p></div>
+      <div class="card"><h4>⑦ Everything is recorded</h4><p>Every question writes an execution trace that you can check entry by entry afterwards. See <a href="07-traces-evals.html">Traces &amp; evals</a>.</p></div>
+    </div>
+
+    <h3>Which “bare numbers” the verifier allows</h3>
+    <p>In the text outside placeholders, only the following numbers may appear directly (full-width digits are converted to half-width before comparison):</p>
+    <table>
+      <tr><th>Allowed case</th><th>Example</th><th>Notes</th></tr>
+      <tr><td>Quoting a number that appeared in your question</td><td>“攻撃力 2000 のとき…” (“at 2000 ATK…”)</td><td>Thousands separators are ignored; <code>60%</code> and <code>0.6</code> are treated as the same</td></tr>
+      <tr><td>List numbers at the start of a line</td><td><code>1.</code>, <code>2)</code>, <code>３．</code></td><td>Decimals (such as 1.5) do not count as list numbers</td></tr>
+      <tr><td>Integers up to 10 + certain counter words</td><td>“3 つの方法” (“3 methods”)</td><td>The Japanese counters <code>つ・点・種類・位・番目</code>, the Chinese counters <code>个・种・项・条・步</code>, and the English nouns <code>ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds</code> (directly after the number, at most one space in between)</td></tr>
+    </table>
+    <div class="callout"><strong>The counter-word allowlist also covers Chinese and English</strong>Answers are written in the language you asked in, so Chinese answers such as “3 种方法” (“3 methods”) or “2 个要点” and English answers such as “3 ways” or “2 points” are allowed too. In English the noun must come directly after the number: “2 key points” is rejected because another word stands in between. Numbers above 10 must still come from a tool or from the question.</div>
+
+    <h3>Other ways a run can end</h3>
+    <p>The run above ended normally (status <code>answered</code>). In the cases below, EchoLab gives a fixed message without numbers and records the status in the trace:</p>
+    <table>
+      <tr><th>Status</th><th>When</th></tr>
+      <tr><td><code>fallback</code></td><td>Drafts were rejected more than 2 times and still not fixed</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>The daily or monthly cost cap was reached (checked before calling Claude, so no cost is incurred)</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>Tool calls went back and forth more than 6 rounds</td></tr>
+      <tr><td><code>llm_error</code></td><td>Calling Claude failed, for example because no API key is set</td></tr>
+      <tr><td><code>refusal</code> / <code>max_tokens</code></td><td>The model's safety mechanism declined to answer / the answer was too long and was cut off (in both cases, partial tool calls are not executed)</td></tr>
+    </table>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>: how to set cost caps, and what the “unverified data” note means.</li>
+        <li><a href="07-traces-evals.html">Traces &amp; evals</a>: open a trace file yourself and go through it entry by entry, or run the faithfulness eval.</li>
+        <li><a href="03-reading-answers.html">Reading the answers</a>: what each part of the answer, the sources table and the status line means.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

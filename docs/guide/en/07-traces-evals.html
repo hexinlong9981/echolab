@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traces and Evals | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* Keep long code lines from widening the page on narrow screens */
+    main { min-width: 0; }
+    /* Page-specific: line-by-line trace "replay" */
+    .tl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 16px 0; }
+    .tl ol { list-style: none; margin: 0; padding: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .tl li { display: grid; grid-template-columns: 7.5em 7.5em minmax(0, 1fr); gap: 8px; padding: 3px 6px; border-radius: 6px; opacity: .35; transition: opacity .3s, background .3s; }
+    .tl li.seen { opacity: 1; }
+    .tl li.now { background: var(--accent-soft); }
+    .tl li .t { color: var(--muted); }
+    .tl li .e { font-weight: 700; }
+    .tl li .e.q { color: var(--accent); } .tl li .e.l { color: var(--warn); } .tl li .e.c { color: var(--muted); }
+    .tl li .e.r { color: var(--ok); } .tl li .e.v { color: var(--bad); } .tl li .e.v.ok { color: var(--ok); } .tl li .e.a { color: var(--accent); }
+    .tl li .d { overflow-wrap: anywhere; }
+    .tl .tl-ctl { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+    .tl .tl-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    @media (max-width: 640px) { .tl li { grid-template-columns: 6.5em minmax(0, 1fr); } .tl li .t { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .tl li { transition: none; } }
+  </style>
+</head>
+<body data-page="07-traces-evals.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Advanced</span><span>Execution traces</span><span>Faithfulness evals</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <h1>Traces and Evals</h1>
+    <p class="lead">For every question, EchoLab records the process, event by event, in an “execution trace” file. It also ships with a “faithfulness eval” that uses a fixed set of test cases to check whether answers contain numbers of unknown origin. This page shows you how to find and read traces, and how to run the evals yourself and understand the eval report.</p>
+
+    <h2>Where traces are stored</h2>
+    <table>
+      <tr><th>Item</th><th>Details</th></tr>
+      <tr><td>Location</td><td><code>.echolab/traces/</code> under the repository root (listed in <code>.gitignore</code>, never committed). You can change it with <code>--trace-dir DIR</code></td></tr>
+      <tr><td>File name</td><td><code>&lt;run ID&gt;.jsonl</code>, one file per question. A run ID looks like <code>20261003T031424Z-28df54</code>: the UTC time plus 6 random hex digits, so sorting by file name gives chronological order</td></tr>
+      <tr><td>Which file is mine?</td><td>The last line of the CLI output, <code>トレース: …</code> (“Trace”), is the path of this run's file, and the second-to-last line shows the <code>実行 ID</code> (run ID)</td></tr>
+      <tr><td>Format</td><td>JSON Lines: one event per line. Every line has <code>ts</code> (UTC time with milliseconds), <code>run_id</code> and <code>event</code> (event type). Each event is written to disk immediately, so even if the program fails partway through, what already happened is preserved</td></tr>
+      <tr><td>Eval traces</td><td>When you run the evals, each case's trace goes into <code>traces/</code> under the eval raw-records directory (default <code>evals/reports/raw/traces/</code>)</td></tr>
+    </table>
+
+    <h3>Hands-on: ask a question, then inspect the trace</h3>
+    <p>Below we first ask a question in scripted mode (no API key needed), then list the trace directory, and finally use EchoLab's own <code>read_trace</code> function to print the events in order. All output is from an actual run (the answer is abbreviated).</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（…）とビルド B（…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 10},
+        {"out": "ビルド B の方が強いです。", "delay": 400},
+        {"out": "… (answer and sources table omitted)", "cls": "dim"},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "hl"},
+        {"pause": 700},
+        {"cmd": "ls .echolab/traces/"},
+        {"out": "20261003T031424Z-28df54.jsonl", "delay": 200},
+        {"pause": 600},
+        {"cmd": ".venv/bin/python -c \"from core.trace import read_trace; [print(e['ts'][11:23], e['event']) for e in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl')]\"", "speed": 10},
+        {"out": "03:14:24.930 question", "delay": 300},
+        {"out": "03:14:24.931 llm_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_result"},
+        {"out": "03:14:24.933 tool_result"},
+        {"out": "03:14:24.934 llm_call"},
+        {"out": "03:14:24.934 verdict", "cls": "warn"},
+        {"out": "03:14:24.935 llm_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.937 llm_call"},
+        {"out": "03:14:24.938 verdict", "cls": "hl"},
+        {"out": "03:14:24.938 answer", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>The status line reads: status <code>answered</code>, rejected 1 time, cost $0.0000, run ID. To see only one kind of event, pass a second argument to <code>read_trace</code>; for example, to see only the verifier's verdicts:</p>
+<pre><code>.venv/bin/python -c "
+from core.trace import read_trace
+for v in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl', 'verdict'):
+    print(v['draft'], v['ok'], v['problems'])
+"
+# Actual output:
+1 False ['数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。']
+2 True []</code></pre>
+    <p>Draft 1 failed with the message “The number 936 has no source. Cite tool results as [[source ID]] and compute differences and ratios with the compare tools; quoting numbers from the question is allowed.” Draft 2 passed. (Asking a question in scripted mode creates a new trace file in <code>.echolab/traces/</code> and changes nothing else in the repository.)</p>
+
+    <h2>How to read a trace</h2>
+    <h3>Event types</h3>
+    <table>
+      <tr><th>event</th><th>When it is written</th><th>Fields worth looking at</th></tr>
+      <tr><td><code>question</code></td><td>At the start, once</td><td><code>question</code> the original question, <code>domain</code> the domain pack, <code>llm</code> (<code>ScriptedLLM</code> for scripted mode, <code>AnthropicLLM</code> for the real Claude), <code>model</code>, <code>tools</code> the tools available for this run</td></tr>
+      <tr><td><code>llm_call</code></td><td>After each Claude call</td><td><code>stop_reason</code> (<code>tool_use</code> = wants to call tools, <code>end_turn</code> = submitted a draft), <code>usage</code> token counts, <code>usd</code> cost, <code>text</code> the draft, <code>tool_uses</code></td></tr>
+      <tr><td><code>tool_call</code></td><td>Before each tool call</td><td><code>name</code> (e.g. <code>damage_expected</code>), <code>input</code></td></tr>
+      <tr><td><code>tool_result</code></td><td>After each tool call</td><td><code>outcome.call_id</code> (<code>c1</code>…), <code>outcome.sources</code> (source IDs and values, <code>unverified_inputs</code> unverified data), <code>outcome.error</code> (explanation when the gateway rejected the call or the input was invalid)</td></tr>
+      <tr><td><code>verdict</code></td><td>After each draft is checked</td><td><code>draft</code> draft number, <code>ok</code> passed or not, <code>problems</code> reasons for rejection, <code>cited</code> cited source IDs, <code>template</code> the original draft</td></tr>
+      <tr><td><code>answer</code></td><td>At the end, once</td><td><code>status</code>, <code>answer</code> the final text, <code>cited</code>, <code>cost_usd</code>, <code>drafts</code> / <code>drafts_rejected</code>, <code>llm_calls</code> / <code>tool_calls</code></td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>When a cost cap is reached and the run stops without calling Claude</td><td><code>reason</code></td></tr>
+      <tr><td><code>llm_error</code></td><td>When calling Claude fails (for example, no API key is set)</td><td><code>kind</code> the failure category (<code>credentials</code> no credentials, <code>auth</code> authentication failed, <code>transient</code> rate limit / overload / network, <code>other</code> anything else), <code>error</code> the raw SDK message</td></tr>
+    </table>
+
+    <h3>A real trace (excerpt)</h3>
+    <p>This is the trace used by the animation in <a href="05-how-it-works.html">What happens behind the scenes (animated)</a>, first 7 lines (for readability, long inputs are shortened with <code>…</code>; every line has <code>ts</code> and <code>run_id</code>, but they are kept only on the first line here):</p>
+<pre><code>{"ts": "2026-10-03T03:14:24.930+00:00", "run_id": "20261003T031424Z-28df54", "event": "question", "question": "ビルド A（攻撃力 2000、…", "domain": "wuwa", "llm": "ScriptedLLM", "model": "claude-opus-5-5", "tools": ["compare_diff", "compare_ratio", "damage_expected", "echo_score", "gacha_probability_within"]}
+{"event": "llm_call", "model": "claude-opus-5-5", "stop_reason": "tool_use", "usage": {"input_tokens": 0, "output_tokens": 0, …}, "usd": "0.00", "text": "", "tool_uses": [{"id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, …}}, {"id": "toolu_scripted_02", …}]}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, "skill_multiplier": 2.5, …}}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_02", "name": "damage_expected", "input": {"atk": 1800, "skill_multiplier": 3.0, …}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_01", "outcome": {"call_id": "c1", "tool": "damage.expected", "sources": [{"source_id": "c1.base", "value": "5000.000000", …}, …, {"source_id": "c1.total", "value": "6192.000000", "tool": "damage.expected", "unverified_inputs": []}], "error": null}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_02", "outcome": {"call_id": "c2", …, {"source_id": "c2.total", "value": "7128.000000", …}], "error": null}}
+{"event": "llm_call", "stop_reason": "end_turn", "text": "ビルド B の方が [[c2.total|0]] で、A より 936 高いです。", "tool_uses": []}</code></pre>
+    <div class="callout"><strong>Tips for reading traces</strong>
+      <ul style="margin:4px 0 0">
+        <li>Start with the last line, <code>answer</code>: the status, cost and number of rejections are all there at a glance.</li>
+        <li>Suspicious number in the answer? Find its source ID in <code>answer.cited</code> (e.g. <code>c4.change</code>), then find the <code>source_id</code> with the same name in <code>tool_result</code> to see the original value and the tool that calculated it.</li>
+        <li>Was a draft rejected? Look at <code>problems</code> in <code>verdict</code> to see which number had no source.</li>
+        <li>Values are stored as strings (e.g. <code>"6192.000000"</code>), so they are never rounded.</li>
+      </ul>
+    </div>
+
+    <h3>Animation: replay this trace line by line</h3>
+    <p>16 events, with all times (UTC) taken from the real file. Click “▶ Replay” to watch them appear in order.</p>
+    <div class="tl" id="tl">
+      <ol>
+        <li><span class="t">.930</span><span class="e q">question</span><span class="d">Question recorded (domain wuwa, 5 tools available)</span></li>
+        <li><span class="t">.931</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use: requests 2 × damage_expected</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected (Build A)</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected (Build B)</span></li>
+        <li><span class="t">.932</span><span class="e r">tool_result</span><span class="d">c1: c1.base … c1.total = 6192.000000</span></li>
+        <li><span class="t">.933</span><span class="e r">tool_result</span><span class="d">c2: c2.base … c2.total = 7128.000000</span></li>
+        <li><span class="t">.934</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn: draft 1 “…A より 936 高いです。”</span></li>
+        <li><span class="t">.934</span><span class="e v">verdict</span><span class="d">draft 1: ok=false, 数値「936」の出典がありません (the number 936 has no source)</span></li>
+        <li><span class="t">.935</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use: compare_diff, compare_ratio</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_diff {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_ratio {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c3: c3.diff = 936.000000</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c4: c4.ratio = 1.151163, c4.change = 0.151163</span></li>
+        <li><span class="t">.937</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn: draft 2 (all [[…]] citations)</span></li>
+        <li><span class="t">.938</span><span class="e v ok">verdict</span><span class="d">draft 2: ok=true, cited = c1.total, c2.total, c3.diff, c4.change</span></li>
+        <li><span class="t">.938</span><span class="e a">answer</span><span class="d">status=answered, drafts=2, drafts_rejected=1, llm_calls=4, tool_calls=4</span></li>
+      </ol>
+      <div class="tl-ctl"><button type="button" data-t="play">▶ Replay</button><button type="button" data-t="all">Show all</button><span class="tl-n">All times are milliseconds after 03:14:24</span></div>
+    </div>
+    <script>
+    (function () {
+      var box = document.getElementById("tl");
+      if (!box) return;
+      var items = box.querySelectorAll("li"), btn = box.querySelector('[data-t="play"]'), n = box.querySelector(".tl-n");
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var timer = 0, i = 0;
+      function mark(k) {
+        items.forEach(function (li, j) { li.classList.toggle("seen", j <= k); li.classList.toggle("now", j === k); });
+        n.textContent = (k + 1) + " / " + items.length + " events";
+      }
+      function stop() { clearInterval(timer); timer = 0; btn.textContent = "▶ Replay"; }
+      function play() {
+        if (timer) return stop();
+        if (reduce) { mark(items.length - 1); return; }
+        i = 0; mark(0); btn.textContent = "Pause";
+        timer = setInterval(function () { i++; if (i >= items.length) return stop(); mark(i); }, 650);
+      }
+      btn.addEventListener("click", play);
+      box.querySelector('[data-t="all"]').addEventListener("click", function () { stop(); mark(items.length - 1); });
+      // Everything is visible by default (readable without the script), and stays visible when reduced motion is preferred
+      mark(items.length - 1);
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (es, obs) {
+          if (es.some(function (e) { return e.isIntersecting; })) { obs.disconnect(); play(); }
+        }, { threshold: 0.5 }).observe(box);
+      }
+    })();
+    </script>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph R1["Round 1 - calculate"]
+    direction TB
+    Q["question"] --> L1["llm_call<br/>tool_use"] --> T1["tool_call ×2"] --> S1["tool_result ×2<br/>c1, c2"]
+  end
+  subgraph R2["Round 2 - draft 1"]
+    direction TB
+    L2["llm_call<br/>end_turn"] --> V1["verdict draft 1<br/>ok=false"]
+  end
+  subgraph R3["Round 3 - compare"]
+    direction TB
+    L3["llm_call<br/>tool_use"] --> T2["tool_call ×2"] --> S2["tool_result ×2<br/>c3, c4"]
+  end
+  subgraph R4["Round 4 - draft 2"]
+    direction TB
+    L4["llm_call<br/>end_turn"] --> V2["verdict draft 2<br/>ok=true"] --> A["answer<br/>answered"]
+  end
+  R1 --> R2 --> R3 --> R4
+  classDef bad fill:#fdecea,stroke:#c62828,color:#1f2328
+  classDef good fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  class V1 bad
+  class V2,A good
+      </pre>
+      <div class="caption">Figure 1: Event timeline of one run (4 Claude calls, one per round; trace 20261003T031424Z-28df54)</div>
+    </div>
+
+    <h2>Faithfulness eval: test cases that check for numbers of unknown origin</h2>
+    <p>The eval feeds the cases in <code>evals/faithfulness/cases.yaml</code> to EchoLab one by one and checks the results. There are currently 8 cases:</p>
+    <table>
+      <tr><th>Case ID</th><th>What it checks</th><th>Expected result</th></tr>
+      <tr><td><code>damage-basic</code></td><td>Citing expected damage and each part of its breakdown</td><td>answered, no rejections</td></tr>
+      <tr><td><code>echo-score</code></td><td>Citing an Echo score (value and percentage)</td><td>answered</td></tr>
+      <tr><td><code>gacha-unverified</code></td><td>Values from unverified data automatically get the note</td><td>answered, with note</td></tr>
+      <tr><td><code>compare-builds</code></td><td>Parallel calculations + compare tools (difference, rate of increase)</td><td>answered, cites c1–c4</td></tr>
+      <tr><td><code>tool-error-recovery</code></td><td>Understanding a tool's input error and calling again</td><td>answered, cites c2</td></tr>
+      <tr><td><code>bad-draft-raw-number</code></td><td>A draft that writes a number directly is rejected and rewritten with a citation</td><td>answered, 1 rejection</td></tr>
+      <tr><td><code>bad-draft-derived-and-unknown-id</code></td><td>A self-calculated difference and a nonexistent source ID are both rejected</td><td>answered, 2 rejections</td></tr>
+      <tr><td><code>never-corrected</code></td><td>When repeated rejections never fix the draft, a fixed reply with no numbers is returned instead</td><td>fallback, 3 rejections</td></tr>
+    </table>
+
+    <h3>Running the evals (scripted mode)</h3>
+    <p>Scripted mode needs neither an API key nor Java (it uses the test calculation service) and finishes in a few seconds. Below, the report and raw records are written to a temporary directory (for example <code>/tmp/ug3/</code>) so that no files in the repository are changed:</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.evals --llm scripted --out /tmp/ug3/report.md --raw-dir /tmp/ug3/raw", "speed": 18},
+        {"out": "# 評価レポート：数値の忠実度", "cls": "hl", "delay": 600},
+        {"out": ""},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（8 件）"},
+        {"out": ""},
+        {"out": "## 指標", "cls": "hl"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |", "delay": 200},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 0.462（6 / 13） |"},
+        {"out": "| 合格したケース | 8 / 8 |"},
+        {"out": "| 費用の合計（USD） | 0.028120 |"},
+        {"out": ""},
+        {"out": "## ケースごとの結果", "cls": "hl"},
+        {"out": "| `damage-basic` | … | answered | 1 | 0 | … | 合格 |", "delay": 120},
+        {"out": "| `echo-score` | … | answered | 1 | 0 | … | 合格 |"},
+        {"out": "| `gacha-unverified` | … | answered | 1 | 0 | `c1.probability` | 合格 |"},
+        {"out": "| `compare-builds` | … | answered | 1 | 0 | `c1.total`, `c2.total`, `c3.diff`, `c4.change` | 合格 |"},
+        {"out": "| `tool-error-recovery` | … | answered | 1 | 0 | `c2.probability` | 合格 |"},
+        {"out": "| `bad-draft-raw-number` | … | answered | 2 | 1 | `c1.total` | 合格 |"},
+        {"out": "| `bad-draft-derived-and-unknown-id` | … | answered | 3 | 2 | … | 合格 |"},
+        {"out": "| `never-corrected` | … | fallback | 3 | 3 | - | 合格 |", "cls": "warn"},
+        {"out": ""},
+        {"out": "台本モードの使用量（トークン数）は台本に書いた架空の値で、費用は計算の確認用です。", "cls": "dim"},
+        {"pause": 500},
+        {"cmd": "echo $?"},
+        {"out": "0", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>(The report title is “Eval report: numeric faithfulness”, followed by the date, the LLM and the case file (8 cases), then the metrics and a per-case results table in which <code>合格</code> means “passed”. The last line says: “In scripted mode, usage (token counts) is made-up values written in the script; the cost is only for checking the calculation.” The report in the terminal is a Markdown table; the “content” column is omitted here to save space. The exit code is 0 when every case passes and faithfulness is 1.0, and 1 otherwise.)</p>
+
+    <div class="cards">
+      <div class="card"><h4>Run a single case</h4><p><code>--case never-corrected</code> (you can repeat <code>--case</code> for several). Measured: fallback, 3 drafts (下書き), 3 rejections (差し戻し), passed (合格). If an ID is misspelled, no case runs; the available IDs are listed and the exit code is 2.</p></div>
+      <div class="card"><h4>Where the report goes</h4><p><code>--out PATH</code> writes the Markdown report (without it, the report is only printed). The raw records <code>faithfulness-&lt;llm&gt;-&lt;time&gt;.jsonl</code> and each case's trace are written to <code>--raw-dir</code>, default <code>evals/reports/raw/</code> (not committed).</p></div>
+      <div class="card"><h4>Use a different set of cases</h4><p><code>--cases FILE.yaml</code>, in the same format as <code>evals/faithfulness/cases.yaml</code>.</p></div>
+    </div>
+
+    <h3>What the metrics in the report mean</h3>
+    <table>
+      <tr><th>Metric (as in the report)</th><th>Meaning</th><th>Value this run</th></tr>
+      <tr><td>忠実度<br>(faithfulness)</td><td>The share of answers returned to the user that contain <strong>not a single unsourced number</strong>. Answers that passed the verifier are <strong>checked again</strong>; for fixed replies, it confirms they contain no numbers at all. By EchoLab's design, this value must be 1.000</td><td>1.000</td></tr>
+      <tr><td>差し戻し率<br>(rejection rate)</td><td>The share of all drafts that the verifier rejected. It measures how often the AI makes mistakes, <strong>not</strong> how often answers are wrong: rejected drafts never reach the user. The scripted-mode cases contain deliberate mistakes, so this value is high here</td><td>0.462 (6 / 13)</td></tr>
+      <tr><td>合格したケース<br>(cases passed)</td><td>Whether the status, citations, number of rejections, notes and so on match the expectations</td><td>8 / 8</td></tr>
+      <tr><td>費用の合計<br>(total cost, USD)</td><td>Total Claude cost across all cases. In scripted mode the token counts are made-up numbers written in the script, used only to check the cost calculation itself</td><td>0.028120</td></tr>
+    </table>
+    <p>In the per-case table, “下書き” is the number of drafts, “差し戻し” the number of rejections, “引用した出典” the source IDs cited by the final answer, and “合否” whether the case passed (with the reason when it did not). The baseline report committed to the repository, <code>evals/reports/scripted-baseline.md</code>, matches the result above exactly.</p>
+
+    <h2>Scripted mode vs. the real Claude</h2>
+    <table>
+      <tr><th></th><th>Scripted mode <code>--llm scripted</code> (default)</th><th>Real Claude <code>--llm anthropic</code></th></tr>
+      <tr><td>AI answers</td><td>Follow the script written in each case; identical every time</td><td>Only the question is given to the real Claude (<code>claude-opus-5-5</code>); may differ each time</td></tr>
+      <tr><td>Calculation service</td><td>Test calculation service (Python reference implementation); no Java needed</td><td>The real Java calculation service (needs Java 21 and a built jar)</td></tr>
+      <tr><td>Requirements</td><td>Nothing</td><td>Credentials such as <code>ANTHROPIC_API_KEY</code>; incurs costs</td></tr>
+      <tr><td>Cost accounting</td><td>Uses a temporary ledger; does not affect the real cost caps</td><td>Recorded in the real ledger <code>.echolab/costs.jsonl</code> and subject to the daily / monthly caps (default 1 / 10 USD)</td></tr>
+      <tr><td>What is checked</td><td>Everything: status, faithfulness, notes, cited source IDs, number of rejections, whether the script was fully used</td><td>Status, faithfulness and notes (citations and rejection counts vary with the AI, so they are not checked)</td></tr>
+      <tr><td>Where to run</td><td>Locally and in CI</td><td><strong>Only manually, locally</strong>; only the aggregated report is committed. CI has no API key</td></tr>
+    </table>
+    <div class="callout warn"><strong>What happens without an API key</strong>Measured: when you ask a question without <code>--llm scripted</code>, EchoLab does not crash. It returns a fixed reply explaining the cause and the fix, “Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、…” (“Could not answer because no Claude API credentials were found. Set the environment variable ANTHROPIC_API_KEY (or log in with ant auth login), or …”), with status <code>llm_error</code> and exit code 1. The trace contains an <code>llm_error</code> event with <code>"kind": "credentials"</code> and “Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）” (“Claude API credentials not found (set ANTHROPIC_API_KEY or similar)”). The same applies to evals with <code>--llm anthropic</code>: without a key, cases end with <code>llm_error</code> and no cost is incurred.</div>
+    <p>The command for an eval with the real Claude (with a key, and with the Java calculation service built):</p>
+<pre><code>JAVA_HOME=$HOME/.local/jdk/21 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/&lt;name&gt;.md</code></pre>
+    <p>Cases run one at a time, in order (not in parallel, so costs cannot run away). The LLM line of the report includes the model name.</p>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>: what to do when the status is not answered, Java cannot be found, or there is no API key.</li>
+        <li><a href="05-how-it-works.html">What happens behind the scenes (animated)</a>: step through this page's trace as an animation.</li>
+        <li><a href="09-roadmap.html">Roadmap</a>: plans such as “trace replay” in a web UI.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

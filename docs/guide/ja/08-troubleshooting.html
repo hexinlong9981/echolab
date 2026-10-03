@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>トラブルシューティングと FAQ | EchoLab 利用ガイド</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    /* このページ専用：狭い画面で幅の広い要素（表・アニメーション）がページを広げないようにする */
+    .flow-anim { overflow-x: auto; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+  <script defer src="../assets/guide.js"></script>
+</head>
+<body data-page="08-troubleshooting.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>応用</span><span>トラブル対応</span><span>FAQ</span></span><button id="theme-toggle">ライト／ダーク</button></header>
+    <h1>トラブルシューティングと FAQ</h1>
+    <p class="lead">このページの問題はすべて、実際の環境で再現を確かめたものです。まず「症状」の出力があなたの画面と一致するかを確かめ、次に「原因」「対処」に沿って進めてください。</p>
+
+    <h2>まず、どの種類かを見分ける</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+  A["python -m core.agent を実行"] --> B{"最終行は&lt;br/&gt;状態: … か？"}
+  B -- "いいえ、エラー: … が出た（終了コード 2）" --> T{"エラー: の後ろの内容"}
+  T -- "実行ファイル java が見つかりません" --> T1["① java が見つからない"]
+  T -- "jar がありません" --> T2["② jar が見つからない"]
+  T -- "その他（ドメイン・台本・&lt;br/&gt;上限の設定・台帳）" --> T3["⑦ 引数・設定・&lt;br/&gt;ファイルの問題"]
+  B -- はい --> S{"状態は？"}
+  S -- llm_error --> S1["③ 認証情報か&lt;br/&gt;ネットワーク"]
+  S -- budget_exceeded --> S2["④ コストの上限"]
+  S -- fallback --> S3["⑥ 検証に不合格"]
+  S -- answered --> S4["成功&lt;br/&gt;（ツールのエラーは自動で&lt;br/&gt;修正される。⑤を参照）"]
+      </pre>
+      <div class="caption">図 1：トラブルの見分け方。まず状態行があるかを見て、次に状態の値を見ます</div>
+    </div>
+    <p>設定や起動でエラーが起きた場合、状態行は出ません。CLI は標準エラーに <code>エラー: …</code> を 1 行出して原因と直し方を示し、終了コード 2 で終わります。Traceback は表示しません（必要なら <code>--debug</code> を付けます）。状態行がある場合は、画面の回答に原因の種類が書かれています。さらに詳しい情報は実行トレースにあります。共通の確認方法：</p>
+    <pre><code># 実行 ID は状態行にあります。置き換えて実行してください
+grep -E 'llm_error|budget_exceeded|verdict|tool_result' .echolab/traces/&lt;実行 ID&gt;.jsonl</code></pre>
+
+    <h2>① java が見つからない</h2>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"pause": 400},
+        {"out": "エラー: サービス calc-engine の実行ファイル java が見つかりません。JDK 21 を入れて PATH に java を通すか、環境変数 JAVA_HOME を（$JAVA_HOME/bin/java があるように）設定してください。", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：<code>--fake-backend</code> を付けていないので CLI は Java の計算サービスを起動しようとしますが、PATH に <code>java</code> がなく、<code>JAVA_HOME</code> も設定されていません（CLI は子プロセスを起動する前にこれを確認します）。WSL では、Windows 側に入れた Java はふつう Linux 側からそのままでは使えません。</p>
+    <p><strong>対処</strong>（どれか 1 つ）：</p>
+    <ul>
+      <li><code>JAVA_HOME</code> を JDK 21 に向けます：<code>export JAVA_HOME=$HOME/.local/jdk/21</code>（実際のインストール先に合わせてください）。CLI は自動で <code>$JAVA_HOME/bin/java</code> を使います。</li>
+      <li>または JDK 21 の <code>bin</code> を PATH に追加します。</li>
+      <li>当面 Java を使わない場合は、<code>--fake-backend</code> を付けます。</li>
+    </ul>
+
+    <h2>② jar が見つからない（計算サービスが未ビルド）</h2>
+    <div class="term" data-title="bash — 症状">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --llm scripted --script core/agent/examples/compare_builds.yaml"},
+        {"pause": 600},
+        {"out": "エラー: サービス calc-engine の jar がありません: /projects2/echolab/services/calc-engine/build/libs/calc-engine-mcp.jar。先に jar を作ってください：(cd services/calc-engine && ./gradlew bootJar)", "cls": "err"},
+        {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
+        {"cmd": "echo $?"},
+        {"out": "2"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：Java は見つかりましたが、<code>services/calc-engine/build/libs/calc-engine-mcp.jar</code> がありません。<code>config/services.yaml</code> の起動コマンドは <code>java -jar &lt;パス&gt;</code> で、CLI は Java を起動する前に <code>-jar</code> の後ろのファイルがあるかを確かめるので、すぐに終了してしまうプロセスを起動することはありません。jar はあるのにサービスが起動直後に終了した場合は、<code>エラー: サービス calc-engine を起動できませんでした（…）。起動コマンド: …</code> と表示され、やはり終了コード 2 で終わります。</p>
+    <p><strong>対処</strong>：jar をビルドしてから、リポジトリのルートに戻ってやり直します。</p>
+    <pre><code>cd services/calc-engine &amp;&amp; JAVA_HOME=$HOME/.local/jdk/21 ./gradlew bootJar -q
+ls build/libs/        # calc-engine-mcp.jar があれば OK
+cd ../..</code></pre>
+
+    <h2>③ llm_error：認証情報がない（または無効）</h2>
+    <div class="term" data-title="bash — 症状と原因の調べ方">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --fake-backend"},
+        {"pause": 400},
+        {"out": "Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: llm_error　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T030610Z-028cc3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T030610Z-028cc3.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"kind\": \"[^\"]*\", \"error\": \"[^\"]*\"' .echolab/traces/20261003T030610Z-028cc3.jsonl"},
+        {"out": "\"kind\": \"credentials\", \"error\": \"Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：既定の <code>--llm anthropic</code> には Anthropic の認証情報が必要です。CLI は Anthropic SDK の例外の種類によって失敗を 4 つに分類し、画面の回答で種類と対処法を直接示します。トレースの <code>llm_error</code> イベントには分類 <code>kind</code> と SDK の元のメッセージが記録されます：</p>
+    <table>
+      <thead><tr><th><code>kind</code> と画面の回答（冒頭）</th><th>トレースの <code>error</code>（例）</th><th>意味と対処</th></tr></thead>
+      <tbody>
+        <tr><td><code>credentials</code>：<code>Claude API の認証情報が見つからないため、…</code></td><td><code>Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）</code></td><td>認証情報がありません。<code>export ANTHROPIC_API_KEY=…</code> または <code>ant auth login</code> を実行します。</td></tr>
+        <tr><td><code>auth</code>：<code>Claude API の認証に失敗したため、…ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</code></td><td><code>Claude API の認証に失敗しました（HTTP 401）: … 'authentication_error', 'message': 'API key is invalid.' …</code></td><td>キーが無効か、権限がありません（HTTP 401/403。偽のキーで実測すると 401）。キーを最後までコピーできているか、失効していないかを確かめます。</td></tr>
+        <tr><td><code>transient</code>：<code>Claude API が混み合っているか、接続できなかったため、…時間をおいてお試しください。</code></td><td><code>Claude API が一時的なエラーを返しました（HTTP 429）: …</code> / <code>Claude API に接続できませんでした: …</code></td><td>レート制限、過負荷、サーバの一時的なエラー、またはネットワークの不通です。時間をおいてやり直すか、ネットワークやプロキシを確認します。</td></tr>
+        <tr><td><code>other</code>：<code>Claude API の呼び出しに失敗したため、…詳細はトレースの llm_error の行を確かめてください。</code></td><td><code>Claude API がエラーを返しました（HTTP 400）: …</code></td><td>その他の API エラーです。トレースにある元のメッセージに従って対処します。</td></tr>
+      </tbody>
+    </table>
+    <p>Claude を使わない場合は、台本モードに切り替えられます：<code>--llm scripted --script core/agent/examples/compare_builds.yaml</code>。</p>
+
+    <h2>④ budget_exceeded：コストの上限に到達</h2>
+    <p>日次の上限を 0 にすれば、台本モードで安全に再現できます（台本モードは使い捨ての一時台帳しか使わないので、本物の台帳には影響しません）：</p>
+    <div class="term" data-title="bash — コストの上限を再現">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_DAILY_USD=0 python -m core.agent \"…\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend"},
+        {"pause": 400},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 0 USD / 上限 0 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031208Z-f255b3", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031208Z-f255b3.jsonl", "cls": "dim"},
+        {"cmd": "grep -o '\"reason\": \"[^\"]*\"' .echolab/traces/20261003T031208Z-f255b3.jsonl"},
+        {"out": "\"reason\": \"今日（UTC）のコストが上限に達しました: 0 / 0 USD\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p><strong>原因</strong>：AI を呼ぶ前に毎回、台帳にある今日（UTC）と今月（UTC）の合計を上限と比べ、上限に達していれば呼び出しません。台本モードでも確認は行われます（上の例）。回答には、どちらの上限（日次か月次か）に達したか、使用額と上限、いつ使えるようになるか、どの環境変数または <code>config/budget.yaml</code> のどのキーで変えられるかが書かれています。</p>
+    <p><strong>対処</strong>：</p>
+    <ul>
+      <li>UTC の 0 時（日本時間の 9 時）に日付が変わるか、翌月（UTC）になるのを待ちます。</li>
+      <li>どうしても必要なときは一時的に引き上げます：<code>export ECHOLAB_DAILY_USD=2.00</code>（月次の上限は <code>ECHOLAB_MONTHLY_USD</code>）。</li>
+      <li>別の台帳を誤って使っていないか確かめます：<code>ECHOLAB_LEDGER</code> が意図しないファイルを指していないか。台帳に読めない行があると、プログラムはその行を読み飛ばさず、終了コード 2 で止まってファイル名と行番号を示します（⑦を参照）。</li>
+    </ul>
+
+    <h2>⑤ ツールの入力エラー（ふつうは自動で直る）</h2>
+    <p>AI がツールを呼ぶときに引数が正しくない場合（項目の不足、範囲外の値、<code>rules</code> と <code>banner</code> を両方指定した・どちらも指定しなかった、など）、計算サービスは<strong>止まらず</strong>、エラーメッセージを結果として AI に返し、直してから呼び直させます。次の実行では、1 回目の呼び出しで <code>rules</code> が抜けており、2 回目で補って成功しています：</p>
+    <div class="term" data-title="bash — ツールのエラー後に自動で再試行">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"天井カウント 8・すり抜け確定ありから 1 回引いたときの獲得確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。\" --llm scripted --script my-toolerr.yaml", "speed": 10},
+        {"pause": 1500},
+        {"out": "次の 1 回で獲得できる確率は 60% です。", "cls": "hl"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "出典 ID         値   ツール                    未確認データ", "cls": "dim"},
+        {"out": "--------------  ---  ------------------------  ------------", "cls": "dim"},
+        {"out": "c2.probability  0.6  gacha.probability_within  -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024553Z-c7193c", "cls": "warn"},
+        {"cmd": "grep -o '\"error\": \"[^\"]*\"' .echolab/traces/20261003T024553Z-c7193c.jsonl"},
+        {"out": "\"error\": \"gacha_probability_within: rules と banner のどちらか一方だけを指定してください\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">（<code>my-toolerr.yaml</code> は再現用の台本で、内容は評価ケース <code>tool-error-recovery</code> から取っています。）</p>
+    <p>引数がツールの入力仕様（JSON Schema）を満たさない場合は、ゲートウェイがツールを呼ぶ前にエラーを AI に返します。メッセージは日本語で、項目のパスが付きます。例：<code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code>、<code>入力が不正です: (全体): 必須の項目がありません: pulls</code>。</p>
+    <p><strong>見分け方</strong>：出典 ID が <code>c1…</code> ではなく <code>c2.probability</code> になっています。1 回目の呼び出し（<code>c1</code>）が失敗したということです。<strong>あなたがすること</strong>：ふつうは何もありません。本物の Claude でツールのエラーが繰り返され、最終的に回答が得られない場合は、計算に必要な条件を質問の中にすべて書いてください（ガチャのルールなら基本確率、ソフト天井、ハード天井など。またはサンプルのガチャを使うと明記します）。</p>
+
+    <h2>⑥ fallback：検証に合格しなかった</h2>
+    <div class="term" data-title="bash — 3 回差し戻されて数値の回答を断念">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"天井カウント 0 から 10 回以内に獲得できる確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。\" --llm scripted --script my-fallback.yaml", "speed": 10},
+        {"pause": 1500},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "cls": "err"},
+        {"out": " "},
+        {"out": "出典:"},
+        {"out": "（引用した出典はありません）"},
+        {"out": " "},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T024544Z-a9e54f", "cls": "warn"},
+        {"cmd": "grep -o '\"template\": \"[^\"]*\"' .echolab/traces/20261003T024544Z-a9e54f.jsonl"},
+        {"out": "\"template\": \"確率はおよそ 73.4% です。\"", "cls": "hl"},
+        {"out": "\"template\": \"確率は 0.734 です。\"", "cls": "hl"},
+        {"out": "\"template\": \"確率は約 73% です（[[c1.probability|%1]]）。\"", "cls": "hl"}
+      ]</script>
+    </div>
+    <p class="lead" style="font-size:14px">（<code>my-fallback.yaml</code> は再現用の台本で、内容は評価ケース <code>never-corrected</code> から取っています。）</p>
+    <p><strong>原因</strong>：AI の 3 つの下書きがどれも、プレースホルダでツールの結果を引用せず、数値（<code>73.4%</code>、<code>0.734</code>、<code>73%</code>）を直接書いていました。検証器は毎回、次のような指摘を返しています（トレースの <code>verdict</code> イベントの <code>problems</code>）：</p>
+    <pre><code>数値「73.4%」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code></pre>
+    <p>3 回差し戻されると、EchoLab は誤っているかもしれない数値を出すよりも、数値を出さないことを選びます。<strong>対処</strong>：案内に従って条件をより具体的にし、もう一度質問してください。質問に書いた数値は、回答でそのまま引用できます。</p>
+
+    <h2>⑦ その他：引数・設定・ファイル</h2>
+    <p>以下の場合はいずれも、標準エラーに <code>エラー: …</code> と <code>（--debug を付けるとトレースバックを表示します）</code> の 2 行が出て（argparse のエラーは除く）、終了コード 2 で終わります。</p>
+    <table>
+      <thead><tr><th>症状（実際の出力）</th><th>原因</th><th>対処</th></tr></thead>
+      <tbody>
+        <tr><td><code>エラー: --llm scripted には --script（台本の YAML）が必要です</code></td><td>台本モードで台本を指定していない</td><td><code>--script core/agent/examples/compare_builds.yaml</code> を付ける</td></tr>
+        <tr><td><code>エラー: 台本が見つかりません: nope.yaml</code></td><td>台本のパスが正しくない。相対パスは現在のディレクトリが基準</td><td>リポジトリのルートで実行するか、絶対パスで書く</td></tr>
+        <tr><td><code>エラー: ドメインが見つかりません: lol（使えるドメイン: wuwa）</code>（<code>--fake-backend</code> の有無にかかわらず同じ）</td><td><code>--domain</code> に存在しないドメインパックを指定した</td><td>括弧内に挙がったドメインを使うか、<code>--domain</code> を省く（現在は <code>wuwa</code> のみ）</td></tr>
+        <tr><td><code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code></td><td>コストの上限の環境変数（または <code>config/budget.yaml</code> の値）が 0 以上の数値でない</td><td><code>1.00</code> のような数値にするか、<code>unset ECHOLAB_DAILY_USD</code> を実行する</td></tr>
+        <tr><td><code>エラー: コストの台帳 …/costs.jsonl の 2 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: …）。その行を直すか消してください</code></td><td>費用の台帳に、正しい JSON の記録でない行がある。読み飛ばすと上限を超えるおそれがあるため、Claude を呼ぶ前に止まる</td><td>示された行を直すか削除する</td></tr>
+        <tr><td><code>エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: …</code></td><td>台本の手順が実際の実行と合わない（台本が想定したツールのエラーが起きなかった、台本を使い切った、など）</td><td>台本、質問、<code>--fake-backend</code> の有無を確かめる</td></tr>
+        <tr><td><code>python -m core.agent: error: argument --llm: invalid choice: 'openai' (choose from anthropic, scripted)</code></td><td><code>--llm</code> に使える値はこの 2 つだけ</td><td><code>anthropic</code> か <code>scripted</code> を使う</td></tr>
+        <tr><td><code>Error while finding module specification for 'core.agent' (ModuleNotFoundError: No module named 'core')</code></td><td>リポジトリのルートで実行していないか、仮想環境を有効にしていない</td><td>リポジトリのルートに <code>cd</code> し、<code>source .venv/bin/activate</code> を実行する</td></tr>
+      </tbody>
+    </table>
+
+    <h2>FAQ</h2>
+    <details><summary>ツールの範囲外の質問（キャラクターの強さランキングなど）に答えないのはなぜですか？</summary>
+      <p>EchoLab の設計方針は「数値はツールからしか出さない」です。現在あるツールは、期待ダメージ（<code>damage.expected</code>）、声骸スコア（<code>echo.score</code>）、ガチャの確率（<code>gacha.probability_within</code>、<code>gacha.simulate</code>）、比較（<code>compare.diff</code>、<code>compare.ratio</code>）だけです。ツールで計算できない数値は回答に出せず、出せば検証器に差し戻されて、最終的に <code>fallback</code> で終わります。ゲートウェイも、<code>domain.yaml</code> で宣言されたツールしか呼ばせません。詳しくは<a href="02-what-to-ask.html">何を聞けるか：機能一覧</a>をご覧ください。</p>
+    </details>
+    <details><summary>サンプルデータが「未確認」なのはなぜですか？</summary>
+      <p><code>domains/wuwa/data</code> の数値は手作業でまとめた<strong>サンプル値</strong>で、ゲームの公式データとはまだ照合しておらず、<code>verified: false</code> になっています。計算には使えますが、計算でそれを使った場合は必ず回答の末尾に <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> が付き、出典表の「未確認データ」の列にも具体的にどのデータか（<code>gacha_rules:featured-character</code> など）が示されます。サンプルデータに頼らない結果がほしい場合は、質問の中ですべてのパラメータを指定してください。</p>
+    </details>
+    <details><summary>1 回使うといくらかかりますか？</summary>
+      <p>台本モード（<code>--llm scripted</code>）と評価の既定のモードは費用がかからず、状態行には <code>費用: $0.0000</code> と表示されます。本物の Claude のモードはトークン単位の課金で、<code>config/budget.yaml</code> の <code>claude-opus-5-5</code> の単価は 100 万トークンあたり入力 4.00 ドル、出力 20.00 ドル（キャッシュ読み取り 0.20、キャッシュ書き込み 5.00）です。実行ごとの実際の費用は状態行に表示され、1 回ずつ <code>.echolab/costs.jsonl</code> に記録されます。既定では 1 日 1 ドル、1 か月 10 ドルが上限です。詳しくは<a href="06-cost-and-safety.html">コストの上限とデータの確かさ</a>をご覧ください。</p>
+    </details>
+    <details><summary>質問はどこへ送られますか？</summary>
+      <p><code>--llm anthropic</code>（既定）のモードのときだけ、質問、システムプロンプト、ツール定義、ツールの計算結果が Anthropic の API に送られます。台本モードは完全に手元のマシンで動き、計算サービスも手元で子プロセスとして動きます。なお、実行ごとの質問と処理の全体は、手元の <code>.echolab/traces/</code> に平文で保存されます（Git の無視対象）。不要になったら自分で削除できます。</p>
+    </details>
+    <details><summary>台本モードで質問を変えたのに、回答が同じなのはなぜですか？</summary>
+      <p>台本モードでは、ツールの呼び出しも下書きも台本ファイルで決まっており、質問は記録と検証にしか使いません（質問に書いた数値は回答での引用が許されます）。実測でも、質問を「こんにちは」に変えても、同じ台本からは同じ比較結果が返りました。質問の内容を理解させたい場合は、本物の Claude のモードを使ってください。</p>
+    </details>
+    <details><summary>画面で操作できる版（Web 版）はありますか？</summary>
+      <p>ありません。現在はコマンドラインからのみ使えます。Web の画面、トレースの再生、評価のダッシュボードはロードマップの M5 で予定しているもので、まだ実装されていません。<a href="09-roadmap.html">今後の機能（ロードマップ）</a>をご覧ください。</p>
+    </details>
+    <details><summary>JDK を入れなくても使えますか？</summary>
+      <p>使えます。<code>--fake-backend</code> を付けると、Java の計算サービスの代わりに Python の参照実装を使います（Java の実装と同じゴールデンケースで照合済みです）。ただし、この試験用のサービスにはモンテカルロ法のシミュレーションのツール <code>gacha_simulate</code> がありません。出典表の元の値は、Java 版と同じく小数 6 桁で返ります。</p>
+    </details>
+
+    <div class="related"><strong>次に読む</strong>
+      <ul>
+        <li><a href="09-roadmap.html">今後の機能（ロードマップ）</a>：これから追加を予定している機能。</li>
+        <li><a href="07-traces-evals.html">実行トレースと評価</a>：トレースを読めるようになると、トラブルの原因をすばやく突き止められます。</li>
+        <li><a href="04-cli-reference.html">コマンドリファレンス</a>：状態と終了コードの一覧。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

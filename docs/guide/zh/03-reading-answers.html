@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>回答怎么读 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }
+    .mock { background: #0f1115; color: #c9d1d9; border: 1px solid #2a2f37; border-radius: 10px; margin: 16px 0; overflow: hidden;
+      font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace; }
+    .mock .mbar { background: #1a1d23; border-bottom: 1px solid #2a2f37; padding: 6px 12px; color: #8b93a1; font-size: 12px; }
+    .mock .mbody { padding: 10px 12px; overflow-x: auto; }
+    .mock .zone { position: relative; display: block; border: 1px dashed transparent; border-radius: 6px; padding: 2px 34px 2px 6px; margin: 2px 0; white-space: pre; }
+    .mock .zone.wrap { white-space: pre-wrap; word-break: break-word; }
+    .mock .zone[data-n] { border-color: #3a404a; }
+    .mock .zone[data-n]::after { content: attr(data-n); position: absolute; right: 6px; top: 4px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+    .mock .warn { color: #e3b341; } .mock .hl { color: #79c0ff; } .mock .dim { color: #8b93a1; } .mock .cmd { color: #fff; } .mock .prompt { color: #7ee787; }
+    ol.legend { padding-left: 0; list-style: none; counter-reset: lg; }
+    ol.legend li { counter-increment: lg; position: relative; padding-left: 32px; margin: 8px 0; }
+    ol.legend li::before { content: counter(lg); position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%;
+      background: #febc2e; color: #111; font: 700 12px/20px system-ui, sans-serif; text-align: center; }
+  </style>
+</head>
+<body data-page="03-reading-answers.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>使用</span><span>输出</span><span>验证</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>回答怎么读</h1>
+    <p class="lead">EchoLab 的 CLI 每次输出 4 部分：回答正文、（必要时的）未确认注记、出典表、状态行。读懂它们，你就能自己核对“这个数字从哪里来、可信到什么程度”。</p>
+
+    <div class="callout"><strong>关于语言</strong>回答正文使用你提问的语言（由 Claude 决定）；但 CLI 固定输出的部分——“出典”“状態”“差し戻し”“費用”“トレース”等标签、未确认注记、以及失败时的固定回答——目前都是<b>日文</b>。本页逐一给出中文对照。本页的示例都来自真实运行（<code>--llm scripted</code> 台本模式模拟 Claude 的措辞，计算、验证与输出为真实结果；命令中的 <code>gacha_banner.yaml</code>、<code>compare_zh.yaml</code>、<code>never_corrected.yaml</code> 是为本说明编写的台本，不在仓库里）。</div>
+
+    <h2>一次输出的结构</h2>
+    <p>下面是“示例限定角色卡池，我现在保底计数 30，没有大保底，再抽 100 次以内出 UP 角色的概率是多少？”的真实输出（真实 Java 计算服务），带编号标注：</p>
+    <div class="mock" role="img" aria-label="带编号标注的终端输出示意">
+      <div class="mbar">bash — 输出结构标注</div>
+      <div class="mbody">
+<span class="zone wrap"><span class="prompt">$ </span><span class="cmd">python -m core.agent "示例限定角色卡池，我现在保底计数 30，没有大保底，再抽 100 次以内出 UP 角色的概率是多少？" --llm scripted --script gacha_banner.yaml</span></span>
+<span class="zone wrap" data-n="1">按示例卡池的规则，从当前保底计数 30、未处于“大保底”状态开始，100 抽以内拿到 UP 角色的概率是 75.5%。</span>
+<span class="zone wrap warn" data-n="2">※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</span>
+<span class="zone" data-n="3"><span class="hl">出典:</span>
+<span class="dim">出典 ID         値                  ツール                    未確認データ</span>
+<span class="dim">--------------  ------------------  ------------------------  ------------------------------</span>
+c1.probability  0.7546548474342011  gacha.probability_within  gacha_rules:featured-character</span>
+<span class="zone hl" data-n="4">状態: answered　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T024515Z-d54276</span>
+<span class="zone dim" data-n="5">トレース: /projects2/echolab/.echolab/traces/20261003T024515Z-d54276.jsonl</span>
+      </div>
+    </div>
+    <ol class="legend">
+      <li><b>回答正文</b>：已经通过验证、并由渲染器填好数字的回答。正文里的每个数字，要么来自计算工具，要么是你问题里写过的数（这里的“30”“100”就是引用你的问题）。</li>
+      <li><b>未确认注记</b>：“※ 此回答中的部分数值基于未经确认的示例数据。”只要回答引用的任何一个结果用到了 <code>verified: false</code> 的数据，就会自动附上。</li>
+      <li><b>出典表</b>：回答实际引用的每个值，见下一节。</li>
+      <li><b>状态行</b>：<code>状態</code>（状态）、<code>差し戻し</code>（草稿被退回次数）、<code>費用</code>（本次调用 LLM 的费用，美元，台本模式下通常为 0）、<code>実行 ID</code>（运行 ID）。</li>
+      <li><b>执行轨迹文件</b>：这次运行每一步的 JSONL 记录，保存在本机 <code>.echolab/traces/</code>。详见 <a href="07-traces-evals.html">执行轨迹与评估</a>。</li>
+    </ol>
+
+    <h2>出典表的 4 列</h2>
+    <table>
+      <tr><th>列（日文）</th><th>中文</th><th>含义</th><th>示例</th></tr>
+      <tr><td><code>出典 ID</code></td><td>出典 ID</td><td><code>c&lt;第几次工具调用&gt;.&lt;结果字段&gt;</code>。编号只在本次问题内有效，从 c1 开始</td><td><code>c1.probability</code>、<code>c4.change</code></td></tr>
+      <tr><td><code>値</code></td><td>值</td><td>工具返回的<b>未经格式化的原值</b>。Java 的十进制结果保留 6 位小数；概率类用最短的十进制表示</td><td><code>0.7546548474342011</code>、<code>6192.000000</code></td></tr>
+      <tr><td><code>ツール</code></td><td>工具</td><td>算出该值的工具（领域内名称，用 <code>.</code> 分隔）</td><td><code>gacha.probability_within</code>、<code>compare.ratio</code></td></tr>
+      <tr><td><code>未確認データ</code></td><td>未确认数据</td><td>计算用到的未确认数据 ID，格式 <code>&lt;数据文件名&gt;:&lt;项目 ID&gt;</code>；没有则为 <code>-</code></td><td><code>gacha_rules:featured-character</code>、<code>echo_weights:max_roll</code></td></tr>
+    </table>
+    <p>表里只列<b>回答实际引用了的</b>值。工具算出但回答没用到的值（例如伤害工具的 <code>c1.base</code>）不会出现。回答没有引用任何值时，这里显示 <code>（引用した出典はありません）</code>（“没有引用的出典”）。</p>
+    <p>下面是一次包含比较工具的真实输出。注意比较结果（<code>c3.diff</code>、<code>c4.change</code>）的“工具”列是 <code>compare.*</code>；如果比较的两边用到了未确认数据，比较结果也会继承这些 ID。</p>
+    <div class="term" data-title="bash — 两套配装比较（真实 Java 计算服务）">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"配装 A（攻击 2000、技能倍率 2.5、…）和配装 B（攻击 1800、技能倍率 3.0、…），哪个强、强多少？…\" --llm scripted --script compare_zh.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "配装 B 更强。", "delay": 400},
+        {"out": "- 配装 A 的期望伤害：6,192"},
+        {"out": "- 配装 B 的期望伤害：7,128"},
+        {"out": "- 差值：936（比 A 高 15.1%）"},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "出典 ID    値           ツール           未確認データ", "cls": "dim"},
+        {"out": "---------  -----------  ---------------  ------------", "cls": "dim"},
+        {"out": "c1.total   6192.000000  damage.expected  -"},
+        {"out": "c2.total   7128.000000  damage.expected  -"},
+        {"out": "c3.diff    936.000000   compare.diff     -"},
+        {"out": "c4.change  0.151163     compare.ratio    -"},
+        {"out": " "},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T024756Z-b2dad7", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024756Z-b2dad7.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+
+    <h2>数字是怎样格式化的</h2>
+    <p>Claude 写的回答其实是一个<b>模板</b>：数字的位置写成占位符 <code>[[出典ID]]</code> 或 <code>[[出典ID|格式]]</code>，由渲染器（<code>core/verifier/render.py</code>）把原值按格式换成文字。规则：</p>
+    <ul>
+      <li>不写格式：最多 2 位小数，去掉末尾的 0 和小数点。</li>
+      <li><code>|N</code>（N 为 0〜9）：固定 N 位小数。</li>
+      <li><code>|%N</code>：乘以 100，固定 N 位小数，再加 <code>%</code>。</li>
+      <li>整数部分每 3 位加逗号；舍入方式是<b>银行家舍入</b>（ROUND_HALF_EVEN，正好一半时取偶数）；不会显示“-0”。</li>
+    </ul>
+    <p>下表的“显示结果”由真实渲染器 <code>format_value()</code> 计算：</p>
+    <table>
+      <tr><th>原值（出典表的“値”）</th><th>占位符写法</th><th>显示结果</th></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|0]]</code></td><td>6,192</td></tr>
+      <tr><td><code>6192.000000</code></td><td><code>[[c1.total|1]]</code></td><td>6,192.0</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier]]</code></td><td>0.62</td></tr>
+      <tr><td><code>0.615385</code></td><td><code>[[c1.defense_multiplier|3]]</code></td><td>0.615</td></tr>
+      <tr><td><code>0.151163</code></td><td><code>[[c4.change|%1]]</code></td><td>15.1%</td></tr>
+      <tr><td><code>0.6058637851964593</code></td><td><code>[[c1.probability|%1]]</code> / <code>|%2</code></td><td>60.6% / 60.59%</td></tr>
+      <tr><td><code>0.7546548474342011</code></td><td><code>[[c1.probability|%0]]</code></td><td>75%</td></tr>
+      <tr><td><code>76.976190</code></td><td><code>[[c1.percent_of_ideal|1]]%</code></td><td>77.0%（该字段本身已是百分数，所以用 <code>|1</code> 再手写 %）</td></tr>
+      <tr><td><code>1234567.891</code></td><td><code>[[c1.value|2]]</code></td><td>1,234,567.89</td></tr>
+      <tr><td><code>0.125</code> / <code>0.135</code></td><td><code>[[c1.value]]</code></td><td>0.12 / 0.14（银行家舍入）</td></tr>
+    </table>
+    <div class="callout"><strong>正文和出典表的数字不一样？</strong>这是正常的：出典表显示原值（如 <code>0.7546548474342011</code>），正文显示格式化后的值（如 75.5%）。需要更多位数时，可以在问题里说“保留两位小数”之类，由 Claude 选择格式。</div>
+
+    <h2>“未确认”注记意味着什么</h2>
+    <p>注记的原文是 <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code>，意思是“此回答中的部分数值基于未经确认的示例数据”。它<b>不是 Claude 写的</b>，而是渲染器在下面这种情况下自动追加的：回答引用的出典里，至少有一个的“未確認データ”列不是 <code>-</code>。</p>
+    <ul>
+      <li>你在问题里给出全部数值（如伤害计算、自己给出卡池规则）→ 没有注记。</li>
+      <li>引用示例卡池 <code>featured-character</code>、示例权重 <code>sample-crit-attacker</code>，或省略声骸的 <code>max_roll</code> → 有注记。</li>
+    </ul>
+    <p>计算本身是正确的；“未确认”指的是<b>输入的游戏数值</b>没有经过出处核对，可能与游戏实际不符。详见 <a href="06-cost-and-safety.html">成本上限与数据可信度</a>。</p>
+
+    <h2>草稿被退回（差し戻し）是怎么回事</h2>
+    <p>Claude 的每份回答草稿都要先过验证器（<code>core/verifier/verify.py</code>）。验证器检查：</p>
+    <ol>
+      <li>占位符格式正确，且出典 ID 是本问题里真实发出的；</li>
+      <li>去掉占位符后，正文里出现的每个数字都属于下列之一：你问题里的数字（忽略千位逗号，<code>x%</code> 与 <code>x/100</code> 视为相同）；行首的列表序号（<code>1.</code>、<code>2)</code>）；10 以下的整数后面紧跟助数词：日文的“つ・点・種類・位・番目”、中文的“个・种・项・条・步”，或英文名词 ways・points・steps・options・items・reasons・types・kinds・parts・things・tools・builds（中间最多一个空格）。</li>
+    </ol>
+    <p>不合格的草稿会连同问题清单退回给 Claude 重写，这就是状态行里的“差し戻し: N 回”。下面的动画按真实执行轨迹 <code>20261003T024756Z-b2dad7.jsonl</code> 重现了一次“退回 → 修正”：</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="llm">Claude<small>写草稿</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="ver">验证器<small>每个数字有出典？</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="ren">渲染器<small>占位符 → 数字</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">终端输出<small>你看到的回答</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["llm"], "packet": {"at": "llm", "text": "c1.total / c2.total 已算出"}, "text": "两次 <code>damage_expected</code> 已经完成：<code>c1.total = 6192.000000</code>，<code>c2.total = 7128.000000</code>。Claude 开始写第 1 份草稿。"},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "草稿 1"}, "text": "草稿 1：<code>配装 B 更强，期望伤害 [[c2.total|0]]，比 A 高 936。</code>——“936”是 Claude 自己心算的差值，没有出典。"},
+        {"on": ["ver"], "fail": ["ver"], "done": ["llm"], "packet": {"at": "ver", "text": "不合格"}, "text": "验证器发现 936 既不是工具结果的引用，也不在你的问题里。问题清单（原文）：<code>数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code>"},
+        {"on": ["llm", "a1"], "fail": [], "packet": {"at": "llm", "text": "退回次数 1"}, "text": "草稿被退回，退回意见作为新消息交给 Claude。退回计数 +1（上限：第 3 次退回时放弃，见下文）。"},
+        {"on": ["llm"], "packet": {"at": "llm", "text": "compare_diff / compare_ratio"}, "text": "Claude 改为调用比较工具，传入出典 ID：得到 <code>c3.diff = 936.000000</code>、<code>c4.ratio = 1.151163</code>、<code>c4.change = 0.151163</code>。"},
+        {"on": ["llm", "a1"], "packet": {"at": "llm", "text": "草稿 2"}, "text": "草稿 2：<code>差值：[[c3.diff|0]]（比 A 高 [[c4.change|%1]]）</code> 等，所有数字都写成占位符。"},
+        {"on": ["ver", "a2"], "done": ["llm", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "验证通过：引用了 <code>c1.total</code>、<code>c2.total</code>、<code>c3.diff</code>、<code>c4.change</code> 4 个出典。"},
+        {"on": ["ren", "a3"], "done": ["llm", "ver"], "packet": {"at": "ren", "text": "936 / 15.1%"}, "text": "渲染器填入数字：<code>[[c3.diff|0]]</code> → 936，<code>[[c4.change|%1]]</code> → 15.1%。这些都没有用到未确认数据，所以不加注记。"},
+        {"on": ["out"], "done": ["llm", "ver", "ren"], "packet": {"at": "out", "text": "差し戻し: 1 回"}, "text": "终端显示最终回答、出典表和 <code>状態: answered　差し戻し: 1 回</code>。你看到的 936 和草稿 1 里的一样，但这次它<b>来自比较工具</b>，可以在出典表里核对。"}
+      ]</script>
+    </div>
+    <div class="callout"><strong>中文回答里的小个数</strong>允许直接写出的“小个数”既认日文助数词（つ・点・種類・位・番目），也认中文的“个・种・项・条・步”；英文回答则只认紧跟在数字后面的名词（ways・points・steps 等 12 个）。实测 <code>有 2 个要点：[[c1.total]]</code>、<code>有 3 种方法：[[c1.total]]</code>、<code>有 2 つの要点：[[c1.total]]</code>、<code>There are 2 points: [[c1.total]]</code> 都合格；<code>There are 2 key points: [[c1.total]]</code> 因为数字和名词之间隔了别的词而被退回；超过 10 的数（如 <code>有 12 个要点</code>）也仍会被当成无出典的数字退回。</div>
+
+    <h3>退回 3 次后的固定回答</h3>
+    <p>默认最多让 Claude 重写 2 次（<code>DEFAULT_MAX_RETRIES = 2</code>）。第 3 次退回时，EchoLab 放弃这份回答，改为输出一段<b>不含任何数字</b>的固定文字，状态为 <code>fallback</code>，退出码为 1：</p>
+    <div class="term" data-title="bash — 改不对时的固定回答">
+      <script type="application/json">[
+        {"cmd": "python -m core.agent \"保底计数 0，10 抽以内出 UP 的概率？规则：基础概率 0.1，从第 5 抽起每抽加 0.1，硬保底 10，UP 概率 0.5，歪了之后必出 UP。\" --llm scripted --script never_corrected.yaml", "speed": 18},
+        {"pause": 700},
+        {"out": "申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。", "delay": 400},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: fallback　差し戻し: 3 回　費用: $0.0000　実行 ID: 20261003T024559Z-8ea025", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T024559Z-8ea025.jsonl", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>固定回答的意思：“抱歉，由于未能生成可核实计算结果出处的回答，暂不提供含数值的回答。请把条件写得更具体后再问一次。”这次运行里 3 份草稿分别是“概率大约是 73.4%。”“概率是 0.734。”“概率约为 73%（[[c1.probability|%1]]）。”——第 3 份虽然用了占位符，但同时写了无出典的“73%”，仍然不合格。</p>
+
+    <h2>状态一览</h2>
+    <p>只有 <code>answered</code> 的退出码是 0，其余都是 1。除 <code>answered</code> 外，回答正文都是下面的固定日文文字（不含数字）。具体原因写在执行轨迹里。</p>
+    <table>
+      <tr><th>状態</th><th>何时出现</th><th>固定回答（原文）</th><th>中文意思</th></tr>
+      <tr><td><code>answered</code></td><td>草稿通过验证</td><td>（Claude 的回答）</td><td>正常回答。可能不含数字</td></tr>
+      <tr><td><code>fallback</code></td><td>草稿被退回第 3 次</td><td>申し訳ありません。計算結果の出典を確かめられる回答を作れなかったため、数値を含む回答は控えます。条件を具体的にして、もう一度質問してください。</td><td>无法生成可核实的回答，不提供数值</td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>当日或当月费用已达上限</td><td>今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.02 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。</td><td>已达今天（UTC）的每日上限；写明已用金额 / 上限、何时恢复、用哪个环境变量或设置键修改（月上限时写“今月…月次…ECHOLAB_MONTHLY_USD”）。见 <a href="06-cost-and-safety.html">成本上限与数据可信度</a></td></tr>
+      <tr><td><code>refusal</code></td><td>模型的安全机制停止了回答</td><td>この質問には回答できませんでした（モデルの安全機能により応答が止まりました）。</td><td>模型拒绝回答</td></tr>
+      <tr><td><code>max_tokens</code></td><td>回复过长被截断</td><td>応答が長くなりすぎて途中で切れたため、回答を完成できませんでした。質問を分けてお試しください。</td><td>回复被截断，请拆分问题</td></tr>
+      <tr><td><code>tool_round_limit</code></td><td>工具调用超过 6 轮</td><td>計算の手順が多くなりすぎたため、回答を完成できませんでした。質問を分けてお試しください。</td><td>计算步骤过多，请拆分问题</td></tr>
+      <tr><td><code>llm_error</code></td><td>调用 Claude API 失败（没有凭据）</td><td>Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、API キーの要らない台本モード（--llm scripted）をお使いください。</td><td>找不到凭据：设置 <code>ANTHROPIC_API_KEY</code> 或 <code>ant auth login</code>，或改用台本模式</td></tr>
+      <tr><td><code>llm_error</code></td><td>认证失败（HTTP 401/403）</td><td>Claude API の認証に失敗したため、回答できませんでした。ANTHROPIC_API_KEY（または ant auth login のログイン）が有効かを確かめてください。</td><td>密钥无效或无权限，检查密钥</td></tr>
+      <tr><td><code>llm_error</code></td><td>限流・过载・网络问题</td><td>Claude API が混み合っているか、接続できなかったため、回答できませんでした。時間をおいてお試しください。</td><td>API 繁忙或连不上，请稍后再试</td></tr>
+      <tr><td><code>llm_error</code></td><td>其他 API 错误</td><td>Claude API の呼び出しに失敗したため、回答できませんでした。詳細はトレースの llm_error の行を確かめてください。</td><td>调用失败，详情看轨迹的 <code>llm_error</code> 行</td></tr>
+    </table>
+    <div class="callout"><strong><code>llm_error</code> 的回答按原因区分</strong>CLI 按 Anthropic SDK 的异常类型分类，只有限流、过载、网络问题才提示“请稍后再试”；没有凭据或认证失败时直接告诉你设置 <code>ANTHROPIC_API_KEY</code>（实测没有凭据时显示上表第一种）。执行轨迹的 <code>llm_error</code> 事件里还有分类 <code>kind</code>（<code>credentials</code>・<code>auth</code>・<code>transient</code>・<code>other</code>）和 SDK 的原始错误信息，见 <a href="08-troubleshooting.html">故障排除与 FAQ</a>。</div>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="04-cli-reference.html">命令参考</a>：全部选项和退出码。</li>
+        <li><a href="05-how-it-works.html">背后发生了什么（动画）</a>：网关、计算服务、验证器如何配合。</li>
+        <li><a href="07-traces-evals.html">执行轨迹与评估</a>：怎样读 <code>.echolab/traces/*.jsonl</code>。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

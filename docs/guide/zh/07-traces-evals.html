@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>执行轨迹与评估 | EchoLab 使用说明</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    /* 窄屏时防止长代码行把整页撑宽 */
+    main { min-width: 0; }
+    /* 本页专用：轨迹逐行“回放” */
+    .tl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 16px 0; }
+    .tl ol { list-style: none; margin: 0; padding: 0; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .tl li { display: grid; grid-template-columns: 7.5em 7.5em minmax(0, 1fr); gap: 8px; padding: 3px 6px; border-radius: 6px; opacity: .35; transition: opacity .3s, background .3s; }
+    .tl li.seen { opacity: 1; }
+    .tl li.now { background: var(--accent-soft); }
+    .tl li .t { color: var(--muted); }
+    .tl li .e { font-weight: 700; }
+    .tl li .e.q { color: var(--accent); } .tl li .e.l { color: var(--warn); } .tl li .e.c { color: var(--muted); }
+    .tl li .e.r { color: var(--ok); } .tl li .e.v { color: var(--bad); } .tl li .e.v.ok { color: var(--ok); } .tl li .e.a { color: var(--accent); }
+    .tl li .d { overflow-wrap: anywhere; }
+    .tl .tl-ctl { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+    .tl .tl-ctl button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+    @media (max-width: 640px) { .tl li { grid-template-columns: 6.5em minmax(0, 1fr); } .tl li .t { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .tl li { transition: none; } }
+  </style>
+</head>
+<body data-page="07-traces-evals.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>进阶</span><span>执行轨迹</span><span>忠实度评估</span></span><button id="theme-toggle">切换明暗</button></header>
+    <h1>执行轨迹与评估</h1>
+    <p class="lead">每次提问，EchoLab 都会把过程一条一条记进一个“执行轨迹”文件；另外还附带一套“忠实度评估”，用固定的考题检查“答案里有没有来历不明的数字”。本页教你找到并读懂轨迹，以及自己运行评估、看懂评估报告。</p>
+
+    <h2>轨迹保存在哪里</h2>
+    <table>
+      <tr><th>项目</th><th>内容</th></tr>
+      <tr><td>位置</td><td>仓库根目录下的 <code>.echolab/traces/</code>（已在 <code>.gitignore</code> 中，不会被提交）。可以用 <code>--trace-dir 目录</code> 改到别处</td></tr>
+      <tr><td>文件名</td><td><code>&lt;运行 ID&gt;.jsonl</code>，每次提问一个文件。运行 ID 形如 <code>20261003T031424Z-28df54</code>：UTC 时间 + 6 位随机十六进制，按文件名排序就是时间顺序</td></tr>
+      <tr><td>怎么知道是哪个</td><td>CLI 输出的最后一行 <code>トレース: …</code>（“轨迹”）就是这次的文件路径，倒数第二行有 <code>実行 ID</code>（运行 ID）</td></tr>
+      <tr><td>格式</td><td>JSON Lines：一行一个事件。每行都有 <code>ts</code>（UTC 时间，毫秒）、<code>run_id</code>、<code>event</code>（事件类型）。每写一条就立刻落盘，程序中途出错也能留下已发生的部分</td></tr>
+      <tr><td>评估的轨迹</td><td>运行评估时，每道考题的轨迹放在评估原始记录目录下的 <code>traces/</code> 里（默认 <code>evals/reports/raw/traces/</code>）</td></tr>
+    </table>
+
+    <h3>动手：提问后查看轨迹</h3>
+    <p>下面先运行一次台本模式的提问（不需要 API 密钥），再列出轨迹目录，最后用 EchoLab 自带的 <code>read_trace</code> 函数把事件按顺序打印出来。输出都是实际运行的结果（答案部分略）。</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.agent \"ビルド A（…）とビルド B（…）では、どちらがどれだけ強い？ …\" --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend", "speed": 10},
+        {"out": "ビルド B の方が強いです。", "delay": 400},
+        {"out": "…（答案与出典表略）", "cls": "dim"},
+        {"out": "状態: answered　差し戻し: 1 回　費用: $0.0000　実行 ID: 20261003T031424Z-28df54", "cls": "hl"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031424Z-28df54.jsonl", "cls": "hl"},
+        {"pause": 700},
+        {"cmd": "ls .echolab/traces/"},
+        {"out": "20261003T031424Z-28df54.jsonl", "delay": 200},
+        {"pause": 600},
+        {"cmd": ".venv/bin/python -c \"from core.trace import read_trace; [print(e['ts'][11:23], e['event']) for e in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl')]\"", "speed": 10},
+        {"out": "03:14:24.930 question", "delay": 300},
+        {"out": "03:14:24.931 llm_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_call"},
+        {"out": "03:14:24.932 tool_result"},
+        {"out": "03:14:24.933 tool_result"},
+        {"out": "03:14:24.934 llm_call"},
+        {"out": "03:14:24.934 verdict", "cls": "warn"},
+        {"out": "03:14:24.935 llm_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.935 tool_call"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.936 tool_result"},
+        {"out": "03:14:24.937 llm_call"},
+        {"out": "03:14:24.938 verdict", "cls": "hl"},
+        {"out": "03:14:24.938 answer", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>只想看某一类事件时，给 <code>read_trace</code> 第二个参数，例如只看验证器的判定：</p>
+<pre><code>.venv/bin/python -c "
+from core.trace import read_trace
+for v in read_trace('.echolab/traces/20261003T031424Z-28df54.jsonl', 'verdict'):
+    print(v['draft'], v['ok'], v['problems'])
+"
+# 实际输出：
+1 False ['数値「936」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。']
+2 True []</code></pre>
+    <p>（运行台本模式的提问会在 <code>.echolab/traces/</code> 新建一个轨迹文件，此外不改动仓库。）</p>
+
+    <h2>怎么读一份轨迹</h2>
+    <h3>事件类型</h3>
+    <table>
+      <tr><th>event</th><th>什么时候写</th><th>值得看的字段</th></tr>
+      <tr><td><code>question</code></td><td>开始时，1 条</td><td><code>question</code> 问题原文、<code>domain</code> 领域包、<code>llm</code>（<code>ScriptedLLM</code> 为台本，<code>AnthropicLLM</code> 为真实 Claude）、<code>model</code>、<code>tools</code> 本次可用工具</td></tr>
+      <tr><td><code>llm_call</code></td><td>每次调用 Claude 后</td><td><code>stop_reason</code>（<code>tool_use</code>＝要调用工具，<code>end_turn</code>＝交了草稿）、<code>usage</code> token 数、<code>usd</code> 费用、<code>text</code> 草稿、<code>tool_uses</code></td></tr>
+      <tr><td><code>tool_call</code></td><td>每个工具调用前</td><td><code>name</code>（如 <code>damage_expected</code>）、<code>input</code></td></tr>
+      <tr><td><code>tool_result</code></td><td>每个工具调用后</td><td><code>outcome.call_id</code>（<code>c1</code>…）、<code>outcome.sources</code>（出典 ID 与数值、<code>unverified_inputs</code> 未确认数据）、<code>outcome.error</code>（网关拒绝或输入错误时的说明）</td></tr>
+      <tr><td><code>verdict</code></td><td>每份草稿检查后</td><td><code>draft</code> 第几份、<code>ok</code> 是否通过、<code>problems</code> 退回理由、<code>cited</code> 引用的出典 ID、<code>template</code> 草稿原文</td></tr>
+      <tr><td><code>answer</code></td><td>结束时，1 条</td><td><code>status</code>、<code>answer</code> 最终文字、<code>cited</code>、<code>cost_usd</code>、<code>drafts</code> / <code>drafts_rejected</code>、<code>llm_calls</code> / <code>tool_calls</code></td></tr>
+      <tr><td><code>budget_exceeded</code></td><td>达到成本上限、没有调用 Claude 就停止时</td><td><code>reason</code></td></tr>
+      <tr><td><code>llm_error</code></td><td>调用 Claude 失败时（例如没有设置 API 密钥）</td><td><code>kind</code> 失败的分类（<code>credentials</code> 没有凭据、<code>auth</code> 认证失败、<code>transient</code> 限流・过载・网络、<code>other</code> 其他）、<code>error</code> SDK 的原始信息</td></tr>
+    </table>
+
+    <h3>一份真实轨迹（节选）</h3>
+    <p>这就是 <a href="05-how-it-works.html">背后发生了什么（动画）</a> 动画所用的那份轨迹，前 7 行（为便于阅读，长的输入用 <code>…</code> 省略，<code>ts</code> 和 <code>run_id</code> 字段每行都有，这里只在第一行保留）：</p>
+<pre><code>{"ts": "2026-10-03T03:14:24.930+00:00", "run_id": "20261003T031424Z-28df54", "event": "question", "question": "ビルド A（攻撃力 2000、…", "domain": "wuwa", "llm": "ScriptedLLM", "model": "claude-opus-5-5", "tools": ["compare_diff", "compare_ratio", "damage_expected", "echo_score", "gacha_probability_within"]}
+{"event": "llm_call", "model": "claude-opus-5-5", "stop_reason": "tool_use", "usage": {"input_tokens": 0, "output_tokens": 0, …}, "usd": "0.00", "text": "", "tool_uses": [{"id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, …}}, {"id": "toolu_scripted_02", …}]}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_01", "name": "damage_expected", "input": {"atk": 2000, "skill_multiplier": 2.5, …}}
+{"event": "tool_call", "tool_use_id": "toolu_scripted_02", "name": "damage_expected", "input": {"atk": 1800, "skill_multiplier": 3.0, …}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_01", "outcome": {"call_id": "c1", "tool": "damage.expected", "sources": [{"source_id": "c1.base", "value": "5000.000000", …}, …, {"source_id": "c1.total", "value": "6192.000000", "tool": "damage.expected", "unverified_inputs": []}], "error": null}}
+{"event": "tool_result", "tool_use_id": "toolu_scripted_02", "outcome": {"call_id": "c2", …, {"source_id": "c2.total", "value": "7128.000000", …}], "error": null}}
+{"event": "llm_call", "stop_reason": "end_turn", "text": "ビルド B の方が [[c2.total|0]] で、A より 936 高いです。", "tool_uses": []}</code></pre>
+    <div class="callout"><strong>读轨迹的小技巧</strong>
+      <ul style="margin:4px 0 0">
+        <li>先看最后一行 <code>answer</code>：状态、费用、退回了几次一目了然。</li>
+        <li>答案里的某个数字可疑？在 <code>answer.cited</code> 里找到出典 ID（如 <code>c4.change</code>），再在 <code>tool_result</code> 里找同名的 <code>source_id</code>，就能看到原始值和计算它的工具。</li>
+        <li>被退回过？看 <code>verdict</code> 里的 <code>problems</code>，就知道哪个数字没有出典。</li>
+        <li>数值以字符串保存（如 <code>"6192.000000"</code>），不会被四舍五入。</li>
+      </ul>
+    </div>
+
+    <h3>动画：逐行回放这份轨迹</h3>
+    <p>16 条事件，时间（UTC）全部来自真实文件。点“▶ 回放”看它们依次出现。</p>
+    <div class="tl" id="tl">
+      <ol>
+        <li><span class="t">.930</span><span class="e q">question</span><span class="d">提问记录（领域 wuwa，5 个可用工具）</span></li>
+        <li><span class="t">.931</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use：要求 2 个 damage_expected</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected（构建 A）</span></li>
+        <li><span class="t">.932</span><span class="e c">tool_call</span><span class="d">damage_expected（构建 B）</span></li>
+        <li><span class="t">.932</span><span class="e r">tool_result</span><span class="d">c1：c1.base … c1.total = 6192.000000</span></li>
+        <li><span class="t">.933</span><span class="e r">tool_result</span><span class="d">c2：c2.base … c2.total = 7128.000000</span></li>
+        <li><span class="t">.934</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn：草稿 1“…A より 936 高いです。”</span></li>
+        <li><span class="t">.934</span><span class="e v">verdict</span><span class="d">draft 1：ok=false，数値「936」の出典がありません</span></li>
+        <li><span class="t">.935</span><span class="e l">llm_call</span><span class="d">stop_reason=tool_use：compare_diff、compare_ratio</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_diff {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.935</span><span class="e c">tool_call</span><span class="d">compare_ratio {a: c2.total, b: c1.total}</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c3：c3.diff = 936.000000</span></li>
+        <li><span class="t">.936</span><span class="e r">tool_result</span><span class="d">c4：c4.ratio = 1.151163，c4.change = 0.151163</span></li>
+        <li><span class="t">.937</span><span class="e l">llm_call</span><span class="d">stop_reason=end_turn：草稿 2（全部为 [[…]] 引用）</span></li>
+        <li><span class="t">.938</span><span class="e v ok">verdict</span><span class="d">draft 2：ok=true，cited = c1.total, c2.total, c3.diff, c4.change</span></li>
+        <li><span class="t">.938</span><span class="e a">answer</span><span class="d">status=answered，drafts=2，drafts_rejected=1，llm_calls=4，tool_calls=4</span></li>
+      </ol>
+      <div class="tl-ctl"><button type="button" data-t="play">▶ 回放</button><button type="button" data-t="all">全部显示</button><span class="tl-n">时间都是 03:14:24 之后的毫秒</span></div>
+    </div>
+    <script>
+    (function () {
+      var box = document.getElementById("tl");
+      if (!box) return;
+      var items = box.querySelectorAll("li"), btn = box.querySelector('[data-t="play"]'), n = box.querySelector(".tl-n");
+      var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var timer = 0, i = 0;
+      function mark(k) {
+        items.forEach(function (li, j) { li.classList.toggle("seen", j <= k); li.classList.toggle("now", j === k); });
+        n.textContent = (k + 1) + " / " + items.length + " 条事件";
+      }
+      function stop() { clearInterval(timer); timer = 0; btn.textContent = "▶ 回放"; }
+      function play() {
+        if (timer) return stop();
+        if (reduce) { mark(items.length - 1); return; }
+        i = 0; mark(0); btn.textContent = "暂停";
+        timer = setInterval(function () { i++; if (i >= items.length) return stop(); mark(i); }, 650);
+      }
+      btn.addEventListener("click", play);
+      box.querySelector('[data-t="all"]').addEventListener("click", function () { stop(); mark(items.length - 1); });
+      // 默认全部可见（不依赖脚本也能读）；减少动态效果时也保持全部可见
+      mark(items.length - 1);
+      if (!reduce && "IntersectionObserver" in window) {
+        new IntersectionObserver(function (es, obs) {
+          if (es.some(function (e) { return e.isIntersecting; })) { obs.disconnect(); play(); }
+        }, { threshold: 0.5 }).observe(box);
+      }
+    })();
+    </script>
+
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph R1["第 1 轮：计算"]
+    direction TB
+    Q["question"] --> L1["llm_call<br/>tool_use"] --> T1["tool_call ×2"] --> S1["tool_result ×2<br/>c1、c2"]
+  end
+  subgraph R2["第 2 轮：草稿 1"]
+    direction TB
+    L2["llm_call<br/>end_turn"] --> V1["verdict draft 1<br/>ok=false"]
+  end
+  subgraph R3["第 3 轮：比较"]
+    direction TB
+    L3["llm_call<br/>tool_use"] --> T2["tool_call ×2"] --> S2["tool_result ×2<br/>c3、c4"]
+  end
+  subgraph R4["第 4 轮：草稿 2"]
+    direction TB
+    L4["llm_call<br/>end_turn"] --> V2["verdict draft 2<br/>ok=true"] --> A["answer<br/>answered"]
+  end
+  R1 --> R2 --> R3 --> R4
+  classDef bad fill:#fdecea,stroke:#c62828,color:#1f2328
+  classDef good fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
+  class V1 bad
+  class V2,A good
+      </pre>
+      <div class="caption">图 1：一次运行的事件时间线（4 次调用 Claude，对应 4 轮；轨迹 20261003T031424Z-28df54）</div>
+    </div>
+
+    <h2>忠实度评估：用考题检查“有没有来历不明的数字”</h2>
+    <p>评估会把 <code>evals/faithfulness/cases.yaml</code> 里的考题依次交给 EchoLab，然后检查结果。目前有 8 道题：</p>
+    <table>
+      <tr><th>考题 ID</th><th>检查什么</th><th>期望结果</th></tr>
+      <tr><td><code>damage-basic</code></td><td>期待伤害及各项明细的引用</td><td>answered，不退回</td></tr>
+      <tr><td><code>echo-score</code></td><td>声骸评分的引用（数值与百分比）</td><td>answered</td></tr>
+      <tr><td><code>gacha-unverified</code></td><td>来自未确认数据的数值会自动带注记</td><td>answered，带注记</td></tr>
+      <tr><td><code>compare-builds</code></td><td>并行计算 + 比较工具（差、增长率）</td><td>answered，引用 c1–c4</td></tr>
+      <tr><td><code>tool-error-recovery</code></td><td>读懂工具的输入错误后重新调用</td><td>answered，引用 c2</td></tr>
+      <tr><td><code>bad-draft-raw-number</code></td><td>直接写数字的草稿被退回，改为引用</td><td>answered，退回 1 次</td></tr>
+      <tr><td><code>bad-draft-derived-and-unknown-id</code></td><td>自己算的差值、不存在的出典 ID 都会被退回</td><td>answered，退回 2 次</td></tr>
+      <tr><td><code>never-corrected</code></td><td>屡次退回仍不改正时，改为不含数字的固定回答</td><td>fallback，退回 3 次</td></tr>
+    </table>
+
+    <h3>运行评估（台本模式）</h3>
+    <p>台本模式不需要 API 密钥，也不需要 Java（使用测试用计算服务），几秒就能跑完。下面把报告和原始记录都写到一个临时目录（例如 <code>/tmp/ug3/</code>），以免改动仓库里的文件：</p>
+    <div class="term" data-title="bash — echolab">
+      <script type="application/json">[
+        {"cmd": ".venv/bin/python -m core.evals --llm scripted --out /tmp/ug3/report.md --raw-dir /tmp/ug3/raw", "speed": 18},
+        {"out": "# 評価レポート：数値の忠実度", "cls": "hl", "delay": 600},
+        {"out": ""},
+        {"out": "- 日付（UTC）: 2026-10-03"},
+        {"out": "- LLM: `scripted`"},
+        {"out": "- ケース: `evals/faithfulness/cases.yaml`（8 件）"},
+        {"out": ""},
+        {"out": "## 指標", "cls": "hl"},
+        {"out": "| 忠実度（出典の無い数値を含まない回答の割合） | 1.000 |", "delay": 200},
+        {"out": "| 差し戻し率（差し戻した下書き / 下書き） | 0.462（6 / 13） |"},
+        {"out": "| 合格したケース | 8 / 8 |"},
+        {"out": "| 費用の合計（USD） | 0.028120 |"},
+        {"out": ""},
+        {"out": "## ケースごとの結果", "cls": "hl"},
+        {"out": "| `damage-basic` | … | answered | 1 | 0 | … | 合格 |", "delay": 120},
+        {"out": "| `echo-score` | … | answered | 1 | 0 | … | 合格 |"},
+        {"out": "| `gacha-unverified` | … | answered | 1 | 0 | `c1.probability` | 合格 |"},
+        {"out": "| `compare-builds` | … | answered | 1 | 0 | `c1.total`, `c2.total`, `c3.diff`, `c4.change` | 合格 |"},
+        {"out": "| `tool-error-recovery` | … | answered | 1 | 0 | `c2.probability` | 合格 |"},
+        {"out": "| `bad-draft-raw-number` | … | answered | 2 | 1 | `c1.total` | 合格 |"},
+        {"out": "| `bad-draft-derived-and-unknown-id` | … | answered | 3 | 2 | … | 合格 |"},
+        {"out": "| `never-corrected` | … | fallback | 3 | 3 | - | 合格 |", "cls": "warn"},
+        {"out": ""},
+        {"out": "台本モードの使用量（トークン数）は台本に書いた架空の値で、費用は計算の確認用です。", "cls": "dim"},
+        {"pause": 500},
+        {"cmd": "echo $?"},
+        {"out": "0", "cls": "hl"}
+      ]</script>
+    </div>
+    <p>（终端里的报告是 Markdown 表格，这里为了版面省略了“内容”列。全部题目通过且忠实度为 1.0 时退出码为 0，否则为 1。）</p>
+
+    <div class="cards">
+      <div class="card"><h4>只跑一道题</h4><p><code>--case never-corrected</code>（可重复写多个 <code>--case</code>）。实测：fallback、下書き 3、差し戻し 3、合格。ID 写错时一道也不跑，列出可用的 ID，退出码 2。</p></div>
+      <div class="card"><h4>报告写到哪里</h4><p><code>--out 路径</code> 写 Markdown 报告（不写就只打印）。原始记录 <code>faithfulness-&lt;llm&gt;-&lt;时间&gt;.jsonl</code> 和每题的轨迹写到 <code>--raw-dir</code>，默认 <code>evals/reports/raw/</code>（不提交）。</p></div>
+      <div class="card"><h4>换一套考题</h4><p><code>--cases 文件.yaml</code>，格式与 <code>evals/faithfulness/cases.yaml</code> 相同。</p></div>
+    </div>
+
+    <h3>报告里的指标是什么意思</h3>
+    <table>
+      <tr><th>指标（报告原文）</th><th>含义</th><th>这次的值</th></tr>
+      <tr><td>忠実度<br>（忠实度）</td><td>返回给用户的答案中，<strong>一个无出典数字都没有</strong>的比例。通过验证的答案会被<strong>再检查一遍</strong>；固定回答则确认里面没有任何数字。按 EchoLab 的设计，这个值必须是 1.000</td><td>1.000</td></tr>
+      <tr><td>差し戻し率<br>（退回率）</td><td>所有草稿中被验证器退回的比例。它衡量的是 AI 犯错的频率，<strong>不是</strong>答案出错的比例——被退回的草稿不会给到用户。台本模式的考题故意包含错误，所以这里偏高</td><td>0.462（6 / 13）</td></tr>
+      <tr><td>合格したケース<br>（通过的考题）</td><td>状态、引用、退回次数、注记等是否与期望一致</td><td>8 / 8</td></tr>
+      <tr><td>費用の合計<br>（总费用，美元）</td><td>所有考题的 Claude 费用合计。台本模式的 token 数是台本里写的假数字，只用来检查费用计算本身</td><td>0.028120</td></tr>
+    </table>
+    <p>每题一行的表格中，“下書き”是草稿数，“差し戻し”是退回次数，“引用した出典”是最终答案引用的出典 ID，“合否”是否通过（不通过时写出原因）。仓库里提交的基准报告 <code>evals/reports/scripted-baseline.md</code> 与上面的结果完全一致。</p>
+
+    <h2>台本模式 vs 真实 Claude</h2>
+    <table>
+      <tr><th></th><th>台本模式 <code>--llm scripted</code>（默认）</th><th>真实 Claude <code>--llm anthropic</code></th></tr>
+      <tr><td>AI 的回答</td><td>按考题里写好的台本，每次都一样</td><td>只把问题交给真实 Claude（<code>claude-opus-5-5</code>），每次可能不同</td></tr>
+      <tr><td>计算服务</td><td>测试用计算服务（Python 参考实现），不需要 Java</td><td>真实的 Java 计算服务（需要 Java 21 和构建好的 jar）</td></tr>
+      <tr><td>需要什么</td><td>什么都不需要</td><td><code>ANTHROPIC_API_KEY</code> 等认证信息；会产生费用</td></tr>
+      <tr><td>费用记账</td><td>用临时账本，不影响真实的成本上限</td><td>记入真实账本 <code>.echolab/costs.jsonl</code>，受每日 / 每月上限约束（默认 1 / 10 美元）</td></tr>
+      <tr><td>检查哪些项目</td><td>全部：状态、忠实度、注记、引用的出典 ID、退回次数、台本是否用完</td><td>状态、忠实度、注记（引用和退回次数因 AI 而异，不检查）</td></tr>
+      <tr><td>在哪里跑</td><td>本地和 CI 都可以</td><td><strong>只在本地手动运行</strong>，只提交汇总后的报告。CI 没有 API 密钥</td></tr>
+    </table>
+    <div class="callout warn"><strong>没有 API 密钥时会怎样</strong>实测：不带 <code>--llm scripted</code> 运行提问时，EchoLab 不会崩溃，而是返回说明原因和对策的固定回答 “Claude API の認証情報が見つからないため、回答できませんでした。環境変数 ANTHROPIC_API_KEY を設定する（または ant auth login でログインする）か、…”，状态为 <code>llm_error</code>，退出码 1，轨迹里有一条 <code>llm_error</code> 事件：<code>"kind": "credentials"</code>、“Claude API の認証情報が見つかりません（ANTHROPIC_API_KEY などを設定してください）”。用 <code>--llm anthropic</code> 评估时也一样：没有密钥的考题以 <code>llm_error</code> 结束，不会产生费用。</div>
+    <p>用真实 Claude 评估时的命令（有密钥、Java 计算服务已构建时）：</p>
+<pre><code>JAVA_HOME=$HOME/.local/jdk/21 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/&lt;名字&gt;.md</code></pre>
+    <p>考题按顺序一题一题执行（不并行，避免费用失控）。报告的 LLM 一行会写上模型名。</p>
+
+    <div class="related"><strong>下一步</strong>
+      <ul>
+        <li><a href="08-troubleshooting.html">故障排除与 FAQ</a>：状态不是 answered、找不到 Java、没有 API 密钥时怎么办。</li>
+        <li><a href="05-how-it-works.html">背后发生了什么（动画）</a>：把本页的轨迹放进动画里一步步看。</li>
+        <li><a href="09-roadmap.html">今后的功能（路线图）</a>：Web UI 里的“轨迹回放”等计划。</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>

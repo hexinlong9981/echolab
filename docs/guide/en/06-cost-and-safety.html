@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cost Caps and Data Trust | EchoLab User Guide</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/guide.js"></script>
+  <style>
+    main { min-width: 0; }
+    main code { overflow-wrap: anywhere; }
+    .flow-anim .stage { overflow-x: auto; padding: 6px 2px; }
+    .flow-anim .node { min-width: 6em; }</style>
+</head>
+<body data-page="06-cost-and-safety.html">
+<div class="layout">
+  <nav class="side"></nav>
+  <main>
+    <header class="top"><span class="tags"><span>Concepts</span><span>Cost</span><span>Privacy</span><span>Data</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <h1>Cost Caps and Data Trust</h1>
+    <p class="lead">Answering questions with the real Claude incurs API costs. Before every Claude call, EchoLab checks two caps, daily and monthly, and records the cost of each call in a local ledger. This page explains the prices, the caps, what happens when a cap is exceeded, the ledger format, where your data is sent, and which data you can trust.</p>
+
+    <h2>Models and prices</h2>
+    <p>The default mode (<code>--llm anthropic</code>) uses <code>claude-opus-5-5</code>. The price table lives in <code>config/budget.yaml</code>, in <b>US dollars per million tokens</b>:</p>
+    <table>
+      <tr><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Cache write (5-minute TTL)</th><th>Use</th></tr>
+      <tr><td><code>claude-opus-5-5</code></td><td>4.00</td><td>20.00</td><td>0.20</td><td>5.00</td><td>Default model</td></tr>
+      <tr><td><code>claude-opus-5</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>May be used by server-side fallback</td></tr>
+      <tr><td><code>claude-opus-4-8</code></td><td>5.00</td><td>25.00</td><td>0.50</td><td>6.25</td><td>Same as above</td></tr>
+    </table>
+    <p>Requests enable server-side fallback (<code>fallbacks: "default"</code>): when the default model declines because of a safety classifier, the server may have another model answer instead. In that case EchoLab records each attempt separately (each model at its own price). Scripted mode (<code>--llm scripted</code>) does not call any API; if the script has no <code>usage</code>, the cost is 0. If the script contains simulated <code>usage</code>, the CLI computes this “simulated cost” from the price table and shows it in the status line, but records it only in a temporary ledger dedicated to that run (deleted when the run ends), and <b>never in the real ledger</b> (the same applies to scripted mode in the evals, <code>python -m core.evals</code>).</p>
+
+    <h3>Roughly how much does one question cost?</h3>
+    <p>The calculation below uses a set of <b>example token counts</b>. They come from the <code>usage</code> written in the script for the <code>damage-basic</code> case in <code>evals/faithfulness/cases.yaml</code> (assumed values for illustration, <b>not measurements</b>): one damage question with 2 LLM calls in total.</p>
+    <table>
+      <tr><th>LLM call</th><th>Input</th><th>Output</th><th>Cache write</th><th>Cache read</th><th>Cost (claude-opus-5-5)</th></tr>
+      <tr><td>1st (choose tools)</td><td>2,400</td><td>180</td><td>2,100</td><td>0</td><td>$0.0237</td></tr>
+      <tr><td>2nd (write answer)</td><td>300</td><td>140</td><td>0</td><td>2,100</td><td>$0.00442</td></tr>
+      <tr><th>Total</th><th>2,700</th><th>320</th><th>2,100</th><th>2,100</th><th>$0.02812</th></tr>
+    </table>
+    <p>All costs are computed by <code>Budget.cost()</code> in <code>core/gateway/budget.py</code> from the price table above. At this scale, a daily cap of 1 US dollar covers roughly 35 questions like this. Actual token counts vary with question length, the number of tool calls and the number of rejected drafts.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+pie showData
+  title Cost breakdown of the example question (USD, claude-opus-5-5)
+  "Input 2,700 tok" : 0.0108
+  "Output 320 tok" : 0.0064
+  "Cache write 2,100 tok" : 0.0105
+  "Cache read 2,100 tok" : 0.00042
+      </pre>
+      <div class="caption">Figure 1: Cost breakdown of the same example. Cache reads cost only 1/20 of the input price, so the 2nd call is cheap</div>
+    </div>
+    <div class="diagram">
+      <pre class="mermaid">
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2f6fdb"}}}}%%
+xychart-beta
+  title "Cost of the same example for each model in the price table (USD)"
+  x-axis ["claude-opus-5-5", "claude-opus-5", "claude-opus-4-8"]
+  y-axis "USD" 0 --> 0.04
+  bar [0.02812, 0.035675, 0.035675]
+      </pre>
+      <div class="caption">Figure 2: With the same token counts, an answer from a fallback model would cost $0.035675</div>
+    </div>
+
+    <h2>Daily and monthly caps</h2>
+    <table>
+      <tr><th>Cap</th><th>Default</th><th>Environment variable</th><th>Config file</th></tr>
+      <tr><td>Daily</td><td>1.00 USD</td><td><code>ECHOLAB_DAILY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.daily</code></td></tr>
+      <tr><td>Monthly</td><td>10.00 USD</td><td><code>ECHOLAB_MONTHLY_USD</code></td><td><code>config/budget.yaml</code> → <code>caps_usd.monthly</code></td></tr>
+      <tr><td>Ledger location</td><td><code>.echolab/costs.jsonl</code></td><td><code>ECHOLAB_LEDGER</code></td><td><code>config/budget.yaml</code> → <code>ledger</code> (relative paths are resolved from the repository root; used only in anthropic mode)</td></tr>
+    </table>
+    <ul>
+      <li>Environment variables take precedence over the config file. For example, to raise the cap for just this one run: <code>ECHOLAB_DAILY_USD=2 python -m core.agent "…"</code>.</li>
+      <li>“Today” and “this month” are based on <b>UTC</b>: the day rolls over at <b>00:00 UTC</b> (for example, 08:00 in Beijing or 09:00 in Tokyo), and the month rolls over at 00:00 UTC on the 1st.</li>
+      <li>A cap must be a number of 0 or more. If it is set to something like <code>abc</code>, the CLI does not call Claude, prints <code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code> to standard error (“Error: the value ‘abc’ of the environment variable ECHOLAB_DAILY_USD cannot be used as a cost cap (USD). Specify a number of 0 or more, e.g. 1.00”), and exits with code 2 (measured; an invalid value in <code>config/budget.yaml</code> produces the same error, naming the key).</li>
+    </ul>
+
+    <h3>What happens before and after each Claude call</h3>
+    <div class="diagram">
+      <pre class="mermaid">
+sequenceDiagram
+  participant U as You (CLI)
+  participant A as Agent
+  participant B as Budget (ledger)
+  participant C as Claude API
+  U->>A: Question
+  loop Every LLM call (usually 2 or more per question)
+    A->>B: check()
+    B->>B: Sum usd in the ledger for today and this month (UTC)
+    alt today ≥ daily cap or this month ≥ monthly cap
+      B-->>A: BudgetExceeded
+      A-->>U: Fixed reply, status budget_exceeded
+    else under the caps
+      A->>C: Request (prompt, tool definitions, conversation)
+      C-->>A: Reply and token usage
+      A->>B: record(model, usage)
+      B->>B: Append one JSONL line
+    end
+  end
+  A-->>U: Answer and the cost of this run
+      </pre>
+      <div class="caption">Figure 3: The budget check runs before every LLM call, not just once per question</div>
+    </div>
+    <p>Because the check runs <b>before</b> the call while the cost is only known <b>after</b> it, the total can slightly exceed the cap, by at most the cost of one call. Once the cap is exceeded, the next call is blocked.</p>
+
+    <h3>What you see when a cap is reached</h3>
+    <p>The following is a real reproduction with a temporary ledger (the ledger was pre-filled with one line recording 1.000000 USD for today; the ledger path is an example). It uses the default anthropic mode: the budget check runs <b>before</b> Claude is called, and once the cap is reached no call is made, so you can reproduce it even without an API key. Scripted mode cannot be used for this, because it only uses a one-off temporary ledger and does not read <code>ECHOLAB_LEDGER</code>.</p>
+    <div class="term" data-title="bash — daily cap reached">
+      <script type="application/json">[
+        {"cmd": "ECHOLAB_LEDGER=/tmp/ledger_full.jsonl python -m core.agent \"攻击力 2000 的期望伤害？\" --fake-backend", "speed": 18},
+        {"pause": 500},
+        {"out": "今日（UTC）のコストが日次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 1.00 USD）。UTC の日付が変わると使えるようになります。上限は環境変数 ECHOLAB_DAILY_USD か config/budget.yaml の caps_usd.daily で変えられます。", "cls": "warn", "delay": 300},
+        {"out": " "},
+        {"out": "出典:", "cls": "hl"},
+        {"out": "（引用した出典はありません）", "cls": "dim"},
+        {"out": " "},
+        {"out": "状態: budget_exceeded　差し戻し: 0 回　費用: $0.0000　実行 ID: 20261003T031519Z-7df23c", "cls": "warn"},
+        {"out": "トレース: /projects2/echolab/.echolab/traces/20261003T031519Z-7df23c.jsonl", "cls": "dim"},
+        {"pause": 600},
+        {"cmd": "echo $?"},
+        {"out": "1"},
+        {"pause": 600},
+        {"cmd": "grep '\"event\": \"budget_exceeded\"' .echolab/traces/20261003T031519Z-7df23c.jsonl"},
+        {"out": "{\"ts\": \"2026-10-03T03:15:19.195+00:00\", \"run_id\": \"20261003T031519Z-7df23c\", \"event\": \"budget_exceeded\", \"reason\": \"今日（UTC）のコストが上限に達しました: 1.000000 / 1.00 USD\"}", "cls": "dim"}
+      ]</script>
+    </div>
+    <p>(The question in the command asks, in Chinese, “What is the expected damage at 2000 ATK?”.) The answer means: “Today's (UTC) cost has reached the daily cap, so I cannot answer right now (used 1.000000 USD / cap 1.00 USD). It becomes available again when the UTC date changes. The cap can be changed with the environment variable <code>ECHOLAB_DAILY_USD</code> or <code>caps_usd.daily</code> in <code>config/budget.yaml</code>.” The sources table says <code>（引用した出典はありません）</code> (“no sources cited”), and the command exits with code 1. When the monthly cap is the one reached, the answer states the monthly cap amount and setting instead (measured with <code>ECHOLAB_DAILY_USD=5 ECHOLAB_MONTHLY_USD=0.5</code>: <code>今月（UTC）のコストが月次の上限に達したため、今は回答できません（使用額 1.000000 USD / 上限 0.5 USD）。UTC の月が変わると使えるようになります。上限は環境変数 ECHOLAB_MONTHLY_USD か config/budget.yaml の caps_usd.monthly で変えられます。</code>, which says the same thing for the month and <code>ECHOLAB_MONTHLY_USD</code> / <code>caps_usd.monthly</code>). The same information is also recorded in the <code>budget_exceeded</code> event of the execution trace (reason: “today's (UTC) cost has reached the cap: 1.000000 / 1.00 USD”). In this case Claude is not called even once, and the cost is 0. The amounts in the reply come from the ledger and the settings, not from the AI, so the evals do not count them as unsourced numbers when measuring faithfulness.</p>
+    <p>What to do: wait for the UTC day or month to change, or deliberately raise the cap (environment variable or <code>config/budget.yaml</code>). Do <b>not</b> delete the ledger to “reset” it: it is the record of what you have actually spent.</p>
+
+    <h2>Ledger file format</h2>
+    <p>The ledger is JSONL: one line is appended for each LLM call. Below is the real content of a temporary ledger written with the example token counts:</p>
+    <pre><code>{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.0237"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-opus-5-5", "usage": {"input_tokens": 300, "output_tokens": 140, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 2100}, "usd": "0.00442"}
+{"ts": "2026-10-03T02:00:00+00:00", "model": "claude-sonnet-x", "usage": {"input_tokens": 2400, "output_tokens": 180, "cache_creation_input_tokens": 2100, "cache_read_input_tokens": 0}, "usd": "0.029625", "estimated": true}</code></pre>
+    <table>
+      <tr><th>Field</th><th>Meaning</th></tr>
+      <tr><td><code>ts</code></td><td>Time of the record (UTC, ISO 8601). “Today” and “this month” are determined from it</td></tr>
+      <tr><td><code>model</code></td><td>The model actually billed</td></tr>
+      <tr><td><code>usage</code></td><td>4 kinds of token counts: input, output, cache write, cache read</td></tr>
+      <tr><td><code>usd</code></td><td>Cost of this call, stored as a decimal string (to avoid floating-point errors)</td></tr>
+      <tr><td><code>estimated</code></td><td>Present only when the model is not in the price table, with the value <code>true</code>; see the next section</td></tr>
+    </table>
+    <ul>
+      <li>Only calls made with <code>--llm anthropic</code> are written to this ledger. Simulated usage in scripted mode is recorded only in each run's temporary ledger and never appears in <code>.echolab/costs.jsonl</code>.</li>
+      <li>If the ledger contains a line that cannot be read, EchoLab does not skip it (skipping could lead to overspending). Instead it stops before calling Claude, exits with code 2, and names the file and line, for example <code>エラー: コストの台帳 /tmp/broken.jsonl の 1 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: Expecting ',' delimiter: line 1 column 35 (char 34)）。その行を直すか消してください</code> (“Error: line 1 of the cost ledger /tmp/broken.jsonl cannot be read, so the cost caps cannot be checked safely (…). Fix or delete that line.”; measured, no traceback is printed). Fix or remove that line.</li>
+    </ul>
+
+    <h3>Models not in the price table: a conservative estimate</h3>
+    <p>During fallback, the server may return a model that is not in the price table. The call has already been billed, so EchoLab still records it, but <b>estimates the cost at the price of the most expensive model in the table</b> and marks it <code>"estimated": true</code>. The 3rd line above is an example: with the same token counts, <code>claude-opus-5-5</code> costs $0.0237, while the unknown model is estimated at the highest price, $0.029625. This way the cap check can only err on the strict side, never the lenient side. (A plain “price lookup” does not guess: for an unknown model, <code>Budget.cost()</code> raises <code>料金表に無いモデルです（config/budget.yaml に追加してください）</code>, “model not in the price table (add it to config/budget.yaml)”.) If you often see a new model, add its prices to <code>pricing_usd_per_mtok</code> in <code>config/budget.yaml</code>.</p>
+
+    <h2>Where your data is sent</h2>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+  subgraph PC["Your computer"]
+    CLI["CLI and Agent"]
+    GW["Gateway"]
+    CE["calc-engine&lt;br/&gt;Java subprocess, stdio"]
+    DATA["domains/wuwa/data&lt;br/&gt;sample data"]
+    LED[".echolab/costs.jsonl&lt;br/&gt;cost ledger"]
+    TR[".echolab/traces/&lt;br/&gt;execution traces"]
+  end
+  API["Anthropic&lt;br/&gt;Claude API"]
+  CLI --> GW --> CE --> DATA
+  CLI --> LED
+  CLI --> TR
+  CLI -- "anthropic mode only" --> API
+      </pre>
+      <div class="caption">Figure 4: Only anthropic mode accesses the network; calculations, the ledger and traces all stay on your machine</div>
+    </div>
+    <table>
+      <tr><th></th><th><code>--llm scripted</code> (scripted mode)</th><th><code>--llm anthropic</code> (default)</th></tr>
+      <tr><td>Sent to Anthropic</td><td>Nothing (no API calls, no API key needed)</td><td>The system prompt (<code>core/agent/prompts/core.md</code> + <code>domains/wuwa/prompts/system.md</code>), tool definitions (input schemas), <b>the original text of your question</b>, Claude's earlier replies, tool results (source IDs and values, unverified-data IDs) and the verifier's rejection feedback</td></tr>
+      <tr><td>Calculation</td><td colspan="2">Local: the Java calculation service runs as a subprocess and communicates over standard input/output (with <code>--fake-backend</code>, a local Python reference implementation is used instead); no network access</td></tr>
+      <tr><td>Stored locally</td><td colspan="2"><code>.echolab/traces/&lt;run ID&gt;.jsonl</code> (includes the original question, every draft, tool inputs and outputs, and the final answer) and <code>.echolab/costs.jsonl</code> (costs from anthropic mode only). Both are git-ignored and never committed</td></tr>
+    </table>
+    <div class="callout warn"><strong>Privacy note</strong>The original text of your question is sent to Anthropic as is, and is also written as is to the local execution trace. Do not include personal information unrelated to the calculation in your questions. Before sharing a trace file, check the question text inside it.</div>
+
+    <h2>Data trust: verified vs. sample</h2>
+    <p>The <b>formulas</b> of the calculation service are cross-checked by two implementations, Java and Python, against the same set of golden cases. Whether the <b>game numbers</b> are accurate, however, depends on where the inputs come from:</p>
+    <table>
+      <tr><th>Input source</th><th>Trustworthiness</th><th>How it shows in the answer</th></tr>
+      <tr><td>Values you give in the question</td><td>As trustworthy as the numbers you gave</td><td>No note; the <code>未確認データ</code> (“unverified data”) column of the sources table shows <code>-</code></td></tr>
+      <tr><td>Sample data with <code>verified: false</code> (currently all data is like this)</td><td><b>Sample values</b> compiled by hand by the author; <code>source</code> is <code>"TODO: 要確認"</code> (“TODO: needs checking”); not official values</td><td>The note <code>※ この回答の数値の一部は、未確認のサンプルデータに基づいています。</code> (“Some numbers in this answer are based on unverified sample data.”) is added automatically, and the sources table lists IDs such as <code>gacha_rules:featured-character</code>, <code>echo_weights:sample-crit-attacker</code> and <code>echo_weights:max_roll</code></td></tr>
+      <tr><td>Verified data with <code>verified: true</code></td><td>The data schema requires an <code>https://</code> source URL, a check date <code>checked_at</code> and a game version <code>game_version</code></td><td>No note (the repository does not contain any such data yet)</td></tr>
+    </table>
+    <p>The compare tools inherit the unverified flags of both inputs: if either side of a comparison used sample data, the difference / ratio carries the same IDs, and the answer gets the note too.</p>
+    <div class="flow-anim" data-cols="7">
+      <div class="stage">
+        <div class="node" data-id="data">Sample data<small>verified: false</small></div>
+        <div class="arrow" data-id="a1">→</div>
+        <div class="node" data-id="calc">Calculation tool<small>unverified_inputs</small></div>
+        <div class="arrow" data-id="a2">→</div>
+        <div class="node" data-id="cmp">Compare tools<small>inherit flags</small></div>
+        <div class="arrow" data-id="a3">→</div>
+        <div class="node" data-id="out">Answer<small>automatic note</small></div>
+      </div>
+      <script type="application/json">[
+        {"on": ["data"], "packet": {"at": "data", "text": "featured-character"}, "text": "You say “use the sample featured-character banner”, so Claude passes <code>banner: featured-character</code> to the gacha tool. In <code>gacha_rules.yaml</code> this banner is <code>verified: false</code>."},
+        {"on": ["calc", "a1"], "done": ["data"], "packet": {"at": "calc", "text": "c1.probability"}, "text": "The calculation service reads the rules and calculates, and the result carries <code>unverified_inputs: [\"gacha_rules:featured-character\"]</code>. The source <code>c1.probability</code> is therefore marked as unverified."},
+        {"on": ["cmp", "a2"], "done": ["data", "calc"], "packet": {"at": "cmp", "text": "IDs inherited"}, "text": "If it is later compared with another result using a compare tool, the comparison result merges the unverified IDs from both sides, so “unverified” can never be laundered into “verified”."},
+        {"on": ["out", "a3"], "done": ["data", "calc", "cmp"], "packet": {"at": "out", "text": "※ note"}, "text": "The renderer checks every source the answer cites: if even one carries an unverified ID, it appends the Japanese note to the end of the answer. The note is added by the program, and Claude cannot leave it out."},
+        {"on": ["out"], "done": ["calc"], "packet": {"at": "out", "text": "no note"}, "text": "Conversely, if you supply all the rules yourself in the question (<code>rules</code>), the result has no unverified IDs and the answer gets no note. In that case, how trustworthy the numbers are depends on the rules you gave."}
+      ]</script>
+    </div>
+
+    <div class="related"><strong>Next steps</strong>
+      <ul>
+        <li><a href="07-traces-evals.html">Traces &amp; evals</a>: find the token usage of <code>llm_call</code> and the reason for <code>budget_exceeded</code> in a trace.</li>
+        <li><a href="08-troubleshooting.html">Troubleshooting &amp; FAQ</a>: how to deal with <code>budget_exceeded</code> and <code>llm_error</code>.</li>
+        <li><a href="02-what-to-ask.html">What you can ask</a>: which questions use sample data.</li>
+      </ul>
+    </div>
+    <div class="pager"></div>
+  </main>
+</div>
+</body>
+</html>
