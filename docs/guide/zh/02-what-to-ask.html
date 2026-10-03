@@ -36,7 +36,7 @@
     </div>
 
     <h2>功能全景</h2>
-    <p>EchoLab 当前只有一个领域包 <code>wuwa</code>（《鸣潮》养成顾问，非官方同人作品）。Claude 能调用的工具共 6 个：领域包在 <code>domains/wuwa/domain.yaml</code> 里声明的 4 个计算工具，加上核心自带的 2 个比较工具。</p>
+    <p>EchoLab 默认的领域包是 <code>wuwa</code>（《鸣潮》养成顾问，非官方同人作品）；另外还有住宅贷款还款的计算示例 <code>mortgage</code>（用 <code>--domain mortgage</code> 切换，见 <a href="09-roadmap.html">路线图</a>的 M3）。本页介绍 <code>wuwa</code>：Claude 能调用的工具共 6 个：领域包在 <code>domains/wuwa/domain.yaml</code> 里声明的 4 个计算工具，加上核心自带的 2 个比较工具。</p>
     <div class="diagram">
       <pre class="mermaid">
 mindmap
@@ -243,7 +243,7 @@ flowchart TD
       <tr><td>需要游戏内数据但你没给</td><td>“某角色大招倍率是多少？”</td><td>EchoLab 不含游戏数据（只有未确认的示例），Claude 也不得凭记忆给数值</td></tr>
       <tr><td>纯算术</td><td>“1234 比 1000 高几成？”</td><td>比较工具只接受本问题内工具结果的出典 ID</td></tr>
       <tr><td>接着上一次问</td><td>“刚才那个再加 10% 暴击呢？”</td><td>每次运行是独立的，没有对话记忆；请把完整条件重写一遍</td></tr>
-      <tr><td>截图识别、房贷试算等</td><td>“看这张截图打分”</td><td>截图读取（M4）、房贷领域包（M3）都还只是路线图计划，见 <a href="09-roadmap.html">今后的功能（路线图）</a></td></tr>
+      <tr><td>截图识别等</td><td>“看这张截图打分”</td><td>截图读取（M4）还只是路线图计划，见 <a href="09-roadmap.html">今后的功能（路线图）</a>。房贷的问题请用 <code>--domain mortgage</code> 问（M3）</td></tr>
     </table>
     <p>这时 Claude 应当用不含数字的文字说明能做什么，或者反问缺少的信息。无论 Claude 写什么，<b>验证器都会拦下没有出典的数字</b>，所以最坏情况也只是“没有数字的回答”，而不是“编出来的数字”。下面两个都是真实运行（台本模拟 Claude 的回复）：</p>
     <div class="term" data-title="bash — 范围外的问题">

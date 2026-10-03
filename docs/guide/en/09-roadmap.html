@@ -23,14 +23,14 @@
     <h1>Roadmap</h1>
     <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what is planned, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout warn"><strong>Please note: everything about M3–M5 on this page is planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The web UI, screenshot reading and the mortgage calculator <strong>do not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
+    <div class="callout warn"><strong>Please note: everything about M4–M5 on this page is planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The M3 mortgage pack already runs with <code>--domain mortgage</code>; the web UI and screenshot reading <strong>do not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
 
     <h2>Milestones at a glance</h2>
     <table>
       <tr><th>Milestone</th><th>Contents</th><th>Status</th></tr>
       <tr><td>M1</td><td>Calculation engine calc-engine (Java), golden test cases, CI</td><td><span class="badge done">Done</span></td></tr>
-      <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide describes)</span></td></tr>
-      <tr><td>M3</td><td>A second domain pack: mortgage calculator (minimal example)</td><td><span class="badge plan">Planned</span></td></tr>
+      <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide mainly describes)</span></td></tr>
+      <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M4</td><td>Screenshot reading, prompt-injection eval set, evals in CI</td><td><span class="badge plan">Planned</span></td></tr>
       <tr><td>M5</td><td>Web UI, trace replay, eval dashboard, public demo</td><td><span class="badge plan">Planned</span></td></tr>
     </table>
@@ -42,11 +42,11 @@ flowchart LR
   M2 --> M3["M3 Mortgage domain pack<br/>proves zero core changes"]
   M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
   M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
-  NOW(["You are here"]) -.-> M2
+  NOW(["You are here"]) -.-> M3
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2 done
-  class M3,M4,M5 plan
+  class M1,M2,M3 done
+  class M4,M5 plan
       </pre>
       <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
     </div>
@@ -58,7 +58,7 @@ flowchart LR
         <div class="arrow" data-id="a1">→</div>
         <div class="node" data-id="m2">M2<small>CLI</small></div>
         <div class="arrow" data-id="a2">→</div>
-        <div class="node plan" data-id="m3">M3<small>Mortgage</small></div>
+        <div class="node" data-id="m3">M3<small>Mortgage</small></div>
         <div class="arrow" data-id="a3">→</div>
         <div class="node plan" data-id="m4">M4<small>Screenshots, injection</small></div>
         <div class="arrow" data-id="a4">→</div>
@@ -67,25 +67,27 @@ flowchart LR
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "Done"},
          "text": "<b>M1: Calculation engine.</b>A deterministic calculation library written in Java 21 (expected damage, Echo score, gacha probability). Every tool is checked against golden test cases calculated by hand or derived from the formulas."},
-        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done · now"},
-         "text": "<b>M2: End-to-end CLI (the version you are using now).</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
-        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Planned"},
-         "text": "<b>M3 (Planned): Mortgage calculator.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. The goal is to add it without changing a single line of core code, verified by CI. <strong>It is only a calculation example, not financial advice.</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2"], "packet": {"at": "m4", "text": "Planned"},
+        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done"},
+         "text": "<b>M2: End-to-end CLI.</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done · now"},
+         "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Planned"},
          "text": "<b>M4 (Planned): Screenshot reading and injection evals.</b>Read game screenshots into structured data (with schema validation); add a prompt-injection eval set (using synthetic screenshots, not original game images); and run the evals in CI."},
-        {"on": ["m5", "a4"], "done": ["m1", "m2"], "packet": {"at": "m5", "text": "Planned"},
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3"], "packet": {"at": "m5", "text": "Planned"},
          "text": "<b>M5 (Planned): Web UI.</b>Chat in the browser, replay execution traces (as flow diagrams), view an eval dashboard, and a public demo. What the animations on pages 5 and 7 of this guide show would then be visible directly in the interface."}
       ]</script>
     </div>
 
-    <h2>M3 (Planned): a second domain pack, the mortgage calculator</h2>
-    <p>EchoLab's core (gateway, verifier, evals, traces) contains no game concepts at all; domain knowledge lives in “domain packs”, which declare their available tools in <code>domain.yaml</code>. M3 is meant to prove this with a very small mortgage pack:</p>
+    <h2>M3 (Done): a second domain pack, example mortgage repayment calculations</h2>
+    <p>EchoLab's core (gateway, verifier, evals, traces) contains no game concepts at all; domain knowledge lives in “domain packs”, which declare their available tools in <code>domain.yaml</code>. M3 proved this with a very small mortgage pack:</p>
     <ul>
-      <li>Planned contents: comparing equal-payment (annuity) and equal-principal repayment, and the effect of early repayment. The calculations are written in Python and likewise come with golden test cases and prompts.</li>
-      <li>Goal: about 300 lines of new code with <strong>zero changes to the core</strong>, and a CI check that <code>core/</code> did not change when the pack was added.</li>
-      <li>Both the README and the answers will state: <strong>this is a calculation example, not financial advice.</strong></li>
+      <li>Contents: comparing equal-payment (annuity) and equal-principal repayment, and the effect of a partial prepayment (shorter term or lower payment). A Python MCP server inside the pack does the calculations, so Java is not needed; the pack also has golden test cases, prompts and scripted evals (5 cases).</li>
+      <li><strong>Zero changes to the core</strong>: the commit that added the pack did not touch <code>core/</code>, and the <code>pack-isolation</code> CI job checks this every time. The three generic features that were missing (starting Python services, running evals per domain, an answer note) went into the core first, in a separate commit (ADR-0009).</li>
+      <li>Every answer that passes verification ends with a note added automatically: <strong>this is a calculation example, not financial advice.</strong></li>
     </ul>
-    <p>What it means for you: in the future you may be able to switch to another domain with the <code>--domain</code> option (the option already exists, defaults to <code>wuwa</code>, and <code>wuwa</code> is currently the only domain pack).</p>
+    <p>What it means for you: switch to mortgages with <code>--domain mortgage</code> (the default is still <code>wuwa</code>). To try it without an API key:</p>
+    <pre><code>python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml</code></pre>
 
     <h2>M4 (Planned): screenshot reading and injection evals</h2>
     <table>

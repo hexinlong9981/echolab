@@ -23,14 +23,14 @@
     <h1>今后的功能（路线图）</h1>
     <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理今后的计划，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout warn"><strong>请注意：本页 M3～M5 的内容全部是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。网页界面（Web UI）、截图识别、住宅贷款试算都<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
+    <div class="callout warn"><strong>请注意：本页 M4～M5 的内容全部是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。M3 的住宅贷款领域包已经可以用 <code>--domain mortgage</code> 运行；网页界面（Web UI）、截图识别都<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
 
     <h2>阶段一览</h2>
     <table>
       <tr><th>阶段</th><th>内容</th><th>状态</th></tr>
       <tr><td>M1</td><td>计算引擎 calc-engine（Java）、黄金测试用例、CI</td><td><span class="badge done">已完成</span></td></tr>
-      <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书介绍的就是它）</span></td></tr>
-      <tr><td>M3</td><td>第二个领域包：住宅贷款试算（最小示例）</td><td><span class="badge plan">计划</span></td></tr>
+      <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书主要介绍的就是它）</span></td></tr>
+      <tr><td>M3</td><td>第二个领域包：住宅贷款还款的计算示例（最小示例），并在 CI 中证明核心零改动</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M4</td><td>截图读取、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge plan">计划</span></td></tr>
       <tr><td>M5</td><td>Web UI、轨迹回放、评估看板、公开演示</td><td><span class="badge plan">计划</span></td></tr>
     </table>
@@ -42,11 +42,11 @@ flowchart LR
   M2 --> M3["M3 住宅贷款领域包<br/>证明核心零改动"]
   M3 --> M4["M4 截图读取<br/>注入评估・CI 评估"]
   M4 --> M5["M5 Web UI<br/>轨迹回放・评估看板"]
-  NOW(["现在在这里"]) -.-> M2
+  NOW(["现在在这里"]) -.-> M3
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2 done
-  class M3,M4,M5 plan
+  class M1,M2,M3 done
+  class M4,M5 plan
       </pre>
       <div class="caption">图 1：开发阶段时间线（实线绿色＝已完成，虚线黄色＝计划；先打通一条完整流程，再横向扩展）</div>
     </div>
@@ -58,7 +58,7 @@ flowchart LR
         <div class="arrow" data-id="a1">→</div>
         <div class="node" data-id="m2">M2<small>CLI</small></div>
         <div class="arrow" data-id="a2">→</div>
-        <div class="node plan" data-id="m3">M3<small>住宅贷款</small></div>
+        <div class="node" data-id="m3">M3<small>住宅贷款</small></div>
         <div class="arrow" data-id="a3">→</div>
         <div class="node plan" data-id="m4">M4<small>截图・注入</small></div>
         <div class="arrow" data-id="a4">→</div>
@@ -67,25 +67,27 @@ flowchart LR
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "已完成"},
          "text": "<b>M1：计算引擎。</b>用 Java 21 写的确定性计算库（期待伤害、声骸评分、抽卡概率），每个工具都有手算或公式推导的黄金测试用例来核对。"},
-        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "已完成 · 现在"},
-         "text": "<b>M2：CLI 全流程（你现在用的版本）。</b>计算引擎作为 MCP 服务接入；网关、出典 ID、验证器、比较工具、成本上限、执行轨迹、忠实度评估都已可用。"},
-        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "计划"},
-         "text": "<b>M3（计划）：住宅贷款试算。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。目标是“核心代码一行不改”就加进来，并用 CI 检查。<strong>只是计算示例，不是金融建议。</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2"], "packet": {"at": "m4", "text": "计划"},
+        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "已完成"},
+         "text": "<b>M2：CLI 全流程。</b>计算引擎作为 MCP 服务接入；网关、出典 ID、验证器、比较工具、成本上限、执行轨迹、忠实度评估都已可用。"},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "已完成 · 现在"},
+         "text": "<b>M3：住宅贷款领域包。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。核心代码一行没改就加了进来，CI 每次都检查这一点。<strong>只是计算示例，不是金融建议。</strong>"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "计划"},
          "text": "<b>M4（计划）：截图读取与注入评估。</b>把游戏截图读成结构化数据（带格式校验）；新增“提示词注入”评估题（使用合成截图，不用游戏原图），并把评估放进 CI。"},
-        {"on": ["m5", "a4"], "done": ["m1", "m2"], "packet": {"at": "m5", "text": "计划"},
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3"], "packet": {"at": "m5", "text": "计划"},
          "text": "<b>M5（计划）：Web UI。</b>在网页上对话、回放执行轨迹（流程图形式）、查看评估看板，并公开演示。届时本说明书第 5、7 页的动画所展示的内容，可以在界面里直接看到。"}
       ]</script>
     </div>
 
-    <h2>M3（计划）：第二个领域包——住宅贷款试算</h2>
-    <p>EchoLab 的核心（网关、验证器、评估、轨迹）不包含任何游戏概念；领域知识都放在“领域包”里，用 <code>domain.yaml</code> 声明可用工具。M3 要用一个很小的住宅贷款包证明这一点：</p>
+    <h2>M3（已完成）：第二个领域包——住宅贷款还款的计算示例</h2>
+    <p>EchoLab 的核心（网关、验证器、评估、轨迹）不包含任何游戏概念；领域知识都放在“领域包”里，用 <code>domain.yaml</code> 声明可用工具。M3 用一个很小的住宅贷款包证明了这一点：</p>
     <ul>
-      <li>计划内容：等额本息（元利均等）与等额本金（元金均等）的比较、提前还款的效果；计算部分用 Python 写，同样带黄金测试用例和提示词。</li>
-      <li>目标：约 300 行新增代码、<strong>核心零改动</strong>，并在 CI 中检查“加这个包时 <code>core/</code> 没有变化”。</li>
-      <li>README 和答案中都会写明：<strong>这是计算示例，不是金融建议。</strong></li>
+      <li>内容：等额本息（元利均等）与等额本金（元金均等）的比较、部分提前还款（缩短期限型・减少月供型）的效果。计算由领域包里的 Python MCP 服务器完成，不需要 Java；同样带黄金测试用例、提示词和台本评估（5 个用例）。</li>
+      <li><strong>核心零改动</strong>：加这个包的提交没有改动 <code>core/</code>，CI 的 <code>pack-isolation</code> 作业每次都检查这一点。加包之前缺的 3 个通用功能（启动 Python 服务、按领域运行评估、回答注记）先以单独的提交加进了核心（ADR-0009）。</li>
+      <li>每个通过验证的回答末尾都会自动加上：<strong>这是计算示例，不是金融建议。</strong></li>
     </ul>
-    <p>对你意味着：将来可能用 <code>--domain</code> 参数切换到别的领域（这个参数现在已经存在，默认 <code>wuwa</code>，目前也只有 <code>wuwa</code> 这一个领域包）。</p>
+    <p>对你意味着：用 <code>--domain mortgage</code> 就能切换到住宅贷款（默认仍是 <code>wuwa</code>）。不需要 API 密钥的试用方法：</p>
+    <pre><code>python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml</code></pre>
 
     <h2>M4（计划）：截图读取与注入评估</h2>
     <table>

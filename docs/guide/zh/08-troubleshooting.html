@@ -181,7 +181,7 @@ cd ../..</code></pre>
       <tbody>
         <tr><td><code>エラー: --llm scripted には --script（台本の YAML）が必要です</code></td><td>台本模式没有指定台本</td><td>加 <code>--script core/agent/examples/compare_builds.yaml</code></td></tr>
         <tr><td><code>エラー: 台本が見つかりません: nope.yaml</code></td><td>台本路径不对。相对路径以当前目录为基准</td><td>在仓库根目录执行，或写绝对路径</td></tr>
-        <tr><td><code>エラー: ドメインが見つかりません: lol（使えるドメイン: wuwa）</code>（加不加 <code>--fake-backend</code> 都一样）</td><td><code>--domain</code> 指定了不存在的领域包</td><td>用括号里列出的领域，或省略 <code>--domain</code>（目前只有 <code>wuwa</code>）</td></tr>
+        <tr><td><code>エラー: ドメインが見つかりません: lol（使えるドメイン: mortgage、wuwa）</code>（加不加 <code>--fake-backend</code> 都一样）</td><td><code>--domain</code> 指定了不存在的领域包</td><td>用括号里列出的领域，或省略 <code>--domain</code>（默认 <code>wuwa</code>）</td></tr>
         <tr><td><code>エラー: 環境変数 ECHOLAB_DAILY_USD の値「abc」はコストの上限（USD）として使えません。0 以上の数値（例 1.00）を指定してください</code></td><td>费用上限的环境变量（或 <code>config/budget.yaml</code> 的值）不是 0 以上的数字</td><td>改成 <code>1.00</code> 这样的数字，或 <code>unset ECHOLAB_DAILY_USD</code></td></tr>
         <tr><td><code>エラー: コストの台帳 …/costs.jsonl の 2 行目が読めないため、コストの上限を安全に判定できません（JSONDecodeError: …）。その行を直すか消してください</code></td><td>费用台账有一行不是合法的 JSON 记录。跳过它可能导致超出上限，所以程序在调用 Claude 之前停下</td><td>修正或删除报出的那一行</td></tr>
         <tr><td><code>エラー: 台本どおりに進みませんでした（質問・台本・--fake-backend の組み合わせを確かめてください）: …</code></td><td>台本里的步骤与实际运行不符（例如台本要求的工具报错没有出现，台本被用完）</td><td>检查台本、问题和是否加了 <code>--fake-backend</code></td></tr>

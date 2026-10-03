@@ -36,7 +36,7 @@
     </div>
 
     <h2>Feature overview</h2>
-    <p>EchoLab currently has a single domain pack, <code>wuwa</code> (a <i>Wuthering Waves</i> character-building advisor, a non-official fan project). Claude can call 6 tools in total: the 4 calculation tools the domain pack declares in <code>domains/wuwa/domain.yaml</code>, plus the 2 compare tools built into the core.</p>
+    <p>EchoLab's default domain pack is <code>wuwa</code> (a <i>Wuthering Waves</i> character-building advisor, a non-official fan project); there is also <code>mortgage</code>, example mortgage repayment calculations (switch with <code>--domain mortgage</code>; see M3 in the <a href="09-roadmap.html">Roadmap</a>). This page covers <code>wuwa</code>: Claude can call 6 tools in total: the 4 calculation tools the domain pack declares in <code>domains/wuwa/domain.yaml</code>, plus the 2 compare tools built into the core.</p>
     <div class="diagram">
       <pre class="mermaid">
 mindmap
@@ -244,7 +244,7 @@ flowchart TD
       <tr><td>Needs in-game data you did not provide</td><td>"What is this character's Liberation multiplier?"</td><td>EchoLab contains no game data (only unverified samples), and Claude may not give values from memory</td></tr>
       <tr><td>Plain arithmetic</td><td>"How many percent higher is 1234 than 1000?"</td><td>The compare tools only accept source IDs of tool results from the same question</td></tr>
       <tr><td>Following up on the last question</td><td>"What about that last one with 10% more crit rate?"</td><td>Each run is independent with no conversation memory; write out the full conditions again</td></tr>
-      <tr><td>Screenshot reading, mortgage calculations, etc.</td><td>"Score the echo in this screenshot"</td><td>Screenshot reading (M4) and the mortgage domain pack (M3) are only roadmap plans so far; see <a href="09-roadmap.html">Roadmap</a></td></tr>
+      <tr><td>Screenshot reading, etc.</td><td>"Score the echo in this screenshot"</td><td>Screenshot reading (M4) is only a roadmap plan so far; see <a href="09-roadmap.html">Roadmap</a>. Ask mortgage questions with <code>--domain mortgage</code> (M3)</td></tr>
     </table>
     <p>In these cases Claude should explain what it can do in text without numbers, or ask for the missing information. Whatever Claude writes, <b>the verifier blocks numbers without a source</b>, so the worst case is "an answer with no numbers", never "made-up numbers". Both runs below are real (a script imitates Claude's reply):</p>
     <div class="term" data-title="bash — out-of-scope questions">
