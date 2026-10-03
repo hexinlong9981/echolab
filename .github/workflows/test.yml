@@ -33,6 +33,25 @@ jobs:
       - name: Tests (golden cases, core, agent with scripted LLM, evals)
         run: pytest -m "not e2e"
 
+  pack-isolation:
+    # ドメインパックの変更でコアを変えていないこと（ADR-0003・ADR-0009）。
+    # 増えたコミットが domains/ と core/ を同時に変えていないか、各パックを追加したコミットが
+    # core/ を変えていないかを、git の履歴で検査する
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check that domain packs do not change core/
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python .github/scripts/check_pack_isolation.py --base "$BASE" --head "$HEAD"
+
   e2e:
     # calc-engine の MCP サーバ（jar）を起動し、ゴールデンケースと Agent の往復を端から端まで通す
     runs-on: ubuntu-latest

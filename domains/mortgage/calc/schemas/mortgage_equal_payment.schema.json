@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "description": "元利均等返済の入力。固定金利・毎月払い（ボーナス払いなし）の計算例。金利は小数（0.015 = 年 1.5%）。",
+  "properties": {
+    "principal": { "type": "number", "exclusiveMinimum": 0, "description": "借入額（円。0 より大きい）" },
+    "annual_rate": { "type": "number", "minimum": 0, "maximum": 0.2, "description": "年利（小数。0.015 = 1.5%。0〜0.2）。月利 = 年利 / 12" },
+    "years": { "type": "integer", "minimum": 1, "maximum": 50, "description": "返済期間（年。1〜50）。返済回数 = 年数 × 12" }
+  },
+  "required": ["principal", "annual_rate", "years"],
+  "additionalProperties": false
+}

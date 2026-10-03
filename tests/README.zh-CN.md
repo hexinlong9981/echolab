@@ -31,6 +31,16 @@
 | `test_trace.py` | 执行追踪：每行一个事件的 JSONL・契约类型的序列化・Agent 记录的事件内容 |
 | `test_evals.py` | 以脚本模式运行全部数值忠实度评估用例，确认结果与已提交的 `evals/reports/scripted-baseline.md` 一致 |
 
+## 领域包②：房贷（ADR-0009）
+
+不使用 Java。领域包的 MCP 服务器（Python）以真实的子进程启动，因此在 CI 的 `python` 作业中每次运行。
+
+| 文件 | 内容 |
+|---|---|
+| `reference/mortgage_reference.py` | 房贷的参考实现。用与领域包实现（`Decimal`，逐月推进余额）不同的方法（`float`，用余额公式和对数求月数）计算 |
+| `test_mortgage_pack.py` | 领域包实现与黄金用例的核对・输入错误的说明・经网关启动真实 MCP 服务器后的黄金用例核对与错误・Agent 的往返与回答注记・脚本模式的评估（`evals/faithfulness/mortgage.yaml`）与基线 |
+| `test_pack_isolation.py` | 在临时 git 仓库中检查 CI 的"领域包的变更不修改核心"检查（`.github/scripts/check_pack_isolation.py`）的规则 |
+
 ## 端到端测试：`tests/e2e/`
 
 `test_mcp_e2e.py` 按照 `config/services.yaml` 启动真实的 calc-engine（MCP 服务器的 jar）。
@@ -48,3 +58,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 在 CI 中，`test.yml` 的 `python` 作业运行 `pytest -m "not e2e"`，`e2e` 作业先构建 jar 再运行 `pytest -m e2e`。
+
+`pack-isolation` 作业在 git 历史中检查领域包的变更没有修改核心（ADR-0009）。

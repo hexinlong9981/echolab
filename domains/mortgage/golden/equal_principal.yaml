@@ -1,0 +1,26 @@
+# 元金均等返済のゴールデンケース。
+# k 回目の返済額 = P/n + (P − (k−1)·P/n)·r、利息の合計 = P·r·(n+1)/2（r = 年利 / 12、n = 年数 × 12）。
+# 期待値は円未満を丸めない理論値。
+schema_version: 1
+tool: mortgage.equal_principal
+cases:
+  - id: prin-001
+    description: 1,200,000 円・年 12%（月 1%）・1 年。元金は毎月 100,000 円、利息は 12,000 円から 1,000 円まで減る
+    derivation: hand
+    input: {principal: 1200000, annual_rate: 0.12, years: 1}
+    expected:
+      first_payment: 112000.0
+      last_payment: 101000.0
+      total_payment: 1278000.0
+      total_interest: 78000.0
+    tolerance: 1.0e-6
+  - id: prin-002
+    description: 3,000 万円・年 1.5%・35 年。利息の合計 = 30,000,000 × 0.00125 × 421 / 2 = 7,893,750
+    derivation: closed_form
+    input: {principal: 30000000, annual_rate: 0.015, years: 35}
+    expected:
+      first_payment: 108928.571429
+      last_payment: 71517.857143
+      total_payment: 37893750.0
+      total_interest: 7893750.0
+    tolerance: 1.0e-5

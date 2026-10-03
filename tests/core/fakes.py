@@ -8,14 +8,27 @@ from typing import Any
 
 from core.contracts import ToolEnvelope, ToolError, ToolSpec, to_wire_name
 from tests.reference import calc_reference as ref
+from tests.reference import mortgage_reference
+
+
+def _rounded(fn: Callable[[dict], Mapping[str, float]]) -> Callable[[dict], Mapping[str, object]]:
+    """住宅ローンの参照実装（float）の結果を Decimal にする。
+
+    ``_to_output`` がパックの出力と同じ小数 6 桁に丸める。
+    """
+    return lambda i: {k: Decimal(repr(v)) for k, v in fn(i).items()}
+
 
 _CALCULATORS: dict[str, Callable[[dict], Mapping[str, object]]] = {
     "damage.expected": ref.damage_expected,
     "echo.score": ref.echo_score,
     "gacha.probability_within": lambda i: {"probability": ref.gacha_probability_within(i)},
+    # 住宅ローンのパック（mortgage-calc の代わり）
+    **{tool: _rounded(fn) for tool, fn in mortgage_reference.TOOLS.items()},
 }
 
 _OPEN_SCHEMA: Mapping[str, Any] = {"type": "object"}
+
 
 #: calc-engine の出力の桁（Java の ``Precision.round``：小数点以下 6 桁・HALF_EVEN）。
 _OUTPUT_QUANTUM = Decimal("0.000001")

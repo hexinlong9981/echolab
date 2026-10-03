@@ -1,0 +1,22 @@
+# 台本モードのデモ（API キー不要）。元利均等と元金均等の利息の合計を並列に計算し、比較ツールで差を求める。
+#
+#   python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+#     --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml --fake-backend
+#
+# --fake-backend を外すと、パックの MCP サーバ（python -m domains.mortgage.calc）を起動して計算する。
+turns:
+  - tool_uses:
+      - name: mortgage_equal_payment
+        input: {principal: 30000000, annual_rate: 0.015, years: 35}
+      - name: mortgage_equal_principal
+        input: {principal: 30000000, annual_rate: 0.015, years: 35}
+  - tool_uses:
+      - name: compare_diff
+        input: {a: c1.total_interest, b: c2.total_interest}
+  - text: |-
+      利息の合計は元金均等返済の方が少なくなります。
+      - 元利均等返済：毎月 [[c1.monthly_payment|0]] 円、利息の合計 [[c1.total_interest|0]] 円
+      - 元金均等返済：初回 [[c2.first_payment|0]] 円から最終回 [[c2.last_payment|0]] 円まで減り、利息の合計 [[c2.total_interest|0]] 円
+      - 差：[[c3.diff|0]] 円（元利均等の方が多い）
+
+      元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。

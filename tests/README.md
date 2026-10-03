@@ -29,6 +29,16 @@ API キーも Java も使いません。LLM は台本（`ScriptedLLM`）また�
 | `test_trace.py` | 実行トレース：1 行 1 出来事の JSONL・契約の型の書き出し・Agent が残す出来事の中身 |
 | `test_evals.py` | 数値の忠実度の評価を台本モードで全ケース実行し、コミット済みの `evals/reports/scripted-baseline.md` と一致することを確認 |
 
+## ドメインパック②：住宅ローン（ADR-0009）
+
+Java は使いません。パックの MCP サーバ（Python）は実物を子プロセスで起動するので、CI の `python` ジョブで毎回通します。
+
+| ファイル | 内容 |
+|---|---|
+| `reference/mortgage_reference.py` | 住宅ローンの参照実装。パックの実装（`Decimal`、残高を 1 回ずつ進める）とは別の方法（`float`、残高の公式と対数で回数を求める）で計算する |
+| `test_mortgage_pack.py` | パックの実装とゴールデンケースの照合・入力の誤りの説明・実物の MCP サーバをゲートウェイから起動してのゴールデンケースの照合とエラー・Agent の往復と回答の注記・台本モードの評価（`evals/faithfulness/mortgage.yaml`）とベースライン |
+| `test_pack_isolation.py` | CI の「パックの変更でコアを変えない」検査（`.github/scripts/check_pack_isolation.py`）の規則を、一時的な git リポジトリで確かめる |
+
 ## 端から端までの試験：`tests/e2e/`
 
 `test_mcp_e2e.py` は実物の calc-engine（MCP サーバの jar）を `config/services.yaml` のとおりに起動します。
@@ -46,3 +56,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 CI では、`test.yml` の `python` ジョブが `pytest -m "not e2e"` を、`e2e` ジョブが jar を作ってから `pytest -m e2e` を実行します。
+
+`pack-isolation` ジョブは、ドメインパックの変更でコアを変えていないことを git の履歴で検査します（ADR-0009）。

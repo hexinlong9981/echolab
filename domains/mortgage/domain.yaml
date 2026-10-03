@@ -1,0 +1,24 @@
+# ドメインパック②：住宅ローンの返済の計算例（最小例・ADR-0003・ADR-0009）
+# コアはこのマニフェストだけを読み、住宅ローンの概念を直接は知らない。
+# 計算は Python の MCP サーバ（calc/、config/services.yaml の mortgage-calc）で行う。
+# データ（金利の表など）は持たない。入力はすべて利用者が与える。
+name: mortgage
+display_name: 住宅ローン 返済シミュレーション（計算例）
+version: 0.1.0
+golden_dir: golden
+prompts_dir: prompts
+filter_policy: none
+answer_note: ※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
+tools:
+  - name: mortgage.equal_payment
+    service: mortgage-calc
+    implemented_in: M3
+    description: 元利均等返済の毎月の返済額・総返済額・利息の合計
+  - name: mortgage.equal_principal
+    service: mortgage-calc
+    implemented_in: M3
+    description: 元金均等返済の初回・最終回の返済額・総返済額・利息の合計
+  - name: mortgage.prepayment
+    service: mortgage-calc
+    implemented_in: M3
+    description: 一部繰上返済の効果（期間短縮型・返済額軽減型）

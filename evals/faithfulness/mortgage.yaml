@@ -1,0 +1,100 @@
+# 数値の忠実度の評価ケース：住宅ローンのパック（ADR-0009）。core/evals が読む。
+# 形式は cases.yaml と同じ。台本モードでは試験用の偽の計算サービス（tests/reference/mortgage_reference.py）で動く。
+#
+#   python -m core.evals --cases evals/faithfulness/mortgage.yaml
+#
+# 入力の値は計算例のためのもので、特定の金融機関の金利・商品ではない。
+schema_version: 1
+domain: mortgage
+cases:
+  - id: compare-methods
+    title: 元利均等と元金均等の利息の比較（並列の計算と比較ツール）
+    question: 3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？
+    turns:
+      - tool_uses:
+          - name: mortgage_equal_payment
+            input: &loan {principal: 30000000, annual_rate: 0.015, years: 35}
+          - name: mortgage_equal_principal
+            input: *loan
+      - tool_uses:
+          - name: compare_diff
+            input: {a: c1.total_interest, b: c2.total_interest}
+      - text: >-
+          元利均等返済は毎月 [[c1.monthly_payment|0]] 円で利息の合計は [[c1.total_interest|0]] 円、
+          元金均等返済は初回 [[c2.first_payment|0]] 円から最終回 [[c2.last_payment|0]] 円まで減り、利息の合計は [[c2.total_interest|0]] 円です。
+          元金均等返済の方が [[c3.diff|0]] 円少なくなります。
+    expect:
+      status: answered
+      cited: [c1.monthly_payment, c1.total_interest, c2.first_payment, c2.last_payment, c2.total_interest, c3.diff]
+      drafts_rejected: 0
+      answer_note: true
+
+  - id: prepayment-methods
+    title: 繰上返済の 2 つの方式の比較
+    question: >-
+      3000 万円・年 1.5%・35 年の元利均等返済で、5 年後に 300 万円を繰上返済します。
+      期間短縮型と返済額軽減型では、利息の軽減額はどれだけ違う？
+    turns:
+      - tool_uses:
+          - name: mortgage_prepayment
+            input: &prepay {principal: 30000000, annual_rate: 0.015, years: 35, after_months: 60, prepay_amount: 3000000, method: shorten_term}
+          - name: mortgage_prepayment
+            input: {<<: *prepay, method: reduce_payment}
+      - tool_uses:
+          - name: compare_diff
+            input: {a: c1.interest_saved, b: c2.interest_saved}
+      - text: >-
+          期間短縮型は返済が [[c1.months_saved|0]] か月短くなり、利息が [[c1.interest_saved|0]] 円減ります。
+          返済額軽減型は毎月の返済額が [[c2.monthly_payment_after|0]] 円に下がり、利息は [[c2.interest_saved|0]] 円減ります。
+          利息の軽減額は期間短縮型の方が [[c3.diff|0]] 円大きくなります。
+    expect:
+      status: answered
+      cited: [c1.months_saved, c1.interest_saved, c2.monthly_payment_after, c2.interest_saved, c3.diff]
+      drafts_rejected: 0
+      answer_note: true
+
+  - id: ask-for-missing-conditions
+    title: 条件が足りなければ推測せずに尋ねる（数値を含まない回答）
+    question: 住宅ローンの毎月の返済額はいくらになりますか？
+    turns:
+      - text: 計算には、借入額・年利・返済期間（年）と、元利均等か元金均等かの返済方法が必要です。条件を教えてください。
+    expect:
+      status: answered
+      cited: []
+      drafts_rejected: 0
+      answer_note: true
+
+  - id: bad-draft-self-computed-diff
+    title: 自分で引き算した差は差し戻され、比較ツールに直される
+    question: 3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？
+    turns:
+      - tool_uses:
+          - name: mortgage_equal_payment
+            input: *loan
+          - name: mortgage_equal_principal
+            input: *loan
+      - text: 元金均等返済の方が利息が 685489 円少なくなります（[[c1.total_interest|0]] 円と [[c2.total_interest|0]] 円）。
+      - expect: 差し戻し
+        tool_uses:
+          - name: compare_diff
+            input: {a: c1.total_interest, b: c2.total_interest}
+      - text: 元金均等返済の方が利息が [[c3.diff|0]] 円少なくなります（[[c1.total_interest|0]] 円と [[c2.total_interest|0]] 円）。
+    expect:
+      status: answered
+      cited: [c3.diff, c1.total_interest, c2.total_interest]
+      drafts_rejected: 1
+      answer_note: true
+
+  - id: never-corrected
+    title: 差し戻しても直らなければ、数値を含まない定型の回答（注記は付けない）
+    question: 3000 万円を年 1.5%、35 年の元利均等で借りたときの毎月の返済額は？
+    turns:
+      - tool_uses:
+          - name: mortgage_equal_payment
+            input: *loan
+      - text: 毎月の返済額はおよそ 92000 円です。
+      - text: 毎月の返済額はおよそ 92000 円です。
+      - text: 毎月の返済額はおよそ 92000 円です。
+    expect:
+      status: fallback
+      drafts_rejected: 3

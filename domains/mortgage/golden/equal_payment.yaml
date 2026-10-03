@@ -1,0 +1,34 @@
+# 元利均等返済のゴールデンケース。
+# 入力はすべて明示した値で、金融機関の実際の金利・商品には依存しない（計算例）。
+# 期待値は円未満を丸めない理論値。パックの実装（calc/loan.py、Decimal）と
+# tests/reference/mortgage_reference.py（float・別の方法）の両方で照合している。
+schema_version: 1
+tool: mortgage.equal_payment
+cases:
+  - id: pay-001
+    description: 金利 0 なら毎月の返済額は借入額 ÷ 返済回数（1,200,000 円 ÷ 120 回）
+    derivation: hand
+    input: {principal: 1200000, annual_rate: 0, years: 10}
+    expected:
+      monthly_payment: 10000.0
+      total_payment: 1200000.0
+      total_interest: 0.0
+    tolerance: 1.0e-6
+  - id: pay-002
+    description: 3,000 万円・年 1.5%・35 年。M = P·r / (1 − (1+r)^−n)、r = 0.015 / 12、n = 420
+    derivation: closed_form
+    input: {principal: 30000000, annual_rate: 0.015, years: 35}
+    expected:
+      monthly_payment: 91855.331911
+      total_payment: 38579239.402766
+      total_interest: 8579239.402766
+    tolerance: 1.0e-5
+  - id: pay-003
+    description: 2,000 万円・年 3%・20 年（閉形式を有効桁 60 で計算）
+    derivation: closed_form
+    input: {principal: 20000000, annual_rate: 0.03, years: 20}
+    expected:
+      monthly_payment: 110919.519571
+      total_payment: 26620684.696988
+      total_interest: 6620684.696988
+    tolerance: 1.0e-5

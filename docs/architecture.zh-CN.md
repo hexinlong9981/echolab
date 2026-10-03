@@ -8,7 +8,7 @@ EchoLab 是一个“**数值由确定性工具计算，AI 只负责理解与说�
 
 ## 整体概览
 
-实线框为已实现部分（M1、M2），虚线框为计划部分（括号内为实现该部分的里程碑）。
+实线框为已实现部分（M1〜M3），虚线框为计划部分（括号内为实现该部分的里程碑）。
 
 ```mermaid
 flowchart TB
@@ -24,22 +24,23 @@ flowchart TB
   end
   subgraph tools["MCP 工具"]
     CE["calc-engine（Java 21）<br/>伤害・评分・抽卡<br/>MCP 服务器（stdio）"]
+    MC["mortgage-calc（Python）<br/>房贷领域包的计算<br/>MCP 服务器（stdio）"]
     VM["vision_mcp（M4・Python）"]
   end
   subgraph domains["domains/（领域包）"]
     D1["① wuwa（M1 起）"]
-    D3["② mortgage（M3）"]
+    D3["② mortgage（M3〜）"]
   end
   CLI --> AG
   UI --> AG
-  AG --> GW --> CE & CMP & VM
+  AG --> GW --> CE & MC & CMP & VM
   AG --> VF
   AG --> TR
   domains -. "在 domain.yaml 中声明" .-> GW
   EV -. "以评估用例执行" .-> AG
 
   classDef planned stroke-dasharray: 5 5
-  class UI,VM,D3 planned
+  class UI,VM planned
 ```
 
 ## 单次提问的流程
@@ -121,7 +122,7 @@ M1（计算服务）与 M2（CLI 纵向切片）已实现。仓库中只放置�
 |---|---|---|
 | M1 | calc-engine（Java）・黄金用例・CI | 完成 |
 | M2 | 纵向切片：CLI → 网关 → calc-engine（MCP）→ 数值追踪验证器 → 带出处的回答。数值忠实度评估・执行追踪 | 完成 |
-| M3 | 领域包②：房贷试算（最小示例）。在 CI 中检查“核心差异为零” | 计划中 |
+| M3 | 领域包②：房贷还款计算示例（最小示例）。在 CI 中检查“核心差异为零” | 完成 |
 | M4 | 截图读取・注入攻击评估集（将脚本模式加入 CI） | 计划中 |
 | M5 | Web UI・追踪回放・评估仪表盘・公开演示 | 计划中 |
 
@@ -166,13 +167,20 @@ LLM 为 Claude（`claude-opus-5-5`），中间隔着一层抽象（`core/agent/l
 
 来自外部的字符串（工具结果・用户输入）一律作为数据而非指令处理。
 
-### M3：领域包②：房贷试算（最小示例）
+### M3：领域包②：房贷还款计算示例（最小示例）：已实现
 
-用于展示“不改动核心一行代码，用约 300 行即可添加新领域”的最小示例（ADR-0003）。
+用于展示“不改动核心一行代码即可添加新领域”的最小示例（ADR-0003、ADR-0009）。
 
-- `domains/mortgage/`：计算等额本息与等额本金的比较，以及提前还款的效果（`calc/`，Python）。包含 `golden/`・`prompts/`・`domain.yaml`。
-- 在 CI 中检查添加该领域包的变更在 `core/` 中的差异为零。
-- **这只是计算示例，不构成金融建议。** README 与回答中也会如此标示。
+| 位置 | 作用 |
+|---|---|
+| `domains/mortgage/domain.yaml` | 3 个工具（等额本息・等额本金・部分提前还款），以及回答必定附带的注记（`answer_note`） |
+| `domains/mortgage/calc/` | 计算（`loan.py`，`Decimal`）与 MCP 服务器（`server.py`，stdio）。作为 `config/services.yaml` 中的 `mortgage-calc` 启动。结果是与 calc-engine 相同的 `ToolEnvelope` |
+| `domains/mortgage/golden/` | 黄金用例。同时与领域包的实现、以及用另一种方法写的参考实现（`tests/reference/mortgage_reference.py`）核对 |
+| `evals/faithfulness/mortgage.yaml` | 脚本模式的评估用例（5 个）。在 CI 中每次运行，并与 `evals/reports/scripted-baseline-mortgage.md` 核对 |
+
+- 添加领域包之前，把缺少的 3 点（Python 服务的启动・评估的领域・回答的注记）作为领域无关的功能，以单独的提交加入核心（ADR-0009）。
+- CI 的 `pack-isolation` 作业检测同时修改 `domains/` 与 `core/` 的提交，以及添加领域包的提交中对 `core/` 的修改。
+- **这只是计算示例，不构成金融建议。** README 与回答中也会如此标示（回答的注记由 Agent 确定性地附加）。
 
 ### M4：截图读取与评估流水线
 
@@ -194,6 +202,7 @@ LLM 为 Claude（`claude-opus-5-5`），中间隔着一层抽象（`core/agent/l
 | 部分 | 语言 | 理由 |
 |---|---|---|
 | 计算服务 | Java 21 | 基于类型的穷尽性・`BigDecimal`・并行性能（ADR-0002） |
+| 房贷领域包的计算 | Python | 让最小示例只靠领域包就能完成（ADR-0009） |
 | Agent・评估・比较工具 | Python | AI 与评估相关的工具丰富 |
 | 界面 | TypeScript（React） | 对话 UI・流程图相关的组件丰富 |
 
@@ -212,3 +221,4 @@ M2 时点的限制及其影响范围。
 | 费用台账为本地 JSONL | 台账（`.echolab/costs.jsonl`）是以单机・单用户使用为前提的文件，不做跨进程的互斥控制。若同时运行多个进程，上限判定可能遗漏彼此的用量 |
 | 验证器检查的数字范围 | 验证器作为数值检测的是阿拉伯数字（含全角）。不检测汉字数字（如「三」）。此外，与提问中数值相等的数字，无论出现在什么上下文中都视为引用而允许 |
 | 示例数据未确认 | `domains/wuwa/data` 中的值是未确认的示例（`verified: false`）。使用这些数据的回答会附带注记（ADR-0006） |
+| 房贷模型很简单 | 固定利率、按月还款，不包含日元以下的取整、按日计息、手续费、利率调整。这只是计算示例，回答会附带不构成金融建议的注记（ADR-0009） |

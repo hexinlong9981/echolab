@@ -53,7 +53,7 @@ def test_unknown_domain_is_the_same_error_with_or_without_fake_backend(
     code = run_cli(tmp_path, *args, *(["--fake-backend"] if fake else []))
     err = capsys.readouterr().err
     assert code == 2
-    assert "エラー: ドメインが見つかりません: nope（使えるドメイン: wuwa）" in err
+    assert "エラー: ドメインが見つかりません: nope（使えるドメイン: mortgage、wuwa）" in err
     assert "Traceback" not in err
 
 

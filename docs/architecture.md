@@ -6,7 +6,7 @@ EchoLab は「**数値は決定的なツールで計算し、AI は理解と説�
 
 ## 全体像
 
-実線の枠は実装済み（M1・M2）、点線の枠は予定です（括弧内は実装するマイルストーン）。
+実線の枠は実装済み（M1〜M3）、点線の枠は予定です（括弧内は実装するマイルストーン）。
 
 ```mermaid
 flowchart TB
@@ -22,22 +22,23 @@ flowchart TB
   end
   subgraph tools["MCP ツール"]
     CE["calc-engine（Java 21）<br/>ダメージ・スコア・ガチャ<br/>MCP サーバ（stdio）"]
+    MC["mortgage-calc（Python）<br/>住宅ローンのパックの計算<br/>MCP サーバ（stdio）"]
     VM["vision_mcp（M4・Python）"]
   end
   subgraph domains["domains/（ドメインパック）"]
     D1["① wuwa（M1〜）"]
-    D3["② mortgage（M3）"]
+    D3["② mortgage（M3〜）"]
   end
   CLI --> AG
   UI --> AG
-  AG --> GW --> CE & CMP & VM
+  AG --> GW --> CE & MC & CMP & VM
   AG --> VF
   AG --> TR
   domains -. "domain.yaml で宣言" .-> GW
   EV -. "評価ケースで実行" .-> AG
 
   classDef planned stroke-dasharray: 5 5
-  class UI,VM,D3 planned
+  class UI,VM planned
 ```
 
 ## 1 回の質問の流れ
@@ -119,7 +120,7 @@ M1（計算サービス）と M2（CLI の縦の切片）が実装済みです�
 |---|---|---|
 | M1 | calc-engine（Java）・ゴールデンケース・CI | 完了 |
 | M2 | 縦の切片：CLI → ゲートウェイ → calc-engine（MCP）→ 数値トレース検証器 → 出典付きの回答。数値の忠実度の評価・実行トレース | 完了 |
-| M3 | ドメインパック②：住宅ローン試算（最小例）。「コアの差分ゼロ」を CI で検査 | 予定 |
+| M3 | ドメインパック②：住宅ローンの返済の計算例（最小例）。「コアの差分ゼロ」を CI で検査 | 完了 |
 | M4 | スクリーンショット読み取り・注入の評価セット（台本モードを CI に追加） | 予定 |
 | M5 | Web UI・トレース再生・評価ダッシュボード・デモ公開 | 予定 |
 
@@ -164,13 +165,20 @@ LLM は Claude（`claude-opus-5-5`）で、抽象層（`core/agent/llm/`）を�
 
 外部から来た文字列（ツール結果・利用者入力）は、指示ではなくデータとして扱います。
 
-### M3：ドメインパック②：住宅ローン試算（最小例）
+### M3：ドメインパック②：住宅ローンの返済の計算例（最小例）：実装済み
 
-「コアを 1 行も変えずに、約 300 行で新しいドメインを追加できる」ことを示すための最小例です（ADR-0003）。
+「コアを 1 行も変えずに、新しいドメインを追加できる」ことを示すための最小例です（ADR-0003・ADR-0009）。
 
-- `domains/mortgage/`：元利均等・元金均等の比較と、繰上返済の効果を計算する（`calc/`、Python）。`golden/`・`prompts/`・`domain.yaml` を持つ。
-- このパックを足す変更で `core/` の差分がゼロであることを CI で検査する。
-- **計算例であり、金融上の助言ではありません。** README と回答にもそう表示します。
+| 場所 | 役割 |
+|---|---|
+| `domains/mortgage/domain.yaml` | ツール 3 つ（元利均等・元金均等・一部繰上返済）と、回答に必ず付ける注記（`answer_note`） |
+| `domains/mortgage/calc/` | 計算（`loan.py`、`Decimal`）と MCP サーバ（`server.py`、stdio）。`config/services.yaml` の `mortgage-calc` として起動する。結果は calc-engine と同じ `ToolEnvelope` |
+| `domains/mortgage/golden/` | ゴールデンケース。パックの実装と、別の方法で書いた参照実装（`tests/reference/mortgage_reference.py`）の両方と照合する |
+| `evals/faithfulness/mortgage.yaml` | 台本モードの評価ケース（5 件）。CI で毎回実行し、`evals/reports/scripted-baseline-mortgage.md` と照合する |
+
+- パックを足す前に、足りなかった 3 点（Python のサービスの起動・評価のドメイン・回答の注記）を、ドメインに依存しない機能として別のコミットでコアに足しました（ADR-0009）。
+- CI の `pack-isolation` ジョブが、`domains/` と `core/` を同時に変えたコミットと、パックを追加したコミットでの `core/` の変更を検出します。
+- **計算例であり、金融上の助言ではありません。** README と回答にもそう表示します（回答の注記は Agent が決定的に付けます）。
 
 ### M4：スクリーンショット読み取りと評価パイプライン
 
@@ -192,6 +200,7 @@ Vite でビルドした静的ファイルを Cloudflare Pages に置きます。
 | 部分 | 言語 | 理由 |
 |---|---|---|
 | 計算サービス | Java 21 | 型による網羅性・`BigDecimal`・並列性能（ADR-0002） |
+| 住宅ローンのパックの計算 | Python | パックだけで完結する最小例にする（ADR-0009） |
 | エージェント・評価・比較ツール | Python | AI と評価の道具が充実している |
 | 画面 | TypeScript（React） | 対話 UI・フロー図の部品が充実している |
 
@@ -210,3 +219,4 @@ M2 の時点での制約と、その影響の範囲です。
 | コストの台帳はローカルの JSONL | 台帳（`.echolab/costs.jsonl`）は 1 台・1 利用者での使用を前提にしたファイルで、プロセスをまたぐ排他制御はしていません。複数のプロセスを同時に動かすと、上限の判定が互いの使用分を見落とすことがあります |
 | 検証器が見る数字の範囲 | 検証器が数値として検出するのはアラビア数字（全角を含む）です。漢数字（「三」など）は検出しません。また、質問にある数値と等しい数字は、どの文脈で使われていても引用として許します |
 | サンプルデータは未確認 | `domains/wuwa/data` の値は未確認のサンプル（`verified: false`）です。これを使った回答には注記が付きます（ADR-0006） |
+| 住宅ローンのモデルは単純 | 固定金利・毎月払いで、円未満の端数処理・日割りの利息・手数料・金利の見直しを含みません。計算例であり、回答には金融上の助言ではない旨の注記が付きます（ADR-0009） |

@@ -31,6 +31,16 @@ No API key and no Java are used. The LLM is replaced by a script (`ScriptedLLM`)
 | `test_trace.py` | Execution trace: JSONL with one event per line, serialization of contract types, contents of the events the agent records |
 | `test_evals.py` | Runs all numeric-faithfulness eval cases in scripted mode and checks that the result matches the committed `evals/reports/scripted-baseline.md` |
 
+## Domain pack #2: mortgages (ADR-0009)
+
+No Java is used. The pack's MCP server (Python) is started as a real child process, so these tests run in the CI `python` job every time.
+
+| File | Contents |
+|---|---|
+| `reference/mortgage_reference.py` | Reference implementation for mortgages. It calculates in a different way (`float`, the balance formula and a logarithm for the number of months) from the pack's implementation (`Decimal`, advancing the balance month by month) |
+| `test_mortgage_pack.py` | The pack's implementation against golden cases, explanations of invalid inputs, the real MCP server started through the gateway (golden cases and errors), the Agent round trip and the answer note, scripted evals (`evals/faithfulness/mortgage.yaml`) and their baseline |
+| `test_pack_isolation.py` | Checks the rules of the CI check "pack changes do not change the core" (`.github/scripts/check_pack_isolation.py`) in temporary git repositories |
+
 ## End-to-end tests: `tests/e2e/`
 
 `test_mcp_e2e.py` starts the real calc-engine (the MCP server jar) as configured in `config/services.yaml`.
@@ -48,3 +58,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 In CI, the `python` job in `test.yml` runs `pytest -m "not e2e"`, and the `e2e` job builds the jar and then runs `pytest -m e2e`.
+
+The `pack-isolation` job checks in the git history that domain pack changes do not change the core (ADR-0009).

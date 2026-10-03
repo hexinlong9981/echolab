@@ -8,7 +8,7 @@ EchoLab is an AI assistant in which "**numbers are computed by deterministic too
 
 ## Overview
 
-Solid boxes are implemented (M1, M2); dashed boxes are planned (the milestone that implements them is in parentheses).
+Solid boxes are implemented (M1–M3); dashed boxes are planned (the milestone that implements them is in parentheses).
 
 ```mermaid
 flowchart TB
@@ -24,22 +24,23 @@ flowchart TB
   end
   subgraph tools["MCP tools"]
     CE["calc-engine (Java 21)<br/>damage, score, gacha<br/>MCP server (stdio)"]
+    MC["mortgage-calc (Python)<br/>mortgage pack calculations<br/>MCP server (stdio)"]
     VM["vision_mcp (M4, Python)"]
   end
   subgraph domains["domains/ (domain packs)"]
     D1["① wuwa (M1+)"]
-    D3["② mortgage (M3)"]
+    D3["② mortgage (M3+)"]
   end
   CLI --> AG
   UI --> AG
-  AG --> GW --> CE & CMP & VM
+  AG --> GW --> CE & MC & CMP & VM
   AG --> VF
   AG --> TR
   domains -. "declared in domain.yaml" .-> GW
   EV -. "runs eval cases" .-> AG
 
   classDef planned stroke-dasharray: 5 5
-  class UI,VM,D3 planned
+  class UI,VM planned
 ```
 
 ## Flow of a single question
@@ -121,7 +122,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 |---|---|---|
 | M1 | calc-engine (Java), golden cases, CI | Done |
 | M2 | Vertical slice: CLI → gateway → calc-engine (MCP) → numeric-trace verifier → answer with sources. Numeric-faithfulness eval, execution trace | Done |
-| M3 | Domain pack ②: mortgage calculator (minimal example). CI checks that the core diff is zero | Planned |
+| M3 | Domain pack ②: example mortgage repayment calculations (minimal example). CI checks that the core diff is zero | Done |
 | M4 | Screenshot reading, prompt-injection eval set (scripted mode added to CI) | Planned |
 | M5 | Web UI, trace replay, eval dashboard, public demo | Planned |
 
@@ -166,13 +167,20 @@ The send-back rate (sent-back drafts / drafts) and cost are aggregated as well.
 
 Strings from outside (tool results, user input) are treated as data, not as instructions.
 
-### M3: Domain pack ②: mortgage calculator (minimal example)
+### M3: Domain pack ②: example mortgage repayment calculations (minimal example): implemented
 
-A minimal example to show that "a new domain can be added in about 300 lines without changing a single line of the core" (ADR-0003).
+A minimal example to show that "a new domain can be added without changing a single line of the core" (ADR-0003, ADR-0009).
 
-- `domains/mortgage/`: compares level-payment and level-principal repayment, and computes the effect of prepayment (`calc/`, Python). Has `golden/`, `prompts/` and `domain.yaml`.
-- CI checks that the change adding this pack has zero diff in `core/`.
-- **It is an example calculation, not financial advice.** This is also stated in the README and in answers.
+| Location | Role |
+|---|---|
+| `domains/mortgage/domain.yaml` | Three tools (level payment, level principal, partial prepayment) and a note that every answer carries (`answer_note`) |
+| `domains/mortgage/calc/` | Calculation (`loan.py`, `Decimal`) and the MCP server (`server.py`, stdio), started as `mortgage-calc` from `config/services.yaml`. Results are the same `ToolEnvelope` as calc-engine |
+| `domains/mortgage/golden/` | Golden cases, checked against both the pack's implementation and a reference implementation written another way (`tests/reference/mortgage_reference.py`) |
+| `evals/faithfulness/mortgage.yaml` | Scripted eval cases (5). They run in CI every time and are compared with `evals/reports/scripted-baseline-mortgage.md` |
+
+- Before adding the pack, the three missing pieces (starting Python services, the eval domain, the answer note) were added to the core as domain-agnostic features in a separate commit (ADR-0009).
+- The `pack-isolation` CI job detects commits that change both `domains/` and `core/`, and any `core/` change in the commit that added a pack.
+- **It is an example calculation, not financial advice.** This is also stated in the README and in answers (the Agent appends the answer note deterministically).
 
 ### M4: Screenshot reading and eval pipeline
 
@@ -194,6 +202,7 @@ Static files built with Vite are hosted on Cloudflare Pages.
 | Part | Language | Reason |
 |---|---|---|
 | Calculation service | Java 21 | Exhaustiveness through types, `BigDecimal`, parallel performance (ADR-0002) |
+| Mortgage pack calculations | Python | Keeps the minimal example self-contained in the pack (ADR-0009) |
 | Agent, evals, compare tools | Python | Rich tooling for AI and evaluation |
 | UI | TypeScript (React) | Rich components for chat UIs and flow diagrams |
 
@@ -212,3 +221,4 @@ Limitations as of M2 and the extent of their impact.
 | The cost ledger is a local JSONL file | The ledger (`.echolab/costs.jsonl`) is a file intended for one machine and one user, with no cross-process locking. If multiple processes run at the same time, the cap check may miss each other's usage |
 | Range of digits the verifier sees | The verifier detects Arabic numerals (including full-width) as numbers. It does not detect kanji numerals (such as 「三」). Also, a digit equal to a number in the question is accepted as a quotation regardless of context |
 | Sample data is unverified | The values in `domains/wuwa/data` are unverified samples (`verified: false`). Answers that use them carry a note (ADR-0006) |
+| The mortgage model is simple | Fixed rate and monthly payments; no rounding to whole yen, daily interest, fees or rate changes. These are example calculations, and answers carry a note that they are not financial advice (ADR-0009) |

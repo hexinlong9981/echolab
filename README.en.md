@@ -32,18 +32,19 @@ LLMs produce plausible-looking numbers. When AI is used at work, the first quest
 | Quality regressions | Numeric faithfulness is evaluated. Scripted-mode evals run in CI on every PR; evals with the real LLM are run locally and only the aggregated results are committed (M2; injection eval set in M4) |
 | Cost | The cost of each call is computed from a price table and recorded in a ledger; once the daily or monthly cap is reached, the LLM is not called (M2) |
 
-The design separates a domain-agnostic core from "domain packs", so the core stays unchanged even when the subject is switched to, for example, a mortgage calculator (M3) (ADR-0003).
+The design separates a domain-agnostic core from "domain packs". The second pack (example mortgage repayment calculations, M3) was added without changing a single line of `core/`, and CI checks this (ADR-0003, ADR-0009).
 
-## Status: M2 (CLI vertical slice)
+## Status: M3 (second domain pack)
 
-A question can be taken all the way to a cited answer, end to end, from the CLI.
+A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs two packs: Wuthering Waves and mortgages (M3).
 
 ```mermaid
 flowchart LR
   Q["Question (CLI)"] --> A["Agent<br/>core/agent"]
   A <--> L["LLM (Claude)<br/>answer is a placeholder template"]
   A --> G["Gateway<br/>allowlist, schema, ID assignment, cost caps"]
-  G -->|MCP stdio| J["calc-engine (Java 21)"]
+  G -->|MCP stdio| J["calc-engine (Java 21)<br/>Wuthering Waves pack"]
+  G -->|MCP stdio| M["mortgage-calc (Python)<br/>mortgage pack"]
   G --> K["Compare tools compare.*"]
   A --> V["Numeric verifier and renderer"]
   V --> R["Cited answer"]
@@ -57,7 +58,8 @@ flowchart LR
 | Gateway | Exposes only the tools declared in `domain.yaml` (default deny), validates inputs against JSON Schema, assigns call IDs and source IDs, enforces daily and monthly cost caps |
 | Calculation | calc-engine is exposed as an MCP server (Spring Boot + Spring AI, stdio): expected damage, echo score, gacha probability (exact solution and Monte Carlo). Differences, ratios and % increases via `compare.diff` and `compare.ratio` |
 | Unverified data | IDs of unverified data used in a calculation are propagated into the result, and answers citing it get a note automatically (ADR-0006) |
-| Evals | Numeric faithfulness (share of answers with not a single unsourced number) and the rejection rate. Eight scripted cases run in CI every time |
+| Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The mortgage pack was added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009) |
+| Evals | Numeric faithfulness (share of answers with not a single unsourced number) and the rejection rate. Scripted cases (8 for Wuthering Waves, 5 for mortgages) run in CI every time |
 | Tracing | One question is recorded in one JSONL file (question, LLM calls and their cost, tool calls, verifier verdicts, answer) |
 | Tests | Golden cases are checked in three places: Java, the Python reference implementation, and end-to-end through MCP. Java has unit tests, property tests (jqwik) and ArchUnit; Python uses pytest |
 | Quality gates | Error Prone (warnings as errors), Spotless, JaCoCo (≥ 90% line coverage), ruff |
@@ -120,10 +122,34 @@ export ANTHROPIC_API_KEY=...
 - Usage and cost are appended to `.echolab/costs.jsonl`. The caps can be changed with the environment variables `ECHOLAB_DAILY_USD` and `ECHOLAB_MONTHLY_USD`.
 - Execution traces are kept in `.echolab/traces/<run ID>.jsonl` (both are git-ignored).
 
+### 4. The mortgage pack (`--domain mortgage`)
+
+Compares equal-payment and equal-principal repayment, and calculates the effect of a partial prepayment (shorter term or lower payment). A Python MCP server inside the pack
+(`domains/mortgage/calc`) does the calculation; Java is not needed. **These are example calculations, not financial advice.** Every answer ends with a note saying so.
+
+```bash
+.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
+```
+
+```text
+利息の合計は元金均等返済の方が少なくなります。
+- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
+- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
+- 差：685,489 円（元利均等の方が多い）
+
+元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
+
+※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
+```
+
+(The source table is omitted.) With `--fake-backend`, a test reference implementation calculates instead of the pack's MCP server.
+
 ### Evals and tests
 
 ```bash
 .venv/bin/python -m core.evals                       # numeric faithfulness (scripted mode, no API key)
+.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<name>.md   # real LLM (run manually, locally)
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -145,15 +171,16 @@ docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
 core/          Domain-agnostic core (Python): contracts, gateway, compare tools, verifier, agent and CLI, trace, evals
 config/        Tool service launch config (services.yaml), cost caps and price table (budget.yaml)
 domains/wuwa/  Domain pack #1: Wuthering Waves (domain.yaml, golden cases, sample data, prompts)
+domains/mortgage/  Domain pack #2: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
 services/      calc-engine (Java 21: calculation library and MCP server)
 evals/         Eval cases (faithfulness/) and aggregated reports (reports/)
 tests/         Cross-repo tests (schema checks, reference implementation, core unit tests, end-to-end tests)
 docs/          Architecture and ADRs
 ```
 
-Only implemented parts are in the repository. Future directories (`web/`, `domains/mortgage/`, etc.) are created when they are implemented, and the plan is written
+Only implemented parts are in the repository. Future directories (`servers/`, `web/`, etc.) are created when they are implemented, and the plan is written
 only in the [roadmap section of docs/architecture.en.md](docs/architecture.en.md#roadmap-and-future-structure) (ADR-0007).
-The M2 components and contracts are described in ADR-0008.
+The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009.
 For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs in [docs/adr/en/](docs/adr/en/).
 
 ## Roadmap
@@ -162,7 +189,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 |---|---|---|
 | M1 | Java calc-engine, golden cases, CI | ✅ Done |
 | M2 | Vertical slice via CLI: question → gateway (allowlist, schema, cost caps) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
-| M3 | Domain pack #2: mortgage calculator (minimal example). CI check that the core diff is zero | Planned |
+| M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading, injection eval set (scripted mode added to CI; real LLM run locally) | Planned |
 | M5 | Web UI, trace replay, eval dashboard, public demo | Planned |
 
@@ -174,6 +201,9 @@ The numbers in `domains/wuwa/data` are **sample values** organized by hand; entr
 Whenever a number calculated from unverified data is used in an answer, this is always noted (ADR-0006).
 Golden cases are built so that the expected values are determined only by explicitly stated inputs; they do not depend on official game values.
 The formulas (defense and resistance multipliers, etc.) are also generic models and have not been checked against the game's actual formulas.
+
+The mortgage pack has no data; the user gives every input. It is a simple model (fixed rate, monthly payments) that returns unrounded theoretical values.
+**These are example calculations, not financial advice** (every answer says so as well).
 
 ## License
 

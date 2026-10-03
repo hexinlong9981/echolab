@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "description": "元利均等返済の途中での一部繰上返済の入力。固定金利・毎月払いの計算例。金利は小数（0.015 = 年 1.5%）。",
+  "properties": {
+    "principal": { "type": "number", "exclusiveMinimum": 0, "description": "当初の借入額（円。0 より大きい）" },
+    "annual_rate": { "type": "number", "minimum": 0, "maximum": 0.2, "description": "年利（小数。0.015 = 1.5%。0〜0.2）。月利 = 年利 / 12" },
+    "years": { "type": "integer", "minimum": 1, "maximum": 50, "description": "当初の返済期間（年。1〜50）。返済回数 = 年数 × 12" },
+    "after_months": { "type": "integer", "minimum": 1, "maximum": 599, "description": "繰上返済の前に済ませた返済の回数（1 以上、返済回数より小さい）。例：5 年後なら 60" },
+    "prepay_amount": { "type": "number", "exclusiveMinimum": 0, "description": "繰上返済で元金に充てる額（円。0 より大きく、その時点の残高より小さい）" },
+    "method": { "enum": ["shorten_term", "reduce_payment"], "description": "shorten_term = 期間短縮型（毎月の返済額は同じで期間を短くする）、reduce_payment = 返済額軽減型（期間は同じで毎月の返済額を下げる）" }
+  },
+  "required": ["principal", "annual_rate", "years", "after_months", "prepay_amount", "method"],
+  "additionalProperties": false
+}

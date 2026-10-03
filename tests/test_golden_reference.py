@@ -3,6 +3,8 @@
 Java（services/calc-engine の GoldenContractTest）も同じ YAML を検査するので、
 YAML・Java・Python の 3 者が一致していることになる。
 コアの比較ツール（core/golden、ADR-0005）は Java を持たないため、core.compare と照合する。
+住宅ローンのパック（domains/mortgage/golden、ADR-0009）は、ここで参照実装
+（tests/reference/mortgage_reference.py）と、tests/test_mortgage_pack.py でパックの実装と照合する。
 """
 
 from __future__ import annotations
@@ -16,9 +18,10 @@ import yaml
 
 from core.compare import COMPARE_TOOLS
 from tests.reference import calc_reference as ref
+from tests.reference import mortgage_reference
 
 ROOT = Path(__file__).resolve().parents[1]
-GOLDEN_DIRS = [ROOT / "domains/wuwa/golden", ROOT / "core/golden"]
+GOLDEN_DIRS = [ROOT / "domains/wuwa/golden", ROOT / "domains/mortgage/golden", ROOT / "core/golden"]
 
 CALCULATORS: dict[str, Callable[[dict], dict[str, float]]] = {
     "damage.expected": lambda i: {k: float(v) for k, v in ref.damage_expected(i).items()},
@@ -35,6 +38,8 @@ def _compare(tool: str) -> Callable[[dict], dict[str, float]]:
 
 
 CALCULATORS.update({tool: _compare(tool) for tool in COMPARE_TOOLS})
+# 住宅ローンのパック（Java を持たない。パックの実装との照合は tests/test_mortgage_pack.py）
+CALCULATORS.update(mortgage_reference.TOOLS)
 
 
 def _cases() -> list[tuple[str, dict]]:
