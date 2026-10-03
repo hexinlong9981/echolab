@@ -1,5 +1,7 @@
 # 数値の忠実度の評価ケース（ADR-0005・ADR-0008）。core/evals が読む。
 #
+# ファイルの最上位の domain でドメインパックを指定する（省略時 wuwa）。
+#
 # 各ケース:
 #   id / title / question  : 質問（--llm anthropic では質問だけを使い、台本は無視する）
 #   fake_unverified        : 台本モードの偽の計算サービスで、結果に付ける未確認データ ID（ツール名 → ID の列）
@@ -9,9 +11,11 @@
 #     cited                : 回答が引用する出典 ID（台本モードのみ照合）
 #     drafts_rejected      : 差し戻された下書きの数（台本モードのみ照合）
 #     unverified_note      : 回答に未確認データの注記が付くか
+#     answer_note          : 回答にドメインの注記（domain.yaml の answer_note）が付くか
 #
 # 入力の値は説明用（ゴールデンケースと同じ）で、ゲームの公式の値ではない。
 schema_version: 1
+domain: wuwa
 cases:
   - id: damage-basic
     title: 期待ダメージと明細の引用

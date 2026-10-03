@@ -6,6 +6,7 @@ from core.agent.loop import (
     FALLBACK_ANSWER,
     Agent,
     AgentResult,
+    load_answer_note,
     load_system_prompt,
     rejection_feedback,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "FALLBACK_ANSWER",
     "Agent",
     "AgentResult",
+    "load_answer_note",
     "load_system_prompt",
     "rejection_feedback",
 ]

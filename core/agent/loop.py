@@ -162,6 +162,21 @@ def load_system_prompt(repo_root: Path, domain: str) -> str:
     return "\n\n".join(parts) + "\n"
 
 
+def load_answer_note(repo_root: Path, domain: str) -> str | None:
+    """ドメインが回答に必ず添える注記（``domain.yaml`` の ``answer_note``）。無ければ None。
+
+    例：住宅ローンのパックの「計算例であり、金融上の助言ではありません」。プロンプトでの
+    お願いではなく、検証に通った回答の末尾に Agent が決定的に付ける。数字を含めない
+    （検証の後に付けるため。``domain.yaml`` のスキーマで検査する）。
+    """
+    import yaml
+
+    manifest_path = repo_root / "domains" / domain / "domain.yaml"
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    note = str(manifest.get("answer_note") or "").strip()
+    return note or None
+
+
 def rejection_feedback(problems: Sequence[str]) -> str:
     """差し戻しの指摘（LLM への利用者メッセージ）。"""
     lines = "\n".join(f"- {p}" for p in problems)
@@ -188,7 +203,11 @@ class Agent:
         max_tool_rounds: int = DEFAULT_MAX_TOOL_ROUNDS,
         max_retries: int = DEFAULT_MAX_RETRIES,
         domain: str | None = None,
+        answer_note: str | None = None,
     ) -> None:
+        """
+        :param answer_note: 検証に通った回答の末尾に必ず付ける注記（:func:`load_answer_note`）。
+        """
         if verifier is None:
             from core.verifier import verify
 
@@ -201,6 +220,7 @@ class Agent:
         self.max_tool_rounds = max_tool_rounds
         self.max_retries = max_retries
         self.domain = domain
+        self.answer_note = answer_note
 
     async def ask(self, question: str, *, run_id: str | None = None) -> AgentResult:
         return await _Run(self, question, TraceWriter(self.trace_dir, run_id)).execute()
@@ -325,7 +345,10 @@ class _Run:
             cited=verdict.cited,
         )
         if verdict.ok:
-            return self._finish("answered", verdict.rendered or "")
+            answer = verdict.rendered or ""
+            if self.agent.answer_note:
+                answer += "\n\n" + self.agent.answer_note
+            return self._finish("answered", answer)
         self.rejected += 1
         if self.rejected > self.agent.max_retries:
             return self._finish("fallback", FALLBACK_ANSWER)

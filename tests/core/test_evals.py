@@ -9,7 +9,13 @@ from pathlib import Path
 import pytest
 
 from core.agent.loop import AgentResult
-from core.evals import load_cases, render_markdown, run_evals, unsourced_numbers
+from core.evals import (
+    load_cases,
+    load_cases_domain,
+    render_markdown,
+    run_evals,
+    unsourced_numbers,
+)
 from core.evals.__main__ import main
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +70,32 @@ async def test_a_failing_expectation_is_reported(tmp_path: Path) -> None:
     assert any("差し戻し" in f for f in result.failures)
     assert any("余り" in f for f in result.failures)
     assert result.faithful  # 期待とずれても、回答そのものは忠実
+
+
+def test_cases_file_declares_its_domain(tmp_path: Path) -> None:
+    assert load_cases_domain(CASES) == "wuwa"
+    path = tmp_path / "cases.yaml"
+    path.write_text("cases: []\n", encoding="utf-8")
+    assert load_cases_domain(path) == "wuwa"  # 省略時
+    path.write_text("domain: other\ncases: []\n", encoding="utf-8")
+    assert load_cases_domain(path) == "other"
+
+
+async def test_answer_note_expectation_is_checked(tmp_path: Path) -> None:
+    import yaml
+
+    doc = yaml.safe_load(CASES.read_text(encoding="utf-8"))
+    case = next(c for c in doc["cases"] if c["id"] == "damage-basic")
+    case["expect"]["answer_note"] = True  # wuwa は注記を持たない
+    path = tmp_path / "cases.yaml"
+    path.write_text(
+        yaml.safe_dump({"domain": "wuwa", "cases": [case]}, allow_unicode=True), encoding="utf-8"
+    )
+    report = await run_evals(llm_kind="scripted", cases_path=path, raw_dir=tmp_path / "raw")
+    [result] = report.results
+    assert report.domain == "wuwa"
+    assert "- ドメイン: `wuwa`" in render_markdown(report)
+    assert result.failures == ["ドメインの注記がない"]
 
 
 def test_unsourced_numbers_counts_digits_in_unverified_answers(tmp_path: Path) -> None:

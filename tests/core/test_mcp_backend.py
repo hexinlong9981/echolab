@@ -137,6 +137,23 @@ async def test_missing_jar_is_reported_before_starting(tmp_path: Path) -> None:
     assert "(cd svc && ./gradlew bootJar)" in message
 
 
+async def test_python_command_uses_the_current_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``python`` は PATH ではなく、コアと同じインタプリタ（同じ依存）で起動する。"""
+    _write_repo(tmp_path, ["python", str(STUB)])
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))  # PATH に python が無くてもよい
+    async with await McpStdioBackend.for_service(tmp_path, "stub") as backend:
+        assert "stub_add" in [s.name for s in await backend.list_tools()]
+
+
+def test_resolve_executable_python_is_sys_executable() -> None:
+    from core.gateway.mcp_backend import resolve_executable
+
+    assert resolve_executable("python", {"PATH": ""}) == sys.executable
+    assert resolve_executable("python3", {"PATH": ""}) == "python3"  # 置き換えるのは python だけ
+
+
 async def test_missing_executable_is_reported(tmp_path: Path) -> None:
     _write_repo(tmp_path, ["echolab-no-such-command", "serve"])
     with pytest.raises(ServiceStartError, match="echolab-no-such-command が見つかりません"):

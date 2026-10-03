@@ -17,7 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from core.agent.loop import Agent, AgentResult, load_system_prompt
+from core.agent.loop import Agent, AgentResult, load_answer_note, load_system_prompt
 from core.agent.runtime import (
     REPO_ROOT,
     CliError,
@@ -90,6 +90,7 @@ async def run(args: argparse.Namespace) -> AgentResult:
                 system_prompt=load_system_prompt(args.repo_root, args.domain),
                 trace_dir=trace_dir,
                 domain=args.domain,
+                answer_note=load_answer_note(args.repo_root, args.domain),
             )
             return await agent.ask(args.question)
         finally:

@@ -1,6 +1,7 @@
 # 評価レポート：数値の忠実度
 
 - 日付（UTC）: 2026-10-03
+- ドメイン: `wuwa`
 - LLM: `scripted`
 - ケース: `evals/faithfulness/cases.yaml`（8 件）
 

@@ -14,6 +14,7 @@ import itertools
 import json
 import os
 import shutil
+import sys
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
@@ -48,9 +49,14 @@ def load_services(repo_root: Path) -> dict[str, dict[str, Any]]:
 def resolve_executable(name: str, env: Mapping[str, str]) -> str:
     """起動する実行ファイルを決める。
 
-    ``java`` が PATH に無くても ``JAVA_HOME`` が設定されていれば、その ``bin/java`` を使う
-    （対話シェル以外では ``~/.bashrc`` の PATH 設定が効かないことがあるため）。
+    - ``python`` は、いま動いているインタプリタ（``sys.executable``）を使う。Python で書いた
+      ツールサービスを、コアと同じ仮想環境（同じ依存）で起動するため。PATH に ``python`` が
+      無い環境（``python3`` だけの Linux など）でも動く。
+    - ``java`` が PATH に無くても ``JAVA_HOME`` が設定されていれば、その ``bin/java`` を使う
+      （対話シェル以外では ``~/.bashrc`` の PATH 設定が効かないことがあるため）。
     """
+    if name == "python":
+        return sys.executable
     if name == "java" and shutil.which("java", path=env.get("PATH")) is None:
         java_home = env.get("JAVA_HOME")
         if java_home and (Path(java_home) / "bin" / "java").exists():

@@ -48,7 +48,10 @@ def test_manifest_name_matches_directory(path: Path) -> None:
 @pytest.mark.parametrize("path", MANIFESTS, ids=_manifest_id)
 @pytest.mark.parametrize("key", ["data_dir", "golden_dir", "prompts_dir"])
 def test_manifest_dirs_exist(path: Path, key: str) -> None:
-    target = path.parent / _load(path)[key]
+    manifest = _load(path)
+    if key == "data_dir" and key not in manifest:
+        pytest.skip("データを持たないパック")
+    target = path.parent / manifest[key]
     assert target.is_dir(), f"{key} が存在しません: {target.relative_to(ROOT)}"
 
 
@@ -79,3 +82,24 @@ def test_domain_prompt_mentions_every_tool(path: Path) -> None:
     wire_names = {t["name"].replace(".", "_") for t in manifest["tools"]}
     missing = sorted(n for n in wire_names if f"`{n}`" not in text)
     assert missing == [], f"プロンプトで説明していないツール: {missing}"
+
+
+def _with(**changes: object) -> dict:
+    manifest = dict(_load(ROOT / "domains/wuwa/domain.yaml"))
+    for key, value in changes.items():
+        if value is None:
+            manifest.pop(key, None)
+        else:
+            manifest[key] = value
+    return manifest
+
+
+def test_schema_allows_a_pack_without_data() -> None:
+    assert _errors(DOMAIN_SCHEMA, _with(data_dir=None, data_version=None)) == []
+    assert _errors(DOMAIN_SCHEMA, _with(data_version=None)) != []  # data_dir だけは不可
+
+
+def test_schema_rejects_digits_in_answer_note() -> None:
+    assert _errors(DOMAIN_SCHEMA, _with(answer_note="計算例です。")) == []
+    assert _errors(DOMAIN_SCHEMA, _with(answer_note="金利 1% の例です。")) != []
+    assert _errors(DOMAIN_SCHEMA, _with(answer_note="金利１％の例です。")) != []

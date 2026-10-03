@@ -11,6 +11,8 @@
 ``--llm scripted`` は台本で LLM を置き換え、試験用の偽の計算サービスで動かす
 （API キー・Java 不要）。
 ``--llm anthropic`` は台本を使わず質問だけを実物の Claude に渡し、実物の計算サービスを使う。
+
+ケースのファイルは 1 つのドメインパックに属する。最上位の ``domain``（省略時 ``wuwa``）で指定する。
 """
 
 from __future__ import annotations
@@ -29,12 +31,14 @@ from typing import Any
 import yaml
 
 from core.agent.llm import ScriptedLLM
-from core.agent.loop import Agent, AgentResult, load_system_prompt
+from core.agent.loop import Agent, AgentResult, load_answer_note, load_system_prompt
 from core.agent.runtime import REPO_ROOT, make_budget, make_llm, open_gateway
 from core.contracts import UNVERIFIED_NOTE
 
 DEFAULT_CASES = Path("evals/faithfulness/cases.yaml")
 DEFAULT_RAW_DIR = Path("evals/reports/raw")
+#: ケースのファイルが ``domain`` を書かないときのドメイン。
+DEFAULT_DOMAIN = "wuwa"
 _DIGITS = re.compile(r"\d+")
 
 
@@ -63,6 +67,7 @@ class EvalReport:
     llm: str
     cases_path: str
     results: list[CaseResult]
+    domain: str = DEFAULT_DOMAIN
 
     @property
     def faithfulness(self) -> float:
@@ -85,6 +90,12 @@ class EvalReport:
     @property
     def ok(self) -> bool:
         return self.passed == len(self.results) and self.faithfulness == 1.0
+
+
+def load_cases_domain(path: Path) -> str:
+    """ケースのファイルが属するドメインパック（最上位の ``domain``、省略時 ``wuwa``）。"""
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return str(doc.get("domain") or DEFAULT_DOMAIN)
 
 
 def load_cases(path: Path) -> list[dict[str, Any]]:
@@ -119,7 +130,7 @@ async def run_case(
     repo_root: Path,
     trace_dir: Path,
     budget: Any,
-    domain: str = "wuwa",
+    domain: str = DEFAULT_DOMAIN,
 ) -> CaseResult:
     """1 ケースを実行して、期待と照合する。"""
     scripted = llm_kind == "scripted"
@@ -139,6 +150,7 @@ async def run_case(
             system_prompt=load_system_prompt(repo_root, domain),
             trace_dir=trace_dir,
             domain=domain,
+            answer_note=load_answer_note(repo_root, domain),
         )
         try:
             result = await agent.ask(case["question"])
@@ -164,6 +176,12 @@ async def run_case(
     expected_note = expect.get("unverified_note")
     if expected_note is not None and result.status == "answered" and note != bool(expected_note):
         failures.append(f"未確認データの注記が{'ある' if note else 'ない'}")
+    expected_answer_note = expect.get("answer_note")
+    if expected_answer_note is not None and result.status == "answered":
+        answer_note = load_answer_note(repo_root, domain)
+        has_note = bool(answer_note) and answer_note in result.answer
+        if has_note != bool(expected_answer_note):
+            failures.append(f"ドメインの注記が{'ある' if has_note else 'ない'}")
     cited = [s.source_id for s in result.cited]
     if scripted:
         if "cited" in expect and sorted(cited) != sorted(expect["cited"]):
@@ -203,6 +221,7 @@ async def run_evals(
     cases_path = cases_path if cases_path.is_absolute() else repo_root / cases_path
     raw_dir = raw_dir if raw_dir.is_absolute() else repo_root / raw_dir
     all_cases = load_cases(cases_path)
+    domain = load_cases_domain(cases_path)
     if only:
         known = [c["id"] for c in all_cases]
         unknown = [c for c in only if c not in known]
@@ -224,13 +243,14 @@ async def run_evals(
                     repo_root=repo_root,
                     trace_dir=trace_dir,
                     budget=budget,
+                    domain=domain,
                 )
             )
     try:
         shown = str(cases_path.relative_to(repo_root))
     except ValueError:
         shown = str(cases_path)
-    report = EvalReport(llm=llm_kind, cases_path=shown, results=results)
+    report = EvalReport(llm=llm_kind, cases_path=shown, results=results, domain=domain)
     _write_raw(report, raw_dir)
     return report
 
@@ -252,6 +272,7 @@ def render_markdown(report: EvalReport, *, model: str | None = None) -> str:
         "# 評価レポート：数値の忠実度",
         "",
         f"- 日付（UTC）: {today}",
+        f"- ドメイン: `{report.domain}`",
         f"- LLM: `{report.llm}`" + (f"（`{model}`）" if model else ""),
         f"- ケース: `{report.cases_path}`（{len(report.results)} 件）",
         "",

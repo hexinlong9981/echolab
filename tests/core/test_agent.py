@@ -219,6 +219,34 @@ async def test_falls_back_without_numbers_after_retries(tmp_path: Path) -> None:
     assert llm.remaining == 0  # 初回 + 書き直し 2 回で止まる
 
 
+async def test_answer_note_is_appended_to_verified_answers_only(tmp_path: Path) -> None:
+    note = "※ 計算例であり、助言ではありません。"
+    result, _, _ = await run_agent(
+        tmp_path,
+        [tool_turn(("damage_expected", DMG_A)), {"text": "期待ダメージは [[c1.total|0]] です。"}],
+        answer_note=note,
+    )
+    assert result.status == "answered"
+    assert result.answer == f"期待ダメージは 6,192 です。\n\n{note}"
+
+    bad = {"text": "答えは 7 です。"}
+    fallback, _, _ = await run_agent(tmp_path, [bad], max_retries=0, answer_note=note)
+    assert fallback.status == "fallback"
+    assert note not in fallback.answer
+
+
+def test_load_answer_note_reads_the_manifest(tmp_path: Path) -> None:
+    from core.agent import load_answer_note
+
+    assert load_answer_note(ROOT, "wuwa") is None
+    pack = tmp_path / "domains/demo"
+    pack.mkdir(parents=True)
+    (pack / "domain.yaml").write_text(
+        "name: demo\nanswer_note: '  注記です。 '\n", encoding="utf-8"
+    )
+    assert load_answer_note(tmp_path, "demo") == "注記です。"
+
+
 async def test_max_retries_is_configurable(tmp_path: Path) -> None:
     bad = {"text": "答えは 7 です。"}
     result, _, _ = await run_agent(tmp_path, [bad], max_retries=0)
