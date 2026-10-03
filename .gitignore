@@ -37,7 +37,6 @@ evals/reports/raw/
 # テスト・ツールのキャッシュ
 .jqwik-database
 
-# AI ツールのローカル設定
-CLAUDE.md
-CLAUDE.local.md
-.claude/
+
+# 実行時の記録（コスト台帳・トレース）
+.echolab/

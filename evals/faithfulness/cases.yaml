@@ -1,0 +1,243 @@
+# 数値の忠実度の評価ケース（ADR-0005・ADR-0008）。core/evals が読む。
+#
+# 各ケース:
+#   id / title / question  : 質問（--llm anthropic では質問だけを使い、台本は無視する）
+#   fake_unverified        : 台本モードの偽の計算サービスで、結果に付ける未確認データ ID（ツール名 → ID の列）
+#   turns                  : 台本モードの LLM の応答（core/agent/llm/scripted.py の形式）
+#   expect                 : 期待する結果
+#     status               : answered（検証に通った回答）/ fallback（数値を含まない定型の回答）
+#     cited                : 回答が引用する出典 ID（台本モードのみ照合）
+#     drafts_rejected      : 差し戻された下書きの数（台本モードのみ照合）
+#     unverified_note      : 回答に未確認データの注記が付くか
+#
+# 入力の値は説明用（ゴールデンケースと同じ）で、ゲームの公式の値ではない。
+schema_version: 1
+cases:
+  - id: damage-basic
+    title: 期待ダメージと明細の引用
+    question: >-
+      攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、
+      防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージを、明細つきで教えて。
+    turns:
+      - tool_uses:
+          - name: damage_expected
+            input: &dmg_a
+              atk: 2000
+              skill_multiplier: 2.5
+              dmg_bonus: 0.3
+              crit_rate: 0.6
+              crit_dmg: 2.2
+              defense_constant: 1600
+              enemy_def: 1000
+              def_ignore: 0
+              enemy_res: 0.1
+              res_shred: 0
+        usage: {input_tokens: 2400, output_tokens: 180, cache_creation_input_tokens: 2100}
+      - text: >-
+          期待ダメージは [[c1.total|0]] です。基礎ダメージ [[c1.base|0]] に、ダメージバフの乗区 [[c1.bonus_multiplier]]、
+          会心の乗区 [[c1.crit_multiplier]]、防御の乗区 [[c1.defense_multiplier|3]]、耐性の乗区 [[c1.resistance_multiplier]] を掛けた値です。
+        usage: {input_tokens: 300, output_tokens: 140, cache_read_input_tokens: 2100}
+    expect:
+      status: answered
+      cited: [c1.total, c1.base, c1.bonus_multiplier, c1.crit_multiplier, c1.defense_multiplier, c1.resistance_multiplier]
+      drafts_rejected: 0
+      unverified_note: false
+
+  - id: echo-score
+    title: 声骸スコアの引用（値と百分率）
+    question: >-
+      メイン詞条が会心率 0.22、サブ詞条が会心率 0.08・会心ダメージ 0.16・攻撃力% 0.09・攻撃力 40・共鳴効率 0.06 の
+      コスト 4 の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、
+      最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12・HP% 0.12・防御 60 として。
+    turns:
+      - tool_uses:
+          - name: echo_score
+            input:
+              echo:
+                name: sample-echo-a
+                cost: 4
+                main: {stat: CRIT_RATE, value: 0.22}
+                subs:
+                  - {stat: CRIT_RATE, value: 0.08}
+                  - {stat: CRIT_DMG, value: 0.16}
+                  - {stat: ATK_PERCENT, value: 0.09}
+                  - {stat: ATK_FLAT, value: 40}
+                  - {stat: ENERGY_REGEN, value: 0.06}
+              weights: &weights {CRIT_RATE: 1.0, CRIT_DMG: 1.0, ATK_PERCENT: 0.75, ATK_FLAT: 0.25, ENERGY_REGEN: 0.5}
+              max_roll: &max_roll {CRIT_RATE: 0.1, CRIT_DMG: 0.2, ATK_PERCENT: 0.12, ATK_FLAT: 60, ENERGY_REGEN: 0.12, HP_PERCENT: 0.12, DEF_FLAT: 60}
+      - text: この声骸のスコアは [[c1.score]] で、理想値の [[c1.percent_of_ideal|1]]% にあたります。
+    expect:
+      status: answered
+      cited: [c1.score, c1.percent_of_ideal]
+      drafts_rejected: 0
+      unverified_note: false
+
+  - id: gacha-unverified
+    title: 未確認データ由来の値には注記が付く
+    question: 限定キャラクターのバナーで、天井カウント 0・すり抜け確定なしから 80 回以内にピックアップを獲得できる確率は？
+    fake_unverified:
+      gacha.probability_within: ["gacha_rules:featured-character"]
+    turns:
+      - tool_uses:
+          - name: gacha_probability_within
+            input:
+              rules: {base_rate: 0.008, soft_pity_start: 66, soft_pity_increment: 0.04, hard_pity: 80, featured_rate: 0.5, guarantee_after_loss: true}
+              start_pity: 0
+              guaranteed: false
+              pulls: 80
+      - text: 80 回以内にピックアップを獲得できる確率は [[c1.probability|%1]] です。
+    expect:
+      status: answered
+      cited: [c1.probability]
+      drafts_rejected: 0
+      unverified_note: true
+
+  - id: compare-builds
+    title: 並列の計算と比較ツール（差・増加率）
+    question: >-
+      ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）と
+      ビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、
+      どちらの期待ダメージがどれだけ高い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1 とする。
+    turns:
+      - tool_uses:
+          - name: damage_expected
+            input: *dmg_a
+          - name: damage_expected
+            input:
+              atk: 1800
+              skill_multiplier: 3.0
+              dmg_bonus: 0.2
+              crit_rate: 0.5
+              crit_dmg: 2.5
+              defense_constant: 1600
+              enemy_def: 1200
+              def_ignore: 0
+              enemy_res: 0.1
+              res_shred: 0.3
+      - tool_uses:
+          - name: compare_diff
+            input: {a: c2.total, b: c1.total}
+          - name: compare_ratio
+            input: {a: c2.total, b: c1.total}
+      - text: >-
+          ビルド A は [[c1.total|0]]、ビルド B は [[c2.total|0]] で、B の方が [[c3.diff|0]] 高く、
+          A に比べて [[c4.change|%1]] 増えます。
+    expect:
+      status: answered
+      cited: [c1.total, c2.total, c3.diff, c4.change]
+      drafts_rejected: 0
+      unverified_note: false
+
+  - id: tool-error-recovery
+    title: ツールの入力の誤りを読んで呼び直す
+    question: 天井カウント 8・すり抜け確定ありから 1 回引いたときの獲得確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。
+    turns:
+      - tool_uses:
+          - name: gacha_probability_within
+            input: {start_pity: 8, guaranteed: true, pulls: 1}
+      - expect: is_error
+        tool_uses:
+          - name: gacha_probability_within
+            input:
+              rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+              start_pity: 8
+              guaranteed: true
+              pulls: 1
+      - text: 次の 1 回で獲得できる確率は [[c2.probability|%0]] です。
+    expect:
+      status: answered
+      cited: [c2.probability]
+      drafts_rejected: 0
+      unverified_note: false
+
+  - id: bad-draft-raw-number
+    title: 数字を直接書いた下書きは差し戻され、引用に直される
+    question: >-
+      攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、
+      防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？
+    turns:
+      - tool_uses:
+          - name: damage_expected
+            input: *dmg_a
+      - text: 期待ダメージは約 6192 です。
+      - expect: 差し戻し
+        text: 期待ダメージは [[c1.total|0]] です。
+    expect:
+      status: answered
+      cited: [c1.total]
+      drafts_rejected: 1
+      unverified_note: false
+
+  - id: bad-draft-derived-and-unknown-id
+    title: 自分で計算した差と、存在しない出典 ID は差し戻される
+    question: >-
+      会心率 0.08・会心ダメージ 0.16・攻撃力% 0.09・攻撃力 40・共鳴効率 0.06 の声骸と、
+      会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 の声骸のスコアの差は？
+      メイン詞条はそれぞれ会心率 0.22・攻撃力% 0.3、重みとサブ詞条の最大値は会心型アタッカーのサンプルを使って。
+    turns:
+      - tool_uses:
+          - name: echo_score
+            input:
+              echo:
+                name: sample-echo-a
+                cost: 4
+                main: {stat: CRIT_RATE, value: 0.22}
+                subs:
+                  - {stat: CRIT_RATE, value: 0.08}
+                  - {stat: CRIT_DMG, value: 0.16}
+                  - {stat: ATK_PERCENT, value: 0.09}
+                  - {stat: ATK_FLAT, value: 40}
+                  - {stat: ENERGY_REGEN, value: 0.06}
+              weights: *weights
+              max_roll: *max_roll
+          - name: echo_score
+            input:
+              echo:
+                name: sample-echo-b
+                cost: 3
+                main: {stat: ATK_PERCENT, value: 0.3}
+                subs:
+                  - {stat: CRIT_RATE, value: 0.1}
+                  - {stat: CRIT_DMG, value: 0.2}
+                  - {stat: ATK_PERCENT, value: 0.12}
+                  - {stat: ATK_FLAT, value: 60}
+                  - {stat: ENERGY_REGEN, value: 0.12}
+              weights: *weights
+              max_roll: *max_roll
+      # LLM が自分で差を計算した（ADR-0005 違反）
+      - text: スコアは [[c1.score]] と [[c2.score]] で、差は 0.92 です。
+      # 比較ツールを呼ばずに、存在しない出典 ID を引用した
+      - expect: 差し戻し
+        text: スコアは [[c1.score]] と [[c2.score]] で、差は [[c3.diff]] です。
+      - expect: 差し戻し
+        tool_uses:
+          - name: compare_diff
+            input: {a: c2.score, b: c1.score}
+      - text: スコアは [[c1.score]] と [[c2.score]] で、差は [[c3.diff]] です。
+    expect:
+      status: answered
+      cited: [c1.score, c2.score, c3.diff]
+      drafts_rejected: 2
+      unverified_note: false
+
+  - id: never-corrected
+    title: 差し戻しても直らなければ、数値を含まない回答に落とす
+    question: 天井カウント 0 から 10 回以内に獲得できる確率は？ 規則は基本確率 0.1、ソフト天井 5 から 0.1 ずつ上昇、ハード天井 10、ピックアップ率 0.5、すり抜け後は確定。
+    turns:
+      - tool_uses:
+          - name: gacha_probability_within
+            input:
+              rules: {base_rate: 0.1, soft_pity_start: 5, soft_pity_increment: 0.1, hard_pity: 10, featured_rate: 0.5, guarantee_after_loss: true}
+              start_pity: 0
+              guaranteed: false
+              pulls: 10
+      - text: 確率はおよそ 73.4% です。
+      - expect: 差し戻し
+        text: 確率は 0.734 です。
+      - expect: 差し戻し
+        text: 確率は約 73% です（[[c1.probability|%1]]）。
+    expect:
+      status: fallback
+      cited: []
+      drafts_rejected: 3
+      unverified_note: false

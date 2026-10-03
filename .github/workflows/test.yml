@@ -13,6 +13,7 @@ concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
+# CI は API キーを持たない。LLM は台本（ScriptedLLM）で置き換える（ADR-0008）。
 jobs:
   python:
     runs-on: ubuntu-latest
@@ -29,5 +30,30 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-      - name: Golden cases (schema + reference implementation)
-        run: pytest
+      - name: Tests (golden cases, core, agent with scripted LLM, evals)
+        run: pytest -m "not e2e"
+
+  e2e:
+    # calc-engine の MCP サーバ（jar）を起動し、ゴールデンケースと Agent の往復を端から端まで通す
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Build the MCP server jar
+        working-directory: services/calc-engine
+        run: ./gradlew bootJar --no-daemon
+      - run: pip install -r requirements-dev.txt
+      - name: End-to-end tests
+        env:
+          ECHOLAB_E2E_REQUIRED: "1"
+        run: pytest -m e2e

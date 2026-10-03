@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "description": "ピックアップ獲得確率（厳密解）の入力。rules と banner はどちらか一方だけを指定する。",
+  "properties": {
+    "rules": {
+      "type": "object",
+      "description": "天井の規則（直接指定）。banner と同時には指定しない",
+      "properties": {
+        "base_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "基本の最高レア排出率（小数。0〜1）"
+        },
+        "soft_pity_start": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "ソフト天井が始まる回数（前回の最高レアから数えて何回目か。1 始まり。hard_pity 以下）"
+        },
+        "soft_pity_increment": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "ソフト天井で 1 回ごとに加算される排出率（小数。0〜1）"
+        },
+        "hard_pity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "ハード天井（この回で必ず最高レア。1〜10000）"
+        },
+        "featured_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "最高レアがピックアップ対象である確率（小数。0〜1）"
+        },
+        "guarantee_after_loss": {
+          "type": "boolean",
+          "description": "ピックアップを外した次の最高レアがピックアップ確定になるか"
+        }
+      },
+      "required": [
+        "base_rate",
+        "soft_pity_start",
+        "soft_pity_increment",
+        "hard_pity",
+        "featured_rate",
+        "guarantee_after_loss"
+      ],
+      "additionalProperties": false
+    },
+    "banner": {
+      "type": "string",
+      "description": "バナー ID（データ gacha_rules.yaml の banners[].id）。規則をデータから読む。rules と同時には指定しない"
+    },
+    "start_pity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9999,
+      "description": "現在の天井カウント（前回の最高レアからの回数。0 以上 hard_pity 未満）"
+    },
+    "guaranteed": {
+      "type": "boolean",
+      "description": "次の最高レアがピックアップ確定か（前回ピックアップを外した状態なら true）"
+    },
+    "pulls": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "description": "これから引く回数（0〜10000）"
+    }
+  },
+  "required": [
+    "start_pity",
+    "guaranteed",
+    "pulls"
+  ],
+  "additionalProperties": false
+}

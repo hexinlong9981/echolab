@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  標準出力は MCP のプロトコル（JSON-RPC）専用なので、ログはすべて標準エラーに出す。
+  Spring Boot 既定のコンソール出力（標準出力）は使わない。
+-->
+<configuration>
+  <!-- logback 自身の状態メッセージは標準出力に出るため、出さない -->
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <root level="WARN">
+    <appender-ref ref="STDERR"/>
+  </root>
+</configuration>

@@ -66,3 +66,16 @@ def test_golden_tools_are_declared(path: Path) -> None:
     golden_files = sorted((path.parent / manifest["golden_dir"]).glob("*.yaml"))
     used = {_load(g)["tool"] for g in golden_files}
     assert used - declared == set(), f"マニフェストに無いツール: {sorted(used - declared)}"
+
+
+@pytest.mark.parametrize("path", MANIFESTS, ids=_manifest_id)
+def test_domain_prompt_mentions_every_tool(path: Path) -> None:
+    """ドメインのプロンプト（system.md）が、宣言したツールの使い分けをすべて説明していること。"""
+    manifest = _load(path)
+    prompt = path.parent / manifest.get("prompts_dir", "prompts") / "system.md"
+    if not prompt.is_file():
+        pytest.skip("ドメインのプロンプトがありません")
+    text = prompt.read_text(encoding="utf-8")
+    wire_names = {t["name"].replace(".", "_") for t in manifest["tools"]}
+    missing = sorted(n for n in wire_names if f"`{n}`" not in text)
+    assert missing == [], f"プロンプトで説明していないツール: {missing}"

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "description": "期待ダメージの入力。割合はすべて小数（0.3 = 30%）。ゲームの定数は含まないので、すべて呼び出し側が与える。",
+  "properties": {
+    "atk": { "type": "number", "minimum": 0, "description": "最終攻撃力（0 以上）" },
+    "skill_multiplier": { "type": "number", "minimum": 0, "description": "スキル倍率（小数。2.5 = 250%。0 以上）" },
+    "dmg_bonus": { "type": "number", "minimum": 0, "description": "ダメージアップの合計（小数。0.3 = 30%。0 以上）" },
+    "crit_rate": { "type": "number", "minimum": 0, "description": "会心率（小数。0.6 = 60%。1 を超えた分は 1 として扱う）" },
+    "crit_dmg": { "type": "number", "minimum": 1, "description": "会心ダメージ倍率（小数。2.2 = 220%。1 以上）" },
+    "defense_constant": { "type": "number", "exclusiveMinimum": 0, "description": "防御乗区の定数 C（攻撃側のレベル等から決まる値。0 より大きい）。防御乗区 = C / (C + 防御 × (1 − 防御無視))" },
+    "enemy_def": { "type": "number", "minimum": 0, "description": "敵の防御力（0 以上）" },
+    "def_ignore": { "type": "number", "minimum": 0, "maximum": 1, "description": "防御無視（小数。0〜1）" },
+    "enemy_res": { "type": "number", "description": "敵の属性耐性（小数。0.1 = 10%。負も可）" },
+    "res_shred": { "type": "number", "description": "耐性ダウン（小数。0.1 = 10%）。有効耐性 = enemy_res − res_shred は 1 未満である必要がある" }
+  },
+  "required": ["atk", "skill_multiplier", "dmg_bonus", "crit_rate", "crit_dmg", "defense_constant", "enemy_def", "def_ignore", "enemy_res", "res_shred"],
+  "additionalProperties": false
+}

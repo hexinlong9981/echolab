@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.echolab.calc.domain.CharacterStats;
 import dev.echolab.calc.domain.EnemyStats;
 import java.math.BigDecimal;
+import java.util.Map;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.BigRange;
@@ -40,7 +41,14 @@ class DamageCalculatorTest {
             .multiply(b.defenseMultiplier())
             .multiply(b.resistanceMultiplier());
     assertThat(product.doubleValue()).isCloseTo(b.total().doubleValue(), within(1e-2));
-    assertThat(b.asMap()).containsKeys("base", "total").hasSize(6);
+    assertThat(b.asMap())
+        .containsExactly(
+            Map.entry("base", b.base()),
+            Map.entry("bonus_multiplier", b.bonusMultiplier()),
+            Map.entry("crit_multiplier", b.critMultiplier()),
+            Map.entry("defense_multiplier", b.defenseMultiplier()),
+            Map.entry("resistance_multiplier", b.resistanceMultiplier()),
+            Map.entry("total", b.total()));
   }
 
   @Test

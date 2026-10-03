@@ -11,7 +11,8 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN_SCHEMA = json.loads((ROOT / "tests/schemas/golden.schema.json").read_text(encoding="utf-8"))
-GOLDEN_FILES = sorted(ROOT.glob("domains/*/golden/*.yaml"))
+# ドメインのツールのケースと、コアの比較ツール（compare.*）のケース
+GOLDEN_FILES = sorted([*ROOT.glob("domains/*/golden/*.yaml"), *ROOT.glob("core/golden/*.yaml")])
 DATA_FILES = sorted(ROOT.glob("domains/*/data/*/*.yaml"))
 
 

@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "description": "声骸スコアの入力。weights と profile はどちらか一方だけを指定する。max_roll を省略するとデータの値を使う。",
+  "properties": {
+    "echo": {
+      "type": "object",
+      "description": "評価する声骸 1 個",
+      "properties": {
+        "name": { "type": "string", "description": "表示名（任意の文字列）" },
+        "cost": { "type": "integer", "minimum": 1, "maximum": 4, "description": "コスト（1〜4）" },
+        "main": { "$ref": "#/$defs/affix", "description": "メイン詞条（スコアには数えない）" },
+        "subs": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/affix" }, "description": "サブ詞条（最大 5 個）" }
+      },
+      "required": ["name", "cost", "main", "subs"],
+      "additionalProperties": false
+    },
+    "weights": { "$ref": "#/$defs/statMap", "description": "ステータスごとの重み（0 以上。無いステータスは 0）。profile と同時には指定しない" },
+    "profile": { "type": "string", "description": "重みのプロファイル ID（データ echo_weights.yaml の profiles[].id）。weights と同時には指定しない" },
+    "max_roll": { "$ref": "#/$defs/statMap", "description": "サブ詞条 1 枠の最大値（正規化に使う。重みのあるステータスは正の値が必要）。省略するとデータ echo_weights.yaml の max_roll を使う" }
+  },
+  "required": ["echo"],
+  "additionalProperties": false,
+  "$defs": {
+    "stat": {
+      "type": "string",
+      "enum": ["ATK_FLAT", "ATK_PERCENT", "HP_FLAT", "HP_PERCENT", "DEF_FLAT", "DEF_PERCENT", "CRIT_RATE", "CRIT_DMG", "ENERGY_REGEN", "BASIC_ATTACK_DMG_BONUS", "HEAVY_ATTACK_DMG_BONUS", "SKILL_DMG_BONUS", "LIBERATION_DMG_BONUS", "ELEMENTAL_DMG_BONUS", "HEALING_BONUS"],
+      "description": "ステータスの種類（*_PERCENT・会心・ダメージアップなどの割合系は小数で表す）"
+    },
+    "affix": {
+      "type": "object",
+      "properties": {
+        "stat": { "$ref": "#/$defs/stat" },
+        "value": { "type": "number", "minimum": 0, "description": "値（割合系は小数。0.08 = 8%。0 以上）" }
+      },
+      "required": ["stat", "value"],
+      "additionalProperties": false
+    },
+    "statMap": {
+      "type": "object",
+      "description": "ステータス名 → 0 以上の数値",
+      "propertyNames": { "$ref": "#/$defs/stat" },
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    }
+  }
+}

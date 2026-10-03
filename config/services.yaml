@@ -1,0 +1,11 @@
+# ツールサービスの起動方法（ADR-0008）。domain.yaml の tools[].service から参照する。
+# パスはリポジトリ直下からの相対パス。
+# env は既定値：同じ名前の環境変数がシェルにあれば、そちらが優先される
+# （例：ECHOLAB_DATA_ROOT=/path/to/data python -m core.agent ...）。
+schema_version: 1
+services:
+  calc-engine:
+    transport: stdio
+    command: ["java", "-jar", "services/calc-engine/build/libs/calc-engine-mcp.jar"]
+    env:
+      ECHOLAB_DATA_ROOT: domains

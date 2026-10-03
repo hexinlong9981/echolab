@@ -33,6 +33,26 @@ class ArchitectureTest {
           .dependOnClassesThat()
           .resideInAPackage("..calc.golden..");
 
+  /** 計算パッケージはフレームワークに依存しない（ADR-0004）。Spring と MCP の SDK は公開層（{@code dev.echolab.app}）だけが使う。 */
+  @ArchTest
+  static final ArchRule calcDoesNotDependOnFrameworks =
+      noClasses()
+          .that()
+          .resideInAPackage("dev.echolab.calc..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("org.springframework..", "io.modelcontextprotocol..");
+
+  /** 計算パッケージは公開層に依存しない（依存の向きは app → calc の一方向）。 */
+  @ArchTest
+  static final ArchRule calcDoesNotDependOnApp =
+      noClasses()
+          .that()
+          .resideInAPackage("dev.echolab.calc..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("dev.echolab.app..");
+
   /** パッケージ間に循環依存がない。 */
   @ArchTest
   static final ArchRule noCycles =

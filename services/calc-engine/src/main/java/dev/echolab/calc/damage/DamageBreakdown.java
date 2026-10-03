@@ -1,6 +1,7 @@
 package dev.echolab.calc.damage;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -33,6 +34,6 @@ public record DamageBreakdown(
     map.put("defense_multiplier", defenseMultiplier);
     map.put("resistance_multiplier", resistanceMultiplier);
     map.put("total", total);
-    return Map.copyOf(map);
+    return Collections.unmodifiableMap(map);
   }
 }

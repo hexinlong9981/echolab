@@ -1,0 +1,43 @@
+# 比較ツール compare.ratio（比 a / b と増加率 a / b − 1）のゴールデンケース（ADR-0005）。
+# コアのツールなので domains/ ではなく core/golden に置く（Java の契約テストは読まない）。
+# 期待値は手計算。tests/test_golden_reference.py で core.compare と照合する。
+# 途中の計算は有効桁 16 桁、結果は小数 6 桁に丸める（いずれも ROUND_HALF_EVEN）。
+schema_version: 1
+tool: compare.ratio
+cases:
+  - id: ratio-001
+    description: a が b より 25% 大きい
+    derivation: hand
+    input: {a: 7740, b: 6192}
+    expected: {ratio: 1.25, change: 0.25}
+    tolerance: 0
+  - id: ratio-002
+    description: a が b より小さい（増加率が負）
+    derivation: hand
+    input: {a: 3, b: 4}
+    expected: {ratio: 0.75, change: -0.25}
+    tolerance: 0
+  - id: ratio-003
+    description: 同じ値の比は 1、増加率は 0
+    derivation: hand
+    input: {a: 0.5, b: 0.5}
+    expected: {ratio: 1, change: 0}
+    tolerance: 0
+  - id: ratio-004
+    description: 割り切れない比は小数 6 桁に丸める（2/3 = 0.666666…）
+    derivation: hand
+    input: {a: 2, b: 3}
+    expected: {ratio: 0.666667, change: -0.333333}
+    tolerance: 0
+  - id: ratio-005
+    description: 負の値どうしの比
+    derivation: hand
+    input: {a: -1, b: -4}
+    expected: {ratio: 0.25, change: -0.75}
+    tolerance: 0
+  - id: ratio-006
+    description: a が 0 なら比は 0、増加率は −1
+    derivation: hand
+    input: {a: 0, b: 7}
+    expected: {ratio: 0, change: -1}
+    tolerance: 0

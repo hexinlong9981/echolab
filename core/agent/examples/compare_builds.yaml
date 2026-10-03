@@ -1,0 +1,24 @@
+# 台本モードのデモ（API キー不要）。2 つのビルドの期待ダメージを並列に計算し、比較ツールで差と増加率を求める。
+#
+#   python -m core.agent "ビルド A（攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、敵の防御 1000、耐性ダウンなし）とビルド B（攻撃力 1800、スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、耐性ダウン 0.3）では、どちらがどれだけ強い？ どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。" \
+#     --llm scripted --script core/agent/examples/compare_builds.yaml --fake-backend
+#
+# 1 回目の下書きは、わざと自分で計算した差（数字）を書いて差し戻される。
+turns:
+  - tool_uses:
+      - name: damage_expected
+        input: {atk: 2000, skill_multiplier: 2.5, dmg_bonus: 0.3, crit_rate: 0.6, crit_dmg: 2.2, defense_constant: 1600, enemy_def: 1000, def_ignore: 0, enemy_res: 0.1, res_shred: 0}
+      - name: damage_expected
+        input: {atk: 1800, skill_multiplier: 3.0, dmg_bonus: 0.2, crit_rate: 0.5, crit_dmg: 2.5, defense_constant: 1600, enemy_def: 1200, def_ignore: 0, enemy_res: 0.1, res_shred: 0.3}
+  - text: ビルド B の方が [[c2.total|0]] で、A より 936 高いです。
+  - expect: 差し戻し
+    tool_uses:
+      - name: compare_diff
+        input: {a: c2.total, b: c1.total}
+      - name: compare_ratio
+        input: {a: c2.total, b: c1.total}
+  - text: |-
+      ビルド B の方が強いです。
+      - ビルド A の期待ダメージ: [[c1.total|0]]
+      - ビルド B の期待ダメージ: [[c2.total|0]]
+      - 差: [[c3.diff|0]]（A に比べて [[c4.change|%1]] 増加）

@@ -6,11 +6,15 @@ on:
     paths:
       - "services/calc-engine/**"
       - "domains/wuwa/golden/**"
+      - "domains/wuwa/domain.yaml"
+      - "domains/wuwa/data/**"
       - ".github/workflows/java.yml"
   pull_request:
     paths:
       - "services/calc-engine/**"
       - "domains/wuwa/golden/**"
+      - "domains/wuwa/domain.yaml"
+      - "domains/wuwa/data/**"
       - ".github/workflows/java.yml"
   workflow_dispatch:
 
@@ -37,6 +41,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test, static analysis and coverage
         run: ./gradlew check --no-daemon
+      # MCP サーバとして起動する jar（config/services.yaml が参照する build/libs/calc-engine-mcp.jar）
+      - name: Build MCP server jar
+        run: ./gradlew bootJar --no-daemon
+      - name: Check MCP server jar exists
+        run: test -s build/libs/calc-engine-mcp.jar
       - name: Upload coverage and test reports
         if: always()
         uses: actions/upload-artifact@v4

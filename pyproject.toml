@@ -2,6 +2,9 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
+asyncio_mode = "auto"
+markers = ["e2e: calc-engine の MCP サーバ（jar）を起動する端から端までの試験"]
 
 [tool.ruff]
 line-length = 100

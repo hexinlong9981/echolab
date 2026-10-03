@@ -1,0 +1,30 @@
+# LLM のコスト上限と料金表（ADR-0008）。core/gateway/budget.py が読む。
+# 金額は浮動小数点の誤差を避けるため文字列で書き、Decimal で扱う。
+# 日次・月次の区切りは UTC（日本時間の 9:00 に日付が変わる）。
+# 環境変数で上書きできる：ECHOLAB_DAILY_USD・ECHOLAB_MONTHLY_USD・ECHOLAB_LEDGER。
+schema_version: 1
+# コストの台帳（JSONL）。リポジトリ直下からの相対パス。.gitignore 済み。
+ledger: .echolab/costs.jsonl
+caps_usd:
+  daily: "1.00"
+  monthly: "10.00"
+# 100 万トークンあたりの USD。cost() は表に無いモデルを推測せずに拒否する。
+# ただし record() は課金済みの呼び出しを必ず記録するため、表に無いモデルは表の最高料金で見積もる。
+# claude-opus-5・claude-opus-4-8 は、拒否時のサーバー側フォールバック（fallbacks: default）の行き先になりうる。
+# cache_write は 5 分 TTL のキャッシュ書き込み（入力の 1.25 倍）。1 時間 TTL は使わない。
+pricing_usd_per_mtok:
+  claude-opus-5-5:
+    input: "4.00"
+    output: "20.00"
+    cache_read: "0.20"
+    cache_write: "5.00"
+  claude-opus-5:
+    input: "5.00"
+    output: "25.00"
+    cache_read: "0.50"
+    cache_write: "6.25"
+  claude-opus-4-8:
+    input: "5.00"
+    output: "25.00"
+    cache_read: "0.50"
+    cache_write: "6.25"

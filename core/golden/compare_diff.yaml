@@ -1,0 +1,37 @@
+# 比較ツール compare.diff（差 a − b）のゴールデンケース（ADR-0005）。
+# コアのツールなので domains/ ではなく core/golden に置く（Java の契約テストは読まない）。
+# 期待値は手計算。tests/test_golden_reference.py で core.compare と照合する。
+# 結果は小数 6 桁に丸める（ROUND_HALF_EVEN）。
+schema_version: 1
+tool: compare.diff
+cases:
+  - id: diff-001
+    description: 正の差（期待ダメージの比較）
+    derivation: hand
+    input: {a: 6932.5, b: 6192.0}
+    expected: {diff: 740.5}
+    tolerance: 0
+  - id: diff-002
+    description: 負の差（a が b より小さい）
+    derivation: hand
+    input: {a: 1200, b: 1500.25}
+    expected: {diff: -300.25}
+    tolerance: 0
+  - id: diff-003
+    description: 同じ値の差は 0
+    derivation: hand
+    input: {a: 0.615385, b: 0.615385}
+    expected: {diff: 0}
+    tolerance: 0
+  - id: diff-004
+    description: 小数 6 桁に丸める（0.0000005 は偶数側の 0.000000 へ）
+    derivation: hand
+    input: {a: 1.0000005, b: 1}
+    expected: {diff: 0}
+    tolerance: 0
+  - id: diff-005
+    description: 小数 6 桁に丸める（0.0000015 は偶数側の 0.000002 へ）
+    derivation: hand
+    input: {a: 1.0000015, b: 1}
+    expected: {diff: 0.000002}
+    tolerance: 0
