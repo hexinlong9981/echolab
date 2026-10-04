@@ -162,6 +162,7 @@ export function LiveView({
       llm: mode,
       question,
       domain,
+      lang,
       fake_backend: apiBase ? false : fake,
       ...(domain === "mushoku" ? { progress } : {}),
       stream: true,

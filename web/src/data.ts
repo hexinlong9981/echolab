@@ -56,6 +56,8 @@ export interface AskRequest {
   demo?: string;
   question?: string;
   domain?: string;
+  /** 界面当前语言（zh, en, ja），用于选择对应语言的系统提示词 */
+  lang?: string;
   /** 利用者が指定する進み具合（無職転生のパック。例 novel:5） */
   progress?: string;
   fake_backend?: boolean;
