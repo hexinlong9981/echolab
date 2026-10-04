@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -73,11 +73,17 @@ async def ask(
     trace_dir: Path,
     repo_root: Path = REPO_ROOT,
     context: Mapping[str, Any] | None = None,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """質問を 1 回実行し、結果とトレースの出来事を返す（JSON にできる形）。
 
     :param context: 利用者が指定する項目（例 ``{"progress": "novel:3"}``、user_context）。
     """
+
+    def handle_event(record: dict[str, Any]) -> None:
+        if on_event is not None:
+            on_event(sanitize(record, repo_root))
+
     llm = make_llm(llm_kind, script=script)
     with tempfile.TemporaryDirectory(prefix="echolab-web-") as scratch:
         budget = make_budget(llm_kind, repo_root, Path(scratch))
@@ -92,6 +98,7 @@ async def ask(
                 trace_dir=trace_dir,
                 domain=domain,
                 answer_note=load_answer_note(repo_root, domain),
+                on_event=handle_event if on_event else None,
             )
             result = await agent.ask(question)
         finally:

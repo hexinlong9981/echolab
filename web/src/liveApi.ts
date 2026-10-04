@@ -2,7 +2,7 @@
 // サーバの URL はビルドのときの環境変数 VITE_LIVE_API（例 https://echolab-demo-xxxxx.a.run.app）。
 // 設定が無ければ、画面に「サーバで実行」のボタンを出さない。
 import type { AskRequest } from "./data";
-import type { RunRecord } from "./types";
+import type { RunRecord, TraceRecord } from "./types";
 
 export type LiveErrorCode = "rate_limited" | "busy" | "timeout" | "offline" | "other";
 
@@ -48,18 +48,71 @@ export async function wake(base: string, fetchImpl: Fetch = fetch, timeoutMs = 1
   return false;
 }
 
-/** 質問またはデモをサーバで実行する。 */
-export async function askOnServer(base: string, req: AskRequest, fetchImpl: Fetch = fetch): Promise<RunRecord> {
+/** 質問またはデモをサーバで実行する。onEvent が渡されたときは SSE でリアルタイム受信する。 */
+export async function askOnServer(
+  base: string,
+  req: AskRequest,
+  fetchImpl: Fetch = fetch,
+  onEvent?: (ev: TraceRecord) => void
+): Promise<RunRecord> {
+  const bodyData = onEvent ? { ...req, stream: true } : req;
   let res: Response;
   try {
     res = await fetchImpl(`${base}/api/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
+      headers: {
+        "Content-Type": "application/json",
+        ...(onEvent ? { Accept: "text/event-stream, application/json" } : {}),
+      },
+      body: JSON.stringify(bodyData),
     });
   } catch (e) {
     throw new LiveError("offline", (e as Error).message);
   }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (res.ok && contentType.includes("text/event-stream") && res.body) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const events: TraceRecord[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() ?? "";
+      for (const block of blocks) {
+        for (const line of block.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ")) {
+            const payload = trimmed.slice(6);
+            if (payload === "[DONE]") continue;
+            try {
+              const ev = JSON.parse(payload) as TraceRecord;
+              events.push(ev);
+              onEvent?.(ev);
+            } catch {
+              // skip malformed
+            }
+          }
+        }
+      }
+    }
+
+    const answerEv = events.find((e) => e.event === "answer");
+    return {
+      run_id: events[0]?.run_id ?? "live",
+      domain: req.domain ?? "wuwa",
+      llm: req.llm ?? "gemini",
+      fake_backend: Boolean(req.fake_backend),
+      status: answerEv ? (answerEv as { status?: string }).status ?? null : null,
+      context: req.progress ? { progress: req.progress } : {},
+      events,
+    };
+  }
+
   let body: unknown = null;
   try {
     body = await res.json();
@@ -70,7 +123,11 @@ export async function askOnServer(base: string, req: AskRequest, fetchImpl: Fetc
     const message = typeof body === "object" && body !== null ? String((body as { error?: unknown }).error ?? "") : "";
     throw new LiveError(classifyError(res.status, body), message || `HTTP ${res.status}`);
   }
-  return body as RunRecord;
+  const doc = body as RunRecord;
+  if (onEvent && Array.isArray(doc.events)) {
+    for (const ev of doc.events) onEvent(ev);
+  }
+  return doc;
 }
 
 /** デモを 1 回、サーバで実行する。 */

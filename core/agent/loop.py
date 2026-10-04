@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -204,6 +204,7 @@ class Agent:
         max_retries: int = DEFAULT_MAX_RETRIES,
         domain: str | None = None,
         answer_note: str | None = None,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         """
         :param answer_note: 検証に通った回答の末尾に必ず付ける注記（:func:`load_answer_note`）。
@@ -221,9 +222,12 @@ class Agent:
         self.max_retries = max_retries
         self.domain = domain
         self.answer_note = answer_note
+        self.on_event = on_event
+        self.trace: TraceWriter | None = None
 
     async def ask(self, question: str, *, run_id: str | None = None) -> AgentResult:
-        return await _Run(self, question, TraceWriter(self.trace_dir, run_id)).execute()
+        self.trace = TraceWriter(self.trace_dir, run_id=run_id, on_event=self.on_event)
+        return await _Run(self, question, self.trace).execute()
 
 
 class _Run:

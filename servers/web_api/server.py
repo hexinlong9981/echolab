@@ -90,6 +90,7 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
             "llm_kind": "scripted",
             "script": REPO_ROOT / demo["script"],
             "fake_backend": fake,
+            "stream": bool(body.get("stream")),
             "context": {"progress": demo["progress"]} if "progress" in demo else None,
         }
     question = body.get("question")
@@ -109,15 +110,18 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
         "llm_kind": llm,
         "script": None,
         "fake_backend": fake,
+        "stream": bool(body.get("stream")),
         # 進み具合は利用者が指定する（ドメインが受け付けなければ ContextError で 400）
         "context": {"progress": progress} if progress else None,
     }
 
 
 def run_ask(params: dict[str, Any]) -> dict[str, Any]:
+    run_params = dict(params)
+    run_params.pop("stream", None)
     with _ask_lock:
         try:
-            return asyncio.run(ask(**params, trace_dir=REPO_ROOT / DEFAULT_TRACE_DIR))
+            return asyncio.run(ask(**run_params, trace_dir=REPO_ROOT / DEFAULT_TRACE_DIR))
         except startup_errors() as e:
             raise ApiError(HTTPStatus.BAD_REQUEST, _startup_message(e)) from e
 
@@ -164,18 +168,60 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(HTTPStatus.BAD_REQUEST, "本文が JSON ではありません") from e
             if not isinstance(body, dict):
                 raise ApiError(HTTPStatus.BAD_REQUEST, "本文は JSON のオブジェクトです")
-            self._json(HTTPStatus.OK, run_ask(parse_ask(body)))
+            params = parse_ask(body)
+            if params.get("stream"):
+                self._sse(params)
+            else:
+                self._json(HTTPStatus.OK, run_ask(params))
         except ApiError as e:
             self._json(e.status, {"error": str(e)})
+
+    # -- 応答 --------------------------------------------------------------
+
+    def _allowed_origins(self) -> set[str]:
+        port = self.server.server_address[1]
+        allowed = {f"http://{h}:{port}" for h in ("127.0.0.1", "localhost")}
+        allowed |= {"http://127.0.0.1:5173", "http://localhost:5173"}  # Vite の開発サーバ
+        return allowed
+
+    def _sse(self, params: dict[str, Any]) -> None:
+        self.close_connection = True
+        self.send_response(HTTPStatus.OK)
+        origin = self.headers.get("Origin")
+        if origin and origin.rstrip("/") in self._allowed_origins():
+            self.send_header("Access-Control-Allow-Origin", origin.rstrip("/"))
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.end_headers()
+
+        def send_event(event: dict[str, Any]) -> None:
+            chunk = f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode()
+            self.wfile.write(chunk)
+            self.wfile.flush()
+
+        run_params = dict(params)
+        run_params.pop("stream", None)
+        with _ask_lock:
+            try:
+                asyncio.run(
+                    ask(**run_params, trace_dir=REPO_ROOT / DEFAULT_TRACE_DIR, on_event=send_event)
+                )
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            except Exception as e:
+                err_doc = {"event": "error", "error": str(e)}
+                chunk = f"data: {json.dumps(err_doc, ensure_ascii=False)}\n\n".encode()
+                self.wfile.write(chunk)
+                self.wfile.flush()
 
     def _check_origin(self) -> None:
         origin = self.headers.get("Origin")
         if origin is None:
             return  # ブラウザ以外（curl など）
-        port = self.server.server_address[1]
-        allowed = {f"http://{h}:{port}" for h in ("127.0.0.1", "localhost")}
-        allowed |= {"http://127.0.0.1:5173", "http://localhost:5173"}  # Vite の開発サーバ
-        if origin not in allowed:
+        if origin not in self._allowed_origins():
             raise ApiError(HTTPStatus.FORBIDDEN, "ほかのサイトからは呼べません")
 
     # -- 静的ファイル --------------------------------------------------------

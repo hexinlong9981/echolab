@@ -4,7 +4,7 @@ import { type Lang, PACK_ORDER, domainTitle, useI18n } from "./i18n";
 import { LiveError, askOnServer, wake } from "./liveApi";
 import { RunPlayer } from "./RunPlayer";
 import { Tx } from "./Tx";
-import type { LocalInfo, RunRecord } from "./types";
+import type { LocalInfo, RunRecord, TraceRecord } from "./types";
 
 interface SampleItem {
   label: Record<Lang, string>;
@@ -142,19 +142,62 @@ export function LiveView({
       domain,
       fake_backend: apiBase ? false : fake,
       ...(domain === "mushoku" ? { progress } : {}),
+      stream: true,
     };
     setBusy(true);
     setError(null);
     setStatusText(null);
+
+    // 立即建立初始运行对象，实时呈现提问节点
+    setRun({
+      run_id: "running",
+      domain,
+      llm: mode === "gemini" ? "GeminiLLM" : "AnthropicLLM",
+      fake_backend: apiBase ? false : fake,
+      status: null,
+      context: domain === "mushoku" ? { progress } : {},
+      events: [
+        {
+          event: "question",
+          question,
+          domain,
+          llm: mode === "gemini" ? "GeminiLLM" : "AnthropicLLM",
+          model: mode,
+          tools: [],
+          ts: new Date().toISOString(),
+          run_id: "running",
+        },
+      ],
+    });
+
+    const handleEvent = (ev: TraceRecord) => {
+      setRun((prev) => {
+        if (!prev) return prev;
+        const exists = prev.events.some((e) => e.ts === ev.ts && e.event === ev.event);
+        if (exists) return prev;
+        const newEvents = [...prev.events, ev];
+        const answerStatus =
+          ev.event === "answer" ? (ev as { status?: string }).status ?? prev.status : prev.status;
+        return {
+          ...prev,
+          run_id: ev.run_id ?? prev.run_id,
+          status: answerStatus,
+          events: newEvents,
+        };
+      });
+    };
+
     try {
       if (apiBase) {
         setStatusText(t("server.waking") || "Connecting...");
         const awake = await wake(apiBase);
         if (!awake) throw new LiveError("offline", "Server wake timeout");
         setStatusText(t("live.running"));
-        setRun(await askOnServer(apiBase, req));
+        const finalRun = await askOnServer(apiBase, req, fetch, handleEvent);
+        setRun(finalRun);
       } else {
-        setRun(await ask(req));
+        const finalRun = await ask(req, null, handleEvent);
+        setRun(finalRun);
       }
     } catch (e) {
       setError((e as Error).message);

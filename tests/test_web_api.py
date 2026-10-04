@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -283,8 +284,11 @@ def test_runner_rejects_when_the_queue_is_full() -> None:
 def public_url() -> Iterator[str]:
     calls: list[dict] = []
 
-    def fake_run(params: dict) -> dict:
+    def fake_run(params: dict, on_event: Any = None) -> dict:
         calls.append(params)
+        if on_event:
+            on_event({"event": "question", "question": "test"})
+            on_event({"event": "answer", "status": "answered"})
         return {"run_id": "r", "status": "answered", "events": [], "live": {"elapsed_ms": 1}}
 
     httpd = public.make_public_server(
@@ -413,3 +417,16 @@ def test_public_port_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("PORT", "9123")
     assert server_mod.main(["--public"]) == 0
     assert seen == {"host": "0.0.0.0", "port": 9123}
+
+
+def test_public_stream_sse(public_url: str) -> None:
+    status, headers, body = _request(
+        f"{public_url}/api/ask",
+        "POST",
+        {"Content-Type": "application/json", "Origin": SITE},
+        {"demo": "demo-mortgage", "stream": True},
+    )
+    assert status == 200
+    assert "text/event-stream" in headers.get("Content-Type", "")
+    assert b'data: {"event": "question"' in body
+    assert b"data: [DONE]" in body

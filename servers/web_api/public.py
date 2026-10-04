@@ -123,7 +123,7 @@ class Runner:
 
     def __init__(
         self,
-        run: Callable[[dict[str, Any]], dict[str, Any]],
+        run: Callable[..., dict[str, Any]],
         queue_max: int = QUEUE_MAX,
     ) -> None:
         self._run = run
@@ -132,7 +132,11 @@ class Runner:
         self._waiting = 0
         self._count_lock = threading.Lock()
 
-    def __call__(self, params: dict[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self,
+        params: dict[str, Any],
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
         with self._count_lock:
             if self._waiting > self._queue_max:
                 raise PublicError(
@@ -144,6 +148,11 @@ class Runner:
             self._waiting += 1
         try:
             with self._lock:
+                if on_event is not None:
+                    try:
+                        return self._run(params, on_event=on_event)
+                    except TypeError:
+                        return self._run(params)
                 return self._run(params)
         finally:
             with self._count_lock:
@@ -152,6 +161,7 @@ class Runner:
 
 def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
     """公開の ``POST /api/ask`` の本文を検査する。固定デモ（台本）または即時対話（Gemini）。"""
+    stream = bool(body.get("stream"))
     if body.get("fake_backend"):
         raise PublicError(
             HTTPStatus.BAD_REQUEST,
@@ -176,6 +186,7 @@ def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
             "script": REPO_ROOT / demo["script"],
             "fake_backend": False,
             "context": {"progress": demo["progress"]} if "progress" in demo else None,
+            "stream": stream,
         }
     question = body.get("question")
     if question is None:
@@ -207,14 +218,24 @@ def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
         "script": None,
         "fake_backend": False,
         "context": {"progress": progress} if progress else None,
+        "stream": stream,
     }
 
 
-def run_demo(params: dict[str, Any], timeout: float = RUN_TIMEOUT_SECONDS) -> dict[str, Any]:
+def run_demo(
+    params: dict[str, Any],
+    timeout: float = RUN_TIMEOUT_SECONDS,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
     """1 件を実行する。トレースは一時ディレクトリに置き、実行が終わったら消す。"""
+    call_params = dict(params)
+    call_params.pop("stream", None)
+    event_sink = on_event or call_params.pop("on_event", None)
 
     async def go(trace_dir: Path) -> dict[str, Any]:
-        return await asyncio.wait_for(ask(**params, trace_dir=trace_dir), timeout)
+        return await asyncio.wait_for(
+            ask(**call_params, trace_dir=trace_dir, on_event=event_sink), timeout
+        )
 
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="echolab-public-") as tmp:
@@ -322,11 +343,46 @@ def make_handler(
                     )
                 params = parse_public_ask(body)
                 limiter.check(self.client_key())
-                self._json(HTTPStatus.OK, runner(params))
+                if params.get("stream"):
+                    self._sse(params, runner)
+                else:
+                    self._json(HTTPStatus.OK, runner(params))
             except PublicError as e:
                 self._json(e.status, {"error": str(e), "code": e.code}, e.retry_after)
 
         # -- 応答 ----------------------------------------------------------
+
+        def _sse(self, params: dict[str, Any], runner: Runner) -> None:
+            self.close_connection = True
+            self.send_response(HTTPStatus.OK)
+            origin = self.origin_ok()
+            if origin is not None:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept")
+                self.send_header("Access-Control-Max-Age", "600")
+            self.send_header("Vary", "Origin")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("X-Robots-Tag", "noindex")
+            self.end_headers()
+
+            def on_event(event: dict[str, Any]) -> None:
+                chunk = f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode()
+                self.wfile.write(chunk)
+                self.wfile.flush()
+
+            try:
+                runner(params, on_event=on_event)
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            except Exception as e:
+                err_doc = {"event": "error", "error": str(e)}
+                chunk = f"data: {json.dumps(err_doc, ensure_ascii=False)}\n\n".encode()
+                self.wfile.write(chunk)
+                self.wfile.flush()
 
         def _json(self, status: HTTPStatus, doc: Any, retry_after: int | None = None) -> None:
             data = json.dumps(doc, ensure_ascii=False).encode("utf-8")
@@ -344,7 +400,7 @@ def make_handler(
             if origin is not None:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept")
                 self.send_header("Access-Control-Max-Age", "600")
             self.send_header("Vary", "Origin")
             self.send_header("Cache-Control", "no-store")

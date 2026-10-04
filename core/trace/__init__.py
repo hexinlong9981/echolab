@@ -22,7 +22,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import secrets
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -63,10 +63,16 @@ def to_jsonable(obj: Any) -> Any:
 class TraceWriter:
     """1 回の実行のトレースを書く。出来事ごとに追記してフラッシュする（途中で落ちても残る）。"""
 
-    def __init__(self, trace_dir: Path | str, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        trace_dir: Path | str,
+        run_id: str | None = None,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         self.run_id = run_id or new_run_id()
         self.path = Path(trace_dir) / f"{self.run_id}.jsonl"
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.on_event = on_event
 
     def emit(self, event: str, **data: Any) -> None:
         record = {
@@ -77,6 +83,8 @@ class TraceWriter:
         }
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False, sort_keys=False) + "\n")
+        if self.on_event is not None:
+            self.on_event(record)
 
 
 def read_trace(path: Path | str, event: str | None = None) -> list[dict[str, Any]]:
