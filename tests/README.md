@@ -39,6 +39,15 @@ Java は使いません。パックの MCP サーバ（Python）は実物を子�
 | `test_mortgage_pack.py` | パックの実装とゴールデンケースの照合・入力の誤りの説明・実物の MCP サーバをゲートウェイから起動してのゴールデンケースの照合とエラー・Agent の往復と回答の注記・台本モードの評価（`evals/faithfulness/mortgage.yaml`）とベースライン |
 | `test_pack_isolation.py` | CI の「パックの変更でコアを変えない」検査（`.github/scripts/check_pack_isolation.py`）の規則を、一時的な git リポジトリで確かめる |
 
+## スクリーンショットの読み取りと注入の評価（ADR-0010）
+
+| ファイル | 内容 |
+|---|---|
+| `test_vision.py` | `servers/vision_mcp`：テンプレートによる取り出し（OCR の記録 `.ocr.txt` で試す）・画像に書き込まれた指示が結果に入らないこと・範囲外と重複の誤り・画像のパスの制限（場所の外・シンボリックリンク・拡張子）・実物の Tesseract と MCP サーバ・テンプレートのスキーマ（`schemas/vision_template.schema.json`） |
+| `test_redteam.py` | 注入の評価（`evals/redteam/cases.yaml`）を台本モードで実行：攻撃が 1 件も通らないこと・画像の文字列がツールの結果に入らないこと・ベースライン |
+
+実物の OCR の試験は Tesseract（日本語のデータ付き）が要ります。無いときは飛ばします（CI では `ECHOLAB_OCR_REQUIRED=1` で、飛ばさずに失敗させます）。
+
 ## 端から端までの試験：`tests/e2e/`
 
 `test_mcp_e2e.py` は実物の calc-engine（MCP サーバの jar）を `config/services.yaml` のとおりに起動します。

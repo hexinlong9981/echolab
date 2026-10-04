@@ -41,6 +41,15 @@
 | `test_mortgage_pack.py` | 领域包实现与黄金用例的核对・输入错误的说明・经网关启动真实 MCP 服务器后的黄金用例核对与错误・Agent 的往返与回答注记・脚本模式的评估（`evals/faithfulness/mortgage.yaml`）与基线 |
 | `test_pack_isolation.py` | 在临时 git 仓库中检查 CI 的"领域包的变更不修改核心"检查（`.github/scripts/check_pack_isolation.py`）的规则 |
 
+## 截图读取与注入评估（ADR-0010）
+
+| 文件 | 内容 |
+|---|---|
+| `test_vision.py` | `servers/vision_mcp`：用模板取出字段（用 OCR 记录 `.ocr.txt` 测试）・图片中写入的指示不进入结果・超出范围与重复的错误・图片路径的限制（根目录之外・符号链接・扩展名）・真实的 Tesseract 与 MCP 服务器・模板的 Schema（`schemas/vision_template.schema.json`） |
+| `test_redteam.py` | 以脚本模式运行注入评估（`evals/redteam/cases.yaml`）：攻击无一成功・图片中的文字不进入工具结果・基线 |
+
+真实 OCR 的测试需要 Tesseract（含日语数据）。没有时跳过（CI 中用 `ECHOLAB_OCR_REQUIRED=1` 让它失败而不是跳过）。
+
 ## 端到端测试：`tests/e2e/`
 
 `test_mcp_e2e.py` 按照 `config/services.yaml` 启动真实的 calc-engine（MCP 服务器的 jar）。

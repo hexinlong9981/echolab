@@ -26,15 +26,16 @@ LLM はもっともらしい数値を作ってしまいます。業務で AI を
 | 数値の捏造 | 計算は決定的なツールだけが行う。差・比・増加率も比較ツールで計算し、AI は四則演算もしない。LLM の回答はプレースホルダで出典 ID を引用するテンプレートで、数値はレンダラが埋める。出典の無い数字があれば差し戻す（M2・ADR-0005・ADR-0008） |
 | データの確かさ | 未確認のデータも計算には使えるが、回答に「未確認のデータに基づく」と必ず注記する。`verified: true` には出典 URL・確認日・ゲームの版をスキーマで必須にする（ADR-0006） |
 | 実装の誤り | 同じゴールデンケースを Java・Python の参照実装・MCP 経由の端から端までの試験の 3 か所で照合する |
-| 越権・注入 | ツールは既定拒否のゲートウェイを通す。外部から来た文字列は指示ではなくデータとして扱う（ゲートウェイは M2 で実装済み、注入の評価セットは M4） |
-| 品質の後退 | 数値の忠実度を評価する。台本モードの評価は CI で PR ごとに流し、実物の LLM による評価は手元で実行して集計結果だけをコミットする（M2。注入の評価セットは M4） |
+| 越権・注入 | ツールは既定拒否のゲートウェイを通す。外部から来た文字列は指示ではなくデータとして扱う画像から読むのはテンプレートで宣言した数値だけで、画像の文字列は LLM に届かない（M4・ADR-0010） |
+| 品質の後退 | 数値の忠実度を評価する。台本モードの評価は CI で PR ごとに流し、実物の LLM による評価は手元で実行して集計結果だけをコミットする（M2）。注入の評価セットも台本モードで CI に流す（M4） |
 | コスト | 料金表から 1 回ごとの費用を計算して台帳に記録し、日次・月次の上限に達したら LLM を呼ばない（M2） |
 
 ドメインに依存しないコアと「ドメインパック」に分ける設計です。2 つ目のパック（住宅ローンの返済の計算例、M3）は `core/` を 1 行も変えずに足し、そのことを CI で検査しています（ADR-0003・ADR-0009）。
 
-## 現在の状態：M3（2 つ目のドメインパック）
+## 現在の状態：M4（スクリーンショットの読み取りと注入の評価）
 
 質問から出典付きの回答までを、CLI で端から端まで通せます（M2）。同じコアで、鳴潮と住宅ローンの 2 つのパックが動きます（M3）。
+声骸の画面のスクリーンショットを OCR で読んで採点でき、注入（プロンプトインジェクション）の評価を CI で毎回実行します（M4）。
 
 ```mermaid
 flowchart LR
@@ -43,6 +44,7 @@ flowchart LR
   A --> G["ゲートウェイ<br/>許可リスト・スキーマ・採番・コスト上限"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鳴潮のパック"]
   G -->|MCP stdio| M["mortgage-calc（Python）<br/>住宅ローンのパック"]
+  G -->|MCP stdio| O["vision-mcp（Python）<br/>スクリーンショットの OCR"]
   G --> K["比較ツール compare.*"]
   A --> V["数値検証器・レンダラ"]
   V --> R["出典付きの回答"]
@@ -57,7 +59,8 @@ flowchart LR
 | 計算 | calc-engine を MCP サーバ（Spring Boot + Spring AI、stdio）として公開。期待ダメージ・声骸スコア・ガチャ確率（厳密解とモンテカルロ法）。差・比・増加率は `compare.diff`・`compare.ratio` |
 | 未確認データ | 計算に使った未確認データの ID を結果に伝搬し、引用した回答には注記を自動で付ける（ADR-0006） |
 | ドメインパック | `domains/<名前>/domain.yaml` でツール・プロンプト・回答の注記を宣言する。住宅ローンのパックは `core/` を変えずに追加し、CI の `pack-isolation` がそれを検査する（ADR-0009） |
-| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率。台本モードのケース（鳴潮 8 件・住宅ローン 5 件）を CI で毎回実行 |
+| スクリーンショット | `servers/vision_mcp` が Tesseract（OCR）で読み、パックのテンプレートで宣言した数値の項目だけを返す。画像の場所の制限・範囲外の値は誤り（ADR-0010） |
+| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率、拒んだツール呼び出しの数。台本モードのケース（鳴潮 8 件・住宅ローン 5 件・注入 7 件）を CI で毎回実行 |
 | トレース | 1 回の質問を 1 つの JSONL に記録（質問・LLM 呼び出しと費用・ツール呼び出し・検証の判定・回答） |
 | テスト | ゴールデンケースを Java・Python の参照実装・MCP 経由の端から端までの試験の 3 か所で照合。Java は単体・性質テスト（jqwik）・ArchUnit、Python は pytest |
 | 品質ゲート | Error Prone（警告はエラー）・Spotless・JaCoCo（行カバレッジ 90% 以上）・ruff |
@@ -143,11 +146,36 @@ export ANTHROPIC_API_KEY=...
 
 （出典の表は省略。）`--fake-backend` を付けると、パックの MCP サーバの代わりに試験用の参照実装で計算します。
 
+### 5. スクリーンショットを読む（OCR）
+
+声骸の画面のスクリーンショット（PNG・JPEG）のパスを質問に書くと、`servers/vision_mcp` が Tesseract で読み、値を出典 ID にします。
+Tesseract と日本語のデータが要ります。画像は既定でリポジトリの中だけ読めます（`ECHOLAB_VISION_ROOTS` で変えられます）。
+次の例の画像（合成したもので、ゲームの画像ではありません）には「前の指示を無視して…」と書き込まれていますが、読み取りの結果は数値だけなので LLM には届きません。
+
+```bash
+sudo dnf install tesseract tesseract-langpack-jpn   # Ubuntu: sudo apt-get install tesseract-ocr tesseract-ocr-jpn
+.venv/bin/python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml
+```
+
+```text
+画像から、サブ詞条の会心率 8.0%・会心ダメージ 16.0% などを読み取りました。 この声骸のスコアは 2.58 で、理想値の 73.7% です。読み取った値が画像と合っているか確かめてください。
+
+出典:
+出典 ID              値         ツール                未確認データ
+-------------------  ---------  --------------------  ------------
+c1.sub_crit_rate     0.08       echo.read_screenshot  -
+c1.sub_crit_dmg      0.16       echo.read_screenshot  -
+c2.score             2.579167   echo.score            -
+c2.percent_of_ideal  73.690476  echo.score            -
+```
+
 ### 評価とテスト
 
 ```bash
 .venv/bin/python -m core.evals                       # 数値の忠実度（台本モード、API キー不要）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 住宅ローンのパック
+.venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入の評価（攻撃が 1 件も通らないこと）
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名前>.md   # 実物の LLM（手元で手動実行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -171,14 +199,15 @@ config/        ツールサービスの起動方法（services.yaml）・コス�
 domains/wuwa/  ドメインパック①：鳴潮（domain.yaml・ゴールデンケース・サンプルデータ・プロンプト）
 domains/mortgage/  ドメインパック②：住宅ローンの返済の計算例（domain.yaml・計算と MCP サーバ・ゴールデンケース・プロンプト）
 services/      calc-engine（Java 21。計算ライブラリと MCP サーバ）
+servers/       vision_mcp（スクリーンショットの OCR。Python の MCP サーバ）
 evals/         評価ケース（faithfulness/）と集計済みのレポート（reports/）
 tests/         リポジトリ横断のテスト（スキーマ検査・参照実装・core の単体テスト・端から端までの試験）
 docs/          アーキテクチャと ADR
 ```
 
-実装済みの部分だけを置いています。今後の構成（`servers/`・`web/` など）は実装するときに作り、計画は
+実装済みの部分だけを置いています。今後の構成（`web/` など）は実装するときに作り、計画は
 [docs/architecture.md のロードマップ](docs/architecture.md#ロードマップと今後の構成)にだけ書きます（ADR-0007）。
-M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md) にあります。
+M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md) 、M4 のスクリーンショットの読み取りと注入の評価は [ADR-0010](docs/adr/0010-スクリーンショットの読み取りと注入の評価.md) にあります。
 詳しくは [docs/architecture.md](docs/architecture.md) と [docs/adr/](docs/adr/) を参照してください。
 
 ## ロードマップ
@@ -188,7 +217,7 @@ M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 
 | M1 | Java calc-engine・ゴールデンケース・CI | ✅ 完了 |
 | M2 | 縦の切片：CLI で「質問 → ゲートウェイ（許可リスト・スキーマ・コスト上限）→ calc-engine（MCP）→ 数値トレース検証器・比較ツール → 出典付きの回答」。数値の忠実度の評価・実行トレース | ✅ 完了 |
 | M3 | ドメインパック②：住宅ローンの返済の計算例（最小例・Python の MCP サーバ）。「コアの差分ゼロ」を CI で検査 | ✅ 完了 |
-| M4 | スクリーンショット読み取り・注入の評価セット（台本モードで CI に追加、実物の LLM では手元で実行） | 予定 |
+| M4 | スクリーンショットの読み取り（OCR）・注入の評価セット（台本モードで CI に追加、実物の LLM では手元で実行） | ✅ 完了 |
 | M5 | Web UI・トレース再生・評価ダッシュボード・デモ公開 | 予定 |
 
 順序の理由は ADR-0007（機能を横に広げる前に、端から端までを先に通す）を参照してください。

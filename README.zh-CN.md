@@ -28,15 +28,16 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 | 数值捏造 | 计算只由确定性工具完成。差值、比值、增长率也由比较工具计算，AI 连四则运算都不做。LLM 的回答是通过占位符引用出处 ID 的模板，数值由渲染器填入。只要出现没有出处的数字就退回重写（M2、ADR-0005、ADR-0008） |
 | 数据的可靠性 | 未确认的数据也可用于计算，但回答中必定注明"基于未确认的数据"。`verified: true` 在 Schema 中强制要求出处 URL、确认日期和游戏版本（ADR-0006） |
 | 实现错误 | 同一组黄金用例在三处核对：Java、Python 参考实现、经由 MCP 的端到端测试 |
-| 越权与注入 | 工具调用经过默认拒绝的网关。来自外部的字符串被视为数据而非指令（网关已在 M2 实现，注入评估集在 M4） |
-| 质量退化 | 评估数值忠实度。脚本模式的评估在 CI 中对每个 PR 运行；使用真实 LLM 的评估在本地运行，只提交汇总结果（M2。注入评估集在 M4） |
+| 越权与注入 | 工具调用经过默认拒绝的网关。来自外部的字符串被视为数据而非指令从图片中只读取模板声明的数值，图片里的文字不会传给 LLM（M4、ADR-0010） |
+| 质量退化 | 评估数值忠实度。脚本模式的评估在 CI 中对每个 PR 运行；使用真实 LLM 的评估在本地运行，只提交汇总结果（M2）。注入评估集也以脚本模式在 CI 中运行（M4） |
 | 成本 | 根据价格表计算每次调用的费用并记入台账，达到每日或每月上限后不再调用 LLM（M2） |
 
 采用将领域无关的核心与"领域包"分离的设计。第二个领域包（房贷还款计算示例，M3）在不改动 `core/` 一行代码的情况下加入，并由 CI 检查这一点（ADR-0003、ADR-0009）。
 
-## 当前状态：M3（第二个领域包）
+## 当前状态：M4（截图读取与注入评估）
 
 从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮与房贷两个领域包（M3）。
+可以用 OCR 读取声骸界面的截图并评分，提示词注入的评估在 CI 中每次运行（M4）。
 
 ```mermaid
 flowchart LR
@@ -45,6 +46,7 @@ flowchart LR
   A --> G["网关<br/>许可列表・Schema・编号・成本上限"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鸣潮领域包"]
   G -->|MCP stdio| M["mortgage-calc（Python）<br/>房贷领域包"]
+  G -->|MCP stdio| O["vision-mcp（Python）<br/>截图 OCR"]
   G --> K["比较工具 compare.*"]
   A --> V["数值验证器・渲染器"]
   V --> R["附带出处的回答"]
@@ -59,7 +61,8 @@ flowchart LR
 | 计算 | 将 calc-engine 作为 MCP 服务器（Spring Boot + Spring AI，stdio）公开。期望伤害、声骸评分、抽卡概率（精确解与蒙特卡洛法）。差值、比值、增长率由 `compare.diff`、`compare.ratio` 计算 |
 | 未确认数据 | 计算中使用的未确认数据的 ID 会传递到结果中，引用它的回答会自动附加注释（ADR-0006） |
 | 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。房贷领域包在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009） |
-| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）与退回率。脚本模式的用例（鸣潮 8 个、房贷 5 个）在 CI 中每次运行 |
+| 截图 | `servers/vision_mcp` 用 Tesseract（OCR）读取，只返回领域包模板中声明的数值字段。限制图片位置，超出范围的值视为错误（ADR-0010） |
+| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）、退回率、被拒绝的工具调用数。脚本模式的用例（鸣潮 8 个、房贷 5 个、注入 7 个）在 CI 中每次运行 |
 | 追踪 | 一次提问记录为一个 JSONL 文件（提问、LLM 调用及费用、工具调用、验证判定、回答） |
 | 测试 | 黄金用例在 Java、Python 参考实现、经由 MCP 的端到端测试三处核对。Java 有单元测试、性质测试（jqwik）、ArchUnit，Python 使用 pytest |
 | 质量门禁 | Error Prone（警告视为错误）、Spotless、JaCoCo（行覆盖率 90% 以上）、ruff |
@@ -145,11 +148,36 @@ export ANTHROPIC_API_KEY=...
 
 （出处表从略。）加上 `--fake-backend` 时，由测试用的参考实现代替领域包的 MCP 服务器进行计算。
 
+### 5. 读取截图（OCR）
+
+在问题中写上声骸界面截图（PNG・JPEG）的路径，`servers/vision_mcp` 会用 Tesseract 读取，并把值变成出处 ID。
+需要 Tesseract 及其日语数据。默认只能读取仓库内的图片（可用 `ECHOLAB_VISION_ROOTS` 修改）。
+下例中的图片（合成图片，不是游戏图片）上写着"忽略之前的指示……"，但读取结果只有数值，所以传不到 LLM。
+
+```bash
+sudo dnf install tesseract tesseract-langpack-jpn   # Ubuntu: sudo apt-get install tesseract-ocr tesseract-ocr-jpn
+.venv/bin/python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml
+```
+
+```text
+画像から、サブ詞条の会心率 8.0%・会心ダメージ 16.0% などを読み取りました。 この声骸のスコアは 2.58 で、理想値の 73.7% です。読み取った値が画像と合っているか確かめてください。
+
+出典:
+出典 ID              値         ツール                未確認データ
+-------------------  ---------  --------------------  ------------
+c1.sub_crit_rate     0.08       echo.read_screenshot  -
+c1.sub_crit_dmg      0.16       echo.read_screenshot  -
+c2.score             2.579167   echo.score            -
+c2.percent_of_ideal  73.690476  echo.score            -
+```
+
 ### 评估与测试
 
 ```bash
 .venv/bin/python -m core.evals                       # 数值忠实度（脚本模式，无需 API 密钥）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 房贷领域包
+.venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入评估（攻击必须无一成功）
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名称>.md   # 真实 LLM（在本地手动运行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -173,14 +201,15 @@ config/        工具服务的启动方式（services.yaml）・成本上限与�
 domains/wuwa/  领域包①：鸣潮（domain.yaml・黄金用例・示例数据・提示词）
 domains/mortgage/  领域包②：房贷还款计算示例（domain.yaml・计算与 MCP 服务器・黄金用例・提示词）
 services/      calc-engine（Java 21。计算库与 MCP 服务器）
+servers/       vision_mcp（截图 OCR。Python 的 MCP 服务器）
 evals/         评估用例（faithfulness/）与汇总报告（reports/）
 tests/         跨仓库的测试（Schema 检查・参考实现・core 单元测试・端到端测试）
 docs/          架构与 ADR
 ```
 
-仓库中只放已实现的部分。今后的目录（`servers/`、`web/` 等）在实现时再创建，计划只写在
+仓库中只放已实现的部分。今后的目录（`web/` 等）在实现时再创建，计划只写在
 [docs/architecture.zh-CN.md 的路线图一节](docs/architecture.zh-CN.md#路线图与今后的结构)中（ADR-0007）。
-M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009。
+M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009，M4 的截图读取与注入评估见 ADR-0010。
 详情请参阅 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md) 与 [docs/adr/zh-CN/](docs/adr/zh-CN/) 中的 ADR。
 
 ## 路线图
@@ -190,7 +219,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | M1 | Java calc-engine・黄金用例・CI | ✅ 完成 |
 | M2 | 纵向切片：在 CLI 中实现"提问 → 网关（许可列表・Schema・成本上限）→ calc-engine（MCP）→ 数值追踪验证器・比较工具 → 附带出处的回答"。数值忠实度评估・执行追踪 | ✅ 完成 |
 | M3 | 领域包②：房贷还款计算示例（最小示例・Python MCP 服务器）。在 CI 中检查"核心差异为零" | ✅ 完成 |
-| M4 | 截图识别・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | 计划中 |
+| M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
 | M5 | Web UI・追踪回放・评估仪表盘・公开演示 | 计划中 |
 
 该顺序的理由见 ADR-0007（在横向扩展功能之前，先打通端到端）。

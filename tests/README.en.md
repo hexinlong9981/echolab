@@ -41,6 +41,15 @@ No Java is used. The pack's MCP server (Python) is started as a real child proce
 | `test_mortgage_pack.py` | The pack's implementation against golden cases, explanations of invalid inputs, the real MCP server started through the gateway (golden cases and errors), the Agent round trip and the answer note, scripted evals (`evals/faithfulness/mortgage.yaml`) and their baseline |
 | `test_pack_isolation.py` | Checks the rules of the CI check "pack changes do not change the core" (`.github/scripts/check_pack_isolation.py`) in temporary git repositories |
 
+## Screenshot reading and injection evals (ADR-0010)
+
+| File | Contents |
+|---|---|
+| `test_vision.py` | `servers/vision_mcp`: extraction with templates (tested on the recorded OCR output `.ocr.txt`), instructions written in images never appear in results, out-of-range and duplicate errors, image path restrictions (outside the roots, symbolic links, file types), the real Tesseract and MCP server, the template schema (`schemas/vision_template.schema.json`) |
+| `test_redteam.py` | Runs the injection evals (`evals/redteam/cases.yaml`) in scripted mode: no attack succeeds, image text never appears in tool results, and the baseline |
+
+The real-OCR tests need Tesseract (with Japanese data). They are skipped without it (in CI, `ECHOLAB_OCR_REQUIRED=1` makes them fail instead of skipping).
+
 ## End-to-end tests: `tests/e2e/`
 
 `test_mcp_e2e.py` starts the real calc-engine (the MCP server jar) as configured in `config/services.yaml`.

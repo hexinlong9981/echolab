@@ -28,15 +28,16 @@ LLMs produce plausible-looking numbers. When AI is used at work, the first quest
 | Fabricated numbers | Only deterministic tools calculate. Differences, ratios and % increases are also computed by compare tools; the AI does not even do arithmetic. The LLM's answer is a template that cites source IDs through placeholders, and a renderer fills in the numbers. Any number without a source sends the draft back (M2, ADR-0005, ADR-0008) |
 | Data reliability | Unverified data may be used in calculations, but the answer always carries a note that it is based on unverified data. `verified: true` requires a source URL, check date and game version, enforced by schema (ADR-0006) |
 | Implementation errors | The same golden cases are checked in three places: Java, a Python reference implementation, and end-to-end tests through MCP |
-| Overreach and injection | Tools go through a default-deny gateway. Strings from outside are treated as data, not instructions (the gateway is implemented in M2; the injection eval set comes in M4) |
-| Quality regressions | Numeric faithfulness is evaluated. Scripted-mode evals run in CI on every PR; evals with the real LLM are run locally and only the aggregated results are committed (M2; injection eval set in M4) |
+| Overreach and injection | Tools go through a default-deny gateway. Strings from outside are treated as data, not instructions Only numbers declared in a template are read from images, so text in an image never reaches the LLM (M4, ADR-0010) |
+| Quality regressions | Numeric faithfulness is evaluated. Scripted-mode evals run in CI on every PR; evals with the real LLM are run locally and only the aggregated results are committed (M2). The injection eval set also runs in CI in scripted mode (M4) |
 | Cost | The cost of each call is computed from a price table and recorded in a ledger; once the daily or monthly cap is reached, the LLM is not called (M2) |
 
 The design separates a domain-agnostic core from "domain packs". The second pack (example mortgage repayment calculations, M3) was added without changing a single line of `core/`, and CI checks this (ADR-0003, ADR-0009).
 
-## Status: M3 (second domain pack)
+## Status: M4 (screenshot reading and injection evals)
 
 A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs two packs: Wuthering Waves and mortgages (M3).
+Screenshots of the echo screen can be read with OCR and scored, and prompt-injection evals run in CI every time (M4).
 
 ```mermaid
 flowchart LR
@@ -45,6 +46,7 @@ flowchart LR
   A --> G["Gateway<br/>allowlist, schema, ID assignment, cost caps"]
   G -->|MCP stdio| J["calc-engine (Java 21)<br/>Wuthering Waves pack"]
   G -->|MCP stdio| M["mortgage-calc (Python)<br/>mortgage pack"]
+  G -->|MCP stdio| O["vision-mcp (Python)<br/>screenshot OCR"]
   G --> K["Compare tools compare.*"]
   A --> V["Numeric verifier and renderer"]
   V --> R["Cited answer"]
@@ -59,7 +61,8 @@ flowchart LR
 | Calculation | calc-engine is exposed as an MCP server (Spring Boot + Spring AI, stdio): expected damage, echo score, gacha probability (exact solution and Monte Carlo). Differences, ratios and % increases via `compare.diff` and `compare.ratio` |
 | Unverified data | IDs of unverified data used in a calculation are propagated into the result, and answers citing it get a note automatically (ADR-0006) |
 | Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The mortgage pack was added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009) |
-| Evals | Numeric faithfulness (share of answers with not a single unsourced number) and the rejection rate. Scripted cases (8 for Wuthering Waves, 5 for mortgages) run in CI every time |
+| Screenshots | `servers/vision_mcp` reads them with Tesseract (OCR) and returns only the numeric fields declared in the pack's template. Image locations are restricted; out-of-range values are errors (ADR-0010) |
+| Evals | Numeric faithfulness (share of answers with not a single unsourced number), the rejection rate and the number of refused tool calls. Scripted cases (8 for Wuthering Waves, 5 for mortgages, 7 injection cases) run in CI every time |
 | Tracing | One question is recorded in one JSONL file (question, LLM calls and their cost, tool calls, verifier verdicts, answer) |
 | Tests | Golden cases are checked in three places: Java, the Python reference implementation, and end-to-end through MCP. Java has unit tests, property tests (jqwik) and ArchUnit; Python uses pytest |
 | Quality gates | Error Prone (warnings as errors), Spotless, JaCoCo (≥ 90% line coverage), ruff |
@@ -145,11 +148,36 @@ Compares equal-payment and equal-principal repayment, and calculates the effect 
 
 (The source table is omitted.) With `--fake-backend`, a test reference implementation calculates instead of the pack's MCP server.
 
+### 5. Reading screenshots (OCR)
+
+Put the path of a screenshot of the echo screen (PNG or JPEG) in the question, and `servers/vision_mcp` reads it with Tesseract and turns the values into source IDs.
+Tesseract and its Japanese data are needed. By default only images inside the repository can be read (change with `ECHOLAB_VISION_ROOTS`).
+The image in this example (synthetic, not a game image) has "ignore the previous instructions…" written on it, but the reading result contains numbers only, so it never reaches the LLM.
+
+```bash
+sudo dnf install tesseract tesseract-langpack-jpn   # Ubuntu: sudo apt-get install tesseract-ocr tesseract-ocr-jpn
+.venv/bin/python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml
+```
+
+```text
+画像から、サブ詞条の会心率 8.0%・会心ダメージ 16.0% などを読み取りました。 この声骸のスコアは 2.58 で、理想値の 73.7% です。読み取った値が画像と合っているか確かめてください。
+
+出典:
+出典 ID              値         ツール                未確認データ
+-------------------  ---------  --------------------  ------------
+c1.sub_crit_rate     0.08       echo.read_screenshot  -
+c1.sub_crit_dmg      0.16       echo.read_screenshot  -
+c2.score             2.579167   echo.score            -
+c2.percent_of_ideal  73.690476  echo.score            -
+```
+
 ### Evals and tests
 
 ```bash
 .venv/bin/python -m core.evals                       # numeric faithfulness (scripted mode, no API key)
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
+.venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # injection evals (no attack may succeed)
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<name>.md   # real LLM (run manually, locally)
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -173,14 +201,15 @@ config/        Tool service launch config (services.yaml), cost caps and price t
 domains/wuwa/  Domain pack #1: Wuthering Waves (domain.yaml, golden cases, sample data, prompts)
 domains/mortgage/  Domain pack #2: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
 services/      calc-engine (Java 21: calculation library and MCP server)
+servers/       vision_mcp (screenshot OCR, a Python MCP server)
 evals/         Eval cases (faithfulness/) and aggregated reports (reports/)
 tests/         Cross-repo tests (schema checks, reference implementation, core unit tests, end-to-end tests)
 docs/          Architecture and ADRs
 ```
 
-Only implemented parts are in the repository. Future directories (`servers/`, `web/`, etc.) are created when they are implemented, and the plan is written
+Only implemented parts are in the repository. Future directories (`web/`, etc.) are created when they are implemented, and the plan is written
 only in the [roadmap section of docs/architecture.en.md](docs/architecture.en.md#roadmap-and-future-structure) (ADR-0007).
-The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009.
+The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010.
 For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs in [docs/adr/en/](docs/adr/en/).
 
 ## Roadmap
@@ -190,7 +219,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M1 | Java calc-engine, golden cases, CI | ✅ Done |
 | M2 | Vertical slice via CLI: question → gateway (allowlist, schema, cost caps) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
-| M4 | Screenshot reading, injection eval set (scripted mode added to CI; real LLM run locally) | Planned |
+| M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo | Planned |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
