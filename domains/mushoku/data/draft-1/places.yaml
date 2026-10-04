@@ -1,20 +1,20 @@
 # 自作の地図（ノード＝地域・都市、辺＝移動の目安の日数）。原作の地図ではなく、話の流れから大まかに作った下書き。
-# 日数は目安で、すべて未確認。辺の novel_vol・anime_ep は、その道を物語で初めて旅した巻・話。
+# 日数は目安（利用者が 2026-10-04 に妥当と確認）。辺の novel_vol・anime_ep は、その道を物語で初めて旅した巻・話。
 schema_version: 1
 places:
-  - {id: buena, name: ブエナ村, aliases: [ブエナ村, ブエナ], region: アスラ王国, novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 確認する"}
-  - {id: roa, name: ロア, aliases: [ロア], region: アスラ王国, novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 確認する"}
-  - {id: rikarisu, name: リカリスの町, aliases: [リカリス], region: 魔大陸, novel_vol: 3, anime_ep: "1-13", verified: false, source: "TODO: 確認する"}
-  - {id: wind_port, name: ウィンドポート, aliases: [ウィンドポート], region: 魔大陸, novel_vol: 4, anime_ep: "1-17", verified: false, source: "TODO: 確認する"}
-  - {id: zant_port, name: ザントポート, aliases: [ザントポート], region: ミリス大陸, novel_vol: 4, anime_ep: "1-17", verified: false, source: "TODO: 確認する"}
-  - {id: millishion, name: ミリシオン, aliases: [ミリシオン, 聖ミリス], region: ミリス大陸, novel_vol: 5, anime_ep: "1-18", verified: false, source: "TODO: 確認する"}
-  - {id: sharia, name: シャリーア, aliases: [シャリーア, 魔法大学, ラノア魔法大学], region: ラノア王国, novel_vol: 8, anime_ep: "2-2", verified: false, source: "TODO: 確認する"}
-  - {id: rapan, name: ラパン, aliases: [ラパン, 迷宮都市], region: ベガリット大陸, novel_vol: 11, anime_ep: "2-19", verified: false, source: "TODO: 確認する"}
+  - {id: buena, name: ブエナ村, aliases: [ブエナ村, ブエナ], region: アスラ王国, novel_vol: 1, anime_ep: "1-1", verified: true, source: "小説第1巻・アニメ第1期第1話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: roa, name: ロア, aliases: [ロア], region: アスラ王国, novel_vol: 2, anime_ep: "1-5", verified: true, source: "小説第2巻・アニメ第1期第5話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: rikarisu, name: リカリスの町, aliases: [リカリス], region: 魔大陸, novel_vol: 3, anime_ep: "1-10", verified: true, source: "小説第3巻・アニメ第1期第10話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: wind_port, name: ウィンドポート, aliases: [ウィンドポート], region: 魔大陸, novel_vol: 4, anime_ep: "1-14", verified: true, source: "小説第4巻・アニメ第1期第14話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: zant_port, name: ザントポート, aliases: [ザントポート], region: ミリス大陸, novel_vol: 4, anime_ep: "1-15", verified: true, source: "小説第4巻・アニメ第1期第15話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: millishion, name: ミリシオン, aliases: [ミリシオン, 聖ミリス], region: ミリス大陸, novel_vol: 5, anime_ep: "1-16", verified: true, source: "小説第5巻・アニメ第1期第16話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: sharia, name: シャリーア, aliases: [シャリーア, 魔法大学, ラノア魔法大学], region: ラノア王国, novel_vol: 8, anime_ep: "2-4", verified: true, source: "小説第8巻・アニメ第2期第4話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: rapan, name: ラパン, aliases: [ラパン, 迷宮都市], region: ベガリット大陸, novel_vol: 11, anime_ep: "2-19", verified: true, source: "小説第11巻・アニメ第2期第19話（利用者が確認）", checked_at: "2026-10-04"}
 routes:
-  - {from: buena, to: roa, days: 3, novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 自作の目安"}
-  - {from: rikarisu, to: wind_port, days: 60, novel_vol: 4, anime_ep: "1-17", verified: false, source: "TODO: 自作の目安"}
-  - {from: wind_port, to: zant_port, days: 3, novel_vol: 4, anime_ep: "1-17", verified: false, source: "TODO: 自作の目安"}
-  - {from: zant_port, to: millishion, days: 20, novel_vol: 5, anime_ep: "1-18", verified: false, source: "TODO: 自作の目安"}
-  - {from: millishion, to: roa, days: 90, novel_vol: 6, anime_ep: "1-23", verified: false, source: "TODO: 自作の目安"}
-  - {from: roa, to: sharia, days: 120, novel_vol: 8, anime_ep: "2-2", verified: false, source: "TODO: 自作の目安"}
-  - {from: sharia, to: rapan, days: 180, novel_vol: 11, anime_ep: "2-19", verified: false, source: "TODO: 自作の目安"}
+  - {from: buena, to: roa, days: 3, novel_vol: 2, anime_ep: "1-5", verified: true, source: "小説第2巻・アニメ第1期第5話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: rikarisu, to: wind_port, days: 60, novel_vol: 4, anime_ep: "1-14", verified: true, source: "小説第4巻・アニメ第1期第14話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: wind_port, to: zant_port, days: 3, novel_vol: 4, anime_ep: "1-15", verified: true, source: "小説第4巻・アニメ第1期第15話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: zant_port, to: millishion, days: 20, novel_vol: 5, anime_ep: "1-16", verified: true, source: "小説第5巻・アニメ第1期第16話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: millishion, to: roa, days: 90, novel_vol: 6, anime_ep: "1-23", verified: true, source: "小説第6巻・アニメ第1期第23話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: roa, to: sharia, days: 120, novel_vol: 8, anime_ep: "2-4", verified: true, source: "小説第8巻・アニメ第2期第4話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}
+  - {from: sharia, to: rapan, days: 180, novel_vol: 11, anime_ep: "2-19", verified: true, source: "小説第11巻・アニメ第2期第19話（日数は自作の目安。利用者が妥当と確認）（利用者が確認）", checked_at: "2026-10-04"}

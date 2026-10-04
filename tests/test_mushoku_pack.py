@@ -138,7 +138,11 @@ def test_data_rules_that_prevent_leaks() -> None:
         secret = {a["name"] for a in person.get("secret_aliases", [])}
         assert not secret & set(person.get("aliases", [])), person["id"]
     for item in [*_data("facts")["facts"], *entities.values(), *_data("events")["events"]]:
-        assert item["verified"] is False and item["source"].startswith("TODO")  # 未確認の下書き
+        # 確認済み（利用者が原作で確認）なら具体的な出典と確認日、未確認なら TODO の出典（ADR-0006）
+        if item["verified"]:
+            assert not item["source"].startswith("TODO") and item.get("checked_at"), item
+        else:
+            assert item["source"].startswith("TODO"), item
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +165,8 @@ async def test_gateway_hides_progress_and_filters_with_the_users_value(tmp_path:
         hits = await gw.call("lore_search", {"keywords": ["ロキシー"]})
         assert hits.error is None
         assert set(hits.texts) == {"roxy_tutor", "roxy_migurd"}  # 結婚（12 巻）は出ない
-        assert all(s.unverified_inputs for s in hits.sources)
+        # 確認済みのデータだけなので、未確認データの印は付かない（ADR-0006）
+        assert not any(s.unverified_inputs for s in hits.sources)
 
         widened = await gw.call("lore_search", {"keywords": ["ロキシー"], "progress": "novel:26"})
         assert widened.error is not None and "progress" in widened.error
@@ -208,3 +213,17 @@ async def test_scripted_evals_pass_and_baseline_is_current(
     assert "- ドメイン: `mushoku`" in text
     for case in load_cases(cases):
         assert re.search(rf"\| `{re.escape(case['id'])}` \|.*\| 合格 \|", text), case["id"]
+
+
+def test_only_unverified_items_are_marked() -> None:
+    """未確認の印は、verified が true でない資料だけに付く（ADR-0006）。"""
+    from domains.mushoku.service.lore import _unverified
+
+    checked = {"id": "a", "verified": True}
+    draft = {"id": "b", "verified": False}
+    edge = {"from": "x", "to": "y", "verified": False}
+    assert _unverified(("facts", checked)) == ()
+    assert _unverified(("facts", checked), ("facts", draft), ("routes", edge)) == (
+        "facts:b",
+        "routes:x-y",
+    )

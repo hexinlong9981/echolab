@@ -6,7 +6,7 @@
 
 > **An unofficial fan project.** Rights to *Mushoku Tensei: Jobless Reincarnation* belong to the author, publishers, anime producers and other rights holders.
 > No original text, dialogue, illustrations or anime images are included; only short self-written summaries and volume/episode numbers.
-> **All data is an unverified draft written from memory** (`verified: false`) and may contain mistakes. Map travel days are self-made estimates.
+> **The data was drafted from memory and checked against the original works by the user on 2026-10-04** (`verified: true`; sources are novel volumes and anime episodes). Map travel days are self-made estimates that the user judged reasonable. New data stays `verified: false` until it is checked.
 
 A pack that answers questions about the setting, timeline and travel routes (M6, [ADR-0012](../../docs/adr/en/0012-mushoku-pack-and-spoiler-protection.md)).
 Its highlight is **spoiler protection**: the same mechanism as "filter search results by the user's permissions" in business systems, always enforced in the retrieval layer.

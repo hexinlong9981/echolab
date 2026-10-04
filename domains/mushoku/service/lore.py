@@ -170,7 +170,24 @@ def search(i: Mapping[str, Any]) -> Result:
     for fact in hits:
         values.update(_cite(fact["id"], fact, progress))
     return Result(
-        values, {f["id"]: f["text"] for f in hits}, tuple(f"facts:{f['id']}" for f in hits)
+        values,
+        {f["id"]: f["text"] for f in hits},
+        _unverified(*(("facts", f) for f in hits)),
+    )
+
+
+def _unverified(*items: tuple[str, Mapping[str, Any]]) -> tuple[str, ...]:
+    """結果に使った資料のうち、未確認（verified が true でない）ものの ID（ADR-0006）。
+
+    確認済みの資料だけで答えたときは空になり、回答に未確認の注記は付かない。
+    """
+    return tuple(
+        dict.fromkeys(
+            f"{kind}:{key}"
+            for kind, item in items
+            if not item.get("verified")
+            for key in [item.get("id") or f"{item['from']}-{item['to']}"]
+        )
     )
 
 
@@ -189,7 +206,7 @@ def age(i: Mapping[str, Any]) -> Result:
             "event_year": Decimal(event["year"]),
         },
         {},
-        (f"people:{person['id']}", f"events:{event['id']}"),
+        _unverified(("people", person), ("events", event)),
     )
 
 
@@ -206,7 +223,7 @@ def span(i: Mapping[str, Any]) -> Result:
             "to_year": Decimal(b["year"]),
         },
         {},
-        (f"events:{a['id']}", f"events:{b['id']}"),
+        _unverified(("events", a), ("events", b)),
     )
 
 
@@ -230,11 +247,16 @@ def route(i: Mapping[str, Any]) -> Result:
             "（まだ読んでいない範囲の道は使いません）"
         )
     names = {p["id"]: p["name"] for p in places}
+    by_id = {p["id"]: p for p in places}
     total = sum(days for _, days, _ in path)
     return Result(
         {"total_days": Decimal(total), "legs": Decimal(len(path))},
         {"path": " → ".join([names[start["id"]], *(names[node] for node, _, _ in path)])},
-        tuple(dict.fromkeys(f"places:{p}" for p in [start["id"], *(n for n, _, _ in path)])),
+        _unverified(
+            ("places", start),
+            *(("places", by_id[node]) for node, _, _ in path),
+            *(("routes", edge) for _, _, edge in path),
+        ),
     )
 
 

@@ -1,7 +1,7 @@
-# 出来事と、その年（甲龍歴）。記憶をもとに書いた下書きで、すべて未確認。年に確信のあるものだけ書く。
+# 出来事と、その年（甲龍歴）。記憶をもとに書いた下書きを、利用者が 2026-10-04 に原作で確認した（verified: true。出典は巻・話）。年に確信のあるものだけ書く。
 schema_version: 1
 calendar: 甲龍歴
 events:
-  - {id: rudeus_birth, name: ルーデウスの誕生, aliases: [ルーデウスの誕生, 誕生], year: 407, novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 年を確認する"}
-  - {id: teleport_incident, name: 転移事件, aliases: [転移事件, フィットア領転移事件, 魔力災害], year: 417, novel_vol: 3, anime_ep: "1-11", verified: false, source: "TODO: 年と巻を確認する"}
-  - {id: return_to_fittoa, name: フィットア領への帰還, aliases: [帰還, フィットア領への帰還], year: 422, novel_vol: 6, anime_ep: "1-23", verified: false, source: "TODO: 年を確認する"}
+  - {id: rudeus_birth, name: ルーデウスの誕生, aliases: [ルーデウスの誕生, 誕生], year: 407, novel_vol: 1, anime_ep: "1-1", verified: true, source: "小説第1巻・アニメ第1期第1話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: teleport_incident, name: 転移事件, aliases: [転移事件, フィットア領転移事件, 魔力災害], year: 417, novel_vol: 3, anime_ep: "1-11", verified: true, source: "小説第3巻・アニメ第1期第11話（利用者が確認）", checked_at: "2026-10-04"}
+  - {id: return_to_fittoa, name: フィットア領への帰還, aliases: [帰還, フィットア領への帰還], year: 422, novel_vol: 6, anime_ep: "1-23", verified: true, source: "小説第6巻・アニメ第1期第23話（利用者が確認）", checked_at: "2026-10-04"}

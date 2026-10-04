@@ -21,8 +21,14 @@ cases:
     expected: {count: 1, fitz_bodyguard_novel_vol: 8}
     tolerance: 0
   - id: search-004
-    description: アニメの進み具合では、話の番号で出典を返す（2 期 10 話までならフィッツの正体が分かる）
+    description: アニメの進み具合では、話の番号で出典を返す（2 期 11 話までならフィッツの正体が分かる）
+    derivation: hand
+    input: {keywords: [フィッツ, 正体], progress: "anime:2-11"}
+    expected: {count: 1, fitz_is_sylphie_anime_season: 2, fitz_is_sylphie_anime_episode: 11}
+    tolerance: 0
+  - id: search-005
+    description: 正体が明かされる 1 話前（2 期 10 話）では、フィッツの正体の事実は出ない
     derivation: hand
     input: {keywords: [フィッツ, 正体], progress: "anime:2-10"}
-    expected: {count: 1, fitz_is_sylphie_anime_season: 2, fitz_is_sylphie_anime_episode: 10}
+    expected: {count: 0}
     tolerance: 0
