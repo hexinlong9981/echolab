@@ -10,10 +10,6 @@ services:
     command: ["java", "-jar", "services/calc-engine/build/libs/calc-engine-mcp.jar"]
     env:
       ECHOLAB_DATA_ROOT: domains
-  mortgage-calc:
-    # 住宅ローンのパックの計算（Python、ADR-0009）
-    transport: stdio
-    command: ["python", "-m", "domains.mortgage.calc"]
   vision-mcp:
     # スクリーンショットの OCR（Tesseract）。テンプレートは domains/*/vision（ADR-0010）
     transport: stdio
@@ -22,3 +18,7 @@ services:
     # 無職転生のパックの検索・時系列・旅程（Python、ADR-0012）
     transport: stdio
     command: ["python", "-m", "domains.mushoku.service"]
+  mortgage-calc:
+    # 住宅ローンのパックの計算（Python、ADR-0009）
+    transport: stdio
+    command: ["python", "-m", "domains.mortgage.calc"]

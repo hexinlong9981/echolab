@@ -31,16 +31,6 @@ No API key and no Java are used. The LLM is replaced by a script (`ScriptedLLM`)
 | `test_trace.py` | Execution trace: JSONL with one event per line, serialization of contract types, contents of the events the agent records |
 | `test_evals.py` | Runs all numeric-faithfulness eval cases in scripted mode and checks that the result matches the committed `evals/reports/scripted-baseline.md` |
 
-## Domain pack #2: mortgages (ADR-0009)
-
-No Java is used. The pack's MCP server (Python) is started as a real child process, so these tests run in the CI `python` job every time.
-
-| File | Contents |
-|---|---|
-| `reference/mortgage_reference.py` | Reference implementation for mortgages. It calculates in a different way (`float`, the balance formula and a logarithm for the number of months) from the pack's implementation (`Decimal`, advancing the balance month by month) |
-| `test_mortgage_pack.py` | The pack's implementation against golden cases, explanations of invalid inputs, the real MCP server started through the gateway (golden cases and errors), the Agent round trip and the answer note, scripted evals (`evals/faithfulness/mortgage.yaml`) and their baseline |
-| `test_pack_isolation.py` | Checks the rules of the CI check "pack changes do not change the core" (`.github/scripts/check_pack_isolation.py`) in temporary git repositories |
-
 ## Screenshot reading and injection evals (ADR-0010)
 
 | File | Contents |
@@ -50,20 +40,30 @@ No Java is used. The pack's MCP server (Python) is started as a real child proce
 
 The real-OCR tests need Tesseract (with Japanese data). They are skipped without it (in CI, `ECHOLAB_OCR_REQUIRED=1` makes them fail instead of skipping).
 
-## Web UI (ADR-0011)
-
-| File | Contents |
-|---|---|
-| `test_web_api.py` | `servers/web_api`: export (traces of every demo and eval, no local paths), request checks (unknown LLM, script, overly long question, domain), the local API (127.0.0.1 only, refusing other sites' `Origin` and wrong `Content-Type`, running a scripted demo) |
-| `web/src/replay.test.ts` | The UI side (Vitest, `cd web && npm test`): trace events → replay steps (target boxes, refusals, rejections, source table), and the arrow end-point calculation |
-
-## Domain pack #3: Mushoku Tensei (ADR-0012)
+## Domain pack: Mushoku Tensei (ADR-0012)
 
 | File | Contents |
 |---|---|
 | `reference/mushoku_reference.py` | Reference implementation. Routes are found by checking every simple path instead of Dijkstra, and the spoiler filter is written separately |
 | `test_mushoku_pack.py` | The pack against golden cases; hidden and nonexistent items give the same error; no conversion between media; identity aliases do not match before the reveal; data rules (tagged people appear before the fact, no digits, unverified); the real MCP server (progress hidden from the LLM and refused if sent); evals and baselines |
 | `core/test_user_context.py` | The core `user_context` (hidden from the LLM, LLM values refused, missing is an error, undeclared items fail at open) and `texts` |
+
+## Domain pack: mortgages (ADR-0009)
+
+No Java is used. The pack's MCP server (Python) is started as a real child process, so these tests run in the CI `python` job every time.
+
+| File | Contents |
+|---|---|
+| `reference/mortgage_reference.py` | Reference implementation for mortgages. It calculates in a different way (`float`, the balance formula and a logarithm for the number of months) from the pack's implementation (`Decimal`, advancing the balance month by month) |
+| `test_mortgage_pack.py` | The pack's implementation against golden cases, explanations of invalid inputs, the real MCP server started through the gateway (golden cases and errors), the Agent round trip and the answer note, scripted evals (`evals/faithfulness/mortgage.yaml`) and their baseline |
+| `test_pack_isolation.py` | Checks the rules of the CI check "pack changes do not change the core" (`.github/scripts/check_pack_isolation.py`) in temporary git repositories |
+
+## Web UI (ADR-0011)
+
+| File | Contents |
+|---|---|
+| `test_web_api.py` | `servers/web_api`: export (traces of every demo and eval, no local paths), request checks (unknown LLM, script, overly long question, domain), the local API (127.0.0.1 only, refusing other sites' `Origin` and wrong `Content-Type`, running a scripted demo) |
+| `web/src/replay.test.ts` | The UI side (Vitest, `cd web && npm test`): trace events → replay steps (target boxes, refusals, rejections, source table), and the arrow end-point calculation |
 
 ## End-to-end tests: `tests/e2e/`
 

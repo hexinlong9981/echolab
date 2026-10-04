@@ -24,14 +24,14 @@ flowchart TB
   end
   subgraph tools["MCP 工具"]
     CE["calc-engine（Java 21）<br/>伤害・评分・抽卡<br/>MCP 服务器（stdio）"]
-    MC["mortgage-calc（Python）<br/>房贷领域包的计算<br/>MCP 服务器（stdio）"]
     ML["mushoku-lore（Python）<br/>无职转生领域包的检索・时间线・行程<br/>MCP 服务器（stdio）"]
+    MC["mortgage-calc（Python）<br/>房贷领域包的计算<br/>MCP 服务器（stdio）"]
     VM["vision_mcp（Python・M4）<br/>截图 OCR<br/>MCP 服务器（stdio）"]
   end
   subgraph domains["domains/（领域包）"]
-    D1["① wuwa（M1 起）"]
-    D3["② mortgage（M3〜）"]
-    D4["③ mushoku（M6〜）"]
+    D1["wuwa（M1 起）"]
+    D4["mushoku（M6〜）"]
+    D3["mortgage（M3〜）"]
   end
   CLI --> AG
   UI --> AG
@@ -100,11 +100,11 @@ M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | 位置 | 内容 |
 |---|---|
 | `core/` | 领域无关的核心（Python）。组件见下一节的表 |
-| `config/` | `services.yaml`（工具服务的启动方式：calc-engine・mortgage-calc・vision-mcp）・`budget.yaml`（成本上限与价格表） |
+| `config/` | `services.yaml`（工具服务的启动方式：calc-engine・vision-mcp・mushoku-lore・mortgage-calc）・`budget.yaml`（成本上限与价格表） |
 | `services/calc-engine` | Java 21 的计算库（`dev.echolab.calc`，不依赖框架）与 MCP 服务器（`dev.echolab.app`，ADR-0004） |
 | `domains/wuwa` | `domain.yaml`・黄金用例（带 `derivation`）・未确认的示例数据（`verified: false`）・提示词・截图模板（`vision/`） |
-| `domains/mortgage` | 房贷还款计算示例：计算与 Python MCP 服务器（`calc/`）・黄金用例・提示词（ADR-0009） |
 | `domains/mushoku` | 无职转生设定考证：检索・时间线・行程与 Python MCP 服务器（`service/`）・未确认的草稿资料・黄金用例・提示词（ADR-0012） |
+| `domains/mortgage` | 房贷还款计算示例：计算与 Python MCP 服务器（`calc/`）・黄金用例・提示词（ADR-0009） |
 | `servers/vision_mcp` | 截图 OCR（Tesseract）。只返回模板声明的数值（ADR-0010） |
 | `servers/web_api` | 网页界面的数据导出与只在本机的 API（ADR-0011） |
 | `web/` | 网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面（ADR-0011） |
@@ -134,7 +134,7 @@ M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 
 ### M2：纵向切片（提问 → 带出处的回答）：已实现
 
-`core/` 中完全不引入鸣潮、房贷之类的领域概念。
+`core/` 中完全不引入鸣潮、无职转生、房贷之类的领域概念。
 各领域的知识在 `domains/<名称>/domain.yaml` 中声明，核心只读取它（ADR-0003）。
 组件的划分与边界契约见 ADR-0008。
 
@@ -269,7 +269,7 @@ M2 时点的限制及其影响范围。
 | 费用台账为本地 JSONL | 台账（`.echolab/costs.jsonl`）是以单机・单用户使用为前提的文件，不做跨进程的互斥控制。若同时运行多个进程，上限判定可能遗漏彼此的用量 |
 | 验证器检查的数字范围 | 验证器作为数值检测的是阿拉伯数字（含全角）。不检测汉字数字（如「三」）。此外，与提问中数值相等的数字，无论出现在什么上下文中都视为引用而允许 |
 | 示例数据未确认 | `domains/wuwa/data` 中的值是未确认的示例（`verified: false`）。使用这些数据的回答会附带注记（ADR-0006） |
-| 房贷模型很简单 | 固定利率、按月还款，不包含日元以下的取整、按日计息、手续费、利率调整。这只是计算示例，回答会附带不构成金融建议的注记（ADR-0009） |
 | 不含数字的剧透句子 | 在无职转生领域包中，LLM 凭自己的知识写出的"不含数字的剧透句子"无法从结构上拦住（只靠提示词禁止）。含数字的会被验证器拦住。资料是未确认的草稿（ADR-0012） |
+| 房贷模型很简单 | 固定利率、按月还款，不包含日元以下的取整、按日计息、手续费、利率调整。这只是计算示例，回答会附带不构成金融建议的注记（ADR-0009） |
 | 把读到的值传给其他工具的是 LLM | 把从截图读到的值抄进 `echo_score` 输入的是 LLM，没有直接传出处 ID 的机制，抄错时验证器发现不了。回答中展示读到的值，请用户确认（ADR-0010） |
 | OCR 误读 | 超出范围的值视为错误，但范围内的误读（如把 8.0% 读成 3.0%）发现不了。测试只用合成图片，没有测量在真实游戏画面上的准确率 |

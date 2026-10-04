@@ -9,7 +9,7 @@ A web UI built with React + TypeScript + Vite (M5, [ADR-0011](../docs/adr/en/001
 | Screen | Public site | Local | Contents |
 |---|---|---|---|
 | Replay | ✅ | ✅ | Plays an execution trace step by step. A flow diagram (React Flow) colors the boxes passed, rejections and refusals, and shows the source table at that moment. The URL `#replay/<run ID>/<step>` opens a specific moment |
-| Evals | ✅ | ✅ | Metrics and per-case results for numeric faithfulness (Wuthering Waves, mortgages) and the injection evals, with a link from each case to its replay |
+| Evals | ✅ | ✅ | Metrics and per-case results for the evals of Wuthering Waves, Mushoku Tensei and mortgages (numeric faithfulness, injection, spoiler leaks), with a link from each case to its replay |
 | Run (local) | — | ✅ | Ask with a scripted demo or real Claude (when an API key is set, within the cost caps) and replay the result right away |
 
 The public site is static files only (no server or LLM runs, so there is no cost and nobody else can use your API).

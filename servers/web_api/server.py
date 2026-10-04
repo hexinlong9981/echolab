@@ -35,6 +35,15 @@ DIST = REPO_ROOT / "web" / "dist"
 MAX_BODY = 64 * 1024
 MAX_QUESTION = 2000
 
+#: 画面でドメインを並べる順（鳴潮 → 無職転生 → 住宅ローン）。ここに無いものは後ろに名前順で並べる。
+DOMAIN_ORDER = ("wuwa", "mushoku", "mortgage")
+
+
+def ordered_domains(domains: list[str]) -> list[str]:
+    rank = {d: i for i, d in enumerate(DOMAIN_ORDER)}
+    return sorted(domains, key=lambda d: (rank.get(d, len(rank)), d))
+
+
 # 質問は 1 件ずつ実行する（コストの台帳を同時に書かないため）
 _ask_lock = threading.Lock()
 
@@ -50,7 +59,7 @@ def info() -> dict[str, Any]:
 
     budget = Budget.from_config(REPO_ROOT)
     return {
-        "domains": available_domains(REPO_ROOT),
+        "domains": ordered_domains(available_domains(REPO_ROOT)),
         "demos": [dict(d) for d in DEMOS],
         "has_api_key": bool(os.environ.get("ANTHROPIC_API_KEY")),
         "ocr": ocr.available(),

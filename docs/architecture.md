@@ -22,14 +22,14 @@ flowchart TB
   end
   subgraph tools["MCP ツール"]
     CE["calc-engine（Java 21）<br/>ダメージ・スコア・ガチャ<br/>MCP サーバ（stdio）"]
-    MC["mortgage-calc（Python）<br/>住宅ローンのパックの計算<br/>MCP サーバ（stdio）"]
     ML["mushoku-lore（Python）<br/>無職転生のパックの検索・時系列・旅程<br/>MCP サーバ（stdio）"]
+    MC["mortgage-calc（Python）<br/>住宅ローンのパックの計算<br/>MCP サーバ（stdio）"]
     VM["vision_mcp（Python・M4）<br/>スクリーンショットの OCR<br/>MCP サーバ（stdio）"]
   end
   subgraph domains["domains/（ドメインパック）"]
-    D1["① wuwa（M1〜）"]
-    D3["② mortgage（M3〜）"]
-    D4["③ mushoku（M6〜）"]
+    D1["wuwa（M1〜）"]
+    D4["mushoku（M6〜）"]
+    D3["mortgage（M3〜）"]
   end
   CLI --> AG
   UI --> AG
@@ -98,11 +98,11 @@ M1〜M6 が実装済みです。リポジトリには実装済みの部分のデ
 | 場所 | 内容 |
 |---|---|
 | `core/` | ドメイン非依存のコア（Python）。部品は次の節の表のとおり |
-| `config/` | `services.yaml`（ツールサービスの起動方法：calc-engine・mortgage-calc・vision-mcp）・`budget.yaml`（コストの上限と料金表） |
+| `config/` | `services.yaml`（ツールサービスの起動方法：calc-engine・vision-mcp・mushoku-lore・mortgage-calc）・`budget.yaml`（コストの上限と料金表） |
 | `services/calc-engine` | Java 21 の計算ライブラリ（`dev.echolab.calc`、フレームワーク非依存）と MCP サーバ（`dev.echolab.app`、ADR-0004） |
 | `domains/wuwa` | `domain.yaml`・ゴールデンケース（`derivation` 付き）・未確認のサンプルデータ（`verified: false`）・プロンプト・スクリーンショットのテンプレート（`vision/`） |
-| `domains/mortgage` | 住宅ローンの返済の計算例：計算と Python の MCP サーバ（`calc/`）・ゴールデンケース・プロンプト（ADR-0009） |
 | `domains/mushoku` | 無職転生の設定考証：検索・時系列・旅程と Python の MCP サーバ（`service/`）・未確認の下書き資料・ゴールデンケース・プロンプト（ADR-0012） |
+| `domains/mortgage` | 住宅ローンの返済の計算例：計算と Python の MCP サーバ（`calc/`）・ゴールデンケース・プロンプト（ADR-0009） |
 | `servers/vision_mcp` | スクリーンショットの OCR（Tesseract）。テンプレートで宣言した数値だけを返す（ADR-0010） |
 | `servers/web_api` | Web UI のデータの書き出しと、手元だけの API（ADR-0011） |
 | `web/` | Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面（ADR-0011） |
@@ -132,7 +132,7 @@ M1〜M6 が実装済みです。リポジトリには実装済みの部分のデ
 
 ### M2：縦の切片（質問 → 出典付きの回答）：実装済み
 
-`core/` には鳴潮・住宅ローンといったドメインの概念を一切持ち込みません。
+`core/` には鳴潮・無職転生・住宅ローンといったドメインの概念を一切持ち込みません。
 ドメインごとの知識は `domains/<名前>/domain.yaml` で宣言され、コアはそれを読むだけです（ADR-0003）。
 部品の分け方と境界の契約は ADR-0008 にあります。
 
@@ -267,7 +267,7 @@ M2 の時点での制約と、その影響の範囲です。
 | コストの台帳はローカルの JSONL | 台帳（`.echolab/costs.jsonl`）は 1 台・1 利用者での使用を前提にしたファイルで、プロセスをまたぐ排他制御はしていません。複数のプロセスを同時に動かすと、上限の判定が互いの使用分を見落とすことがあります |
 | 検証器が見る数字の範囲 | 検証器が数値として検出するのはアラビア数字（全角を含む）です。漢数字（「三」など）は検出しません。また、質問にある数値と等しい数字は、どの文脈で使われていても引用として許します |
 | サンプルデータは未確認 | `domains/wuwa/data` の値は未確認のサンプル（`verified: false`）です。これを使った回答には注記が付きます（ADR-0006） |
-| 住宅ローンのモデルは単純 | 固定金利・毎月払いで、円未満の端数処理・日割りの利息・手数料・金利の見直しを含みません。計算例であり、回答には金融上の助言ではない旨の注記が付きます（ADR-0009） |
 | 数字の無いネタバレ文 | 無職転生のパックで、LLM が自分の知識で書いた「数字を含まないネタバレ文」は構造では止められません（プロンプトで禁じるだけ）。数字を含むものは検証器が止めます。資料は未確認の下書きです（ADR-0012） |
+| 住宅ローンのモデルは単純 | 固定金利・毎月払いで、円未満の端数処理・日割りの利息・手数料・金利の見直しを含みません。計算例であり、回答には金融上の助言ではない旨の注記が付きます（ADR-0009） |
 | 読んだ値を別のツールに渡すのは LLM | スクリーンショットから読んだ値を `echo_score` の入力に写すのは LLM で、出典 ID を直接渡す仕組みはありません。写し間違いは検証器では見つかりません。回答で読み取った値を示し、利用者に確かめてもらいます（ADR-0010） |
 | OCR の読み違い | 範囲の外の値は誤りにしますが、範囲の中の読み違い（例：8.0% を 3.0% と読む）は見つけられません。試験は合成の画像だけで、実際のゲームの画面での精度は測っていません |

@@ -28,17 +28,12 @@ from core.agent.runtime import REPO_ROOT
 from core.evals import run_evals
 from servers.web_api.runner import DEMOS, ask, run_record
 
-#: 評価（ケースのファイルと表示名）。
+#: 評価（ケースのファイルと表示名。並びは鳴潮 → 無職転生 → 住宅ローン）。
 SUITES: tuple[dict[str, str], ...] = (
     {
         "id": "faithfulness",
         "title": "数値の忠実度（鳴潮）",
         "cases": "evals/faithfulness/cases.yaml",
-    },
-    {
-        "id": "mortgage",
-        "title": "数値の忠実度（住宅ローン）",
-        "cases": "evals/faithfulness/mortgage.yaml",
     },
     {
         "id": "redteam",
@@ -54,6 +49,11 @@ SUITES: tuple[dict[str, str], ...] = (
         "id": "spoilers",
         "title": "ネタバレの誘導（無職転生）",
         "cases": "evals/redteam/spoilers.yaml",
+    },
+    {
+        "id": "mortgage",
+        "title": "数値の忠実度（住宅ローン）",
+        "cases": "evals/faithfulness/mortgage.yaml",
     },
 )
 

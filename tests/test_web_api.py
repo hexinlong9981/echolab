@@ -177,3 +177,14 @@ def test_progress_is_passed_as_user_context() -> None:
     assert demo["context"] == {"progress": "novel:3"} and demo["domain"] == "mushoku"
     with pytest.raises(server.ApiError, match="progress は"):
         server.parse_ask({"llm": "anthropic", "question": "q", "domain": "mushoku", "progress": 5})
+
+
+def test_domains_are_shown_in_the_preferred_order() -> None:
+    assert server.ordered_domains(["mortgage", "mushoku", "wuwa", "zzz", "abc"]) == [
+        "wuwa",
+        "mushoku",
+        "mortgage",
+        "abc",
+        "zzz",
+    ]
+    assert server.info()["domains"][:3] == ["wuwa", "mushoku", "mortgage"]

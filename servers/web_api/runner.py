@@ -15,7 +15,8 @@ from core.agent import Agent, load_answer_note, load_system_prompt
 from core.agent.runtime import REPO_ROOT, make_budget, make_llm, open_gateway
 from core.trace import read_trace, to_jsonable
 
-#: 台本モードのデモ。質問は台本の先頭の説明と同じ。progress は利用者が指定する進み具合（無職転生）。
+#: 台本モードのデモ（並びは鳴潮 → 無職転生 → 住宅ローン）。質問は台本の先頭の説明と同じ。
+#: progress は利用者が指定する進み具合（無職転生）。
 DEMOS: tuple[dict[str, str], ...] = (
     {
         "id": "demo-compare-builds",
@@ -28,16 +29,6 @@ DEMOS: tuple[dict[str, str], ...] = (
             "スキル倍率 3.0、ダメージバフ 0.2、会心率 0.5、会心ダメージ 2.5、敵の防御 1200、"
             "耐性ダウン 0.3）では、どちらがどれだけ強い？ "
             "どちらも防御定数 1600、防御無視 0、敵の耐性 0.1。"
-        ),
-    },
-    {
-        "id": "demo-mortgage",
-        "title": "住宅ローン：元利均等と元金均等の利息の差",
-        "domain": "mortgage",
-        "script": "domains/mortgage/examples/compare_methods.yaml",
-        "question": (
-            "3000 万円を年 1.5%、35 年で借りるとき、"
-            "元利均等と元金均等では利息の合計はどれだけ違う？"
         ),
     },
     {
@@ -58,6 +49,16 @@ DEMOS: tuple[dict[str, str], ...] = (
         "script": "domains/mushoku/examples/teleport_age.yaml",
         "question": "転移事件のとき、ルーデウスは何歳だった？",
         "progress": "novel:3",
+    },
+    {
+        "id": "demo-mortgage",
+        "title": "住宅ローン：元利均等と元金均等の利息の差",
+        "domain": "mortgage",
+        "script": "domains/mortgage/examples/compare_methods.yaml",
+        "question": (
+            "3000 万円を年 1.5%、35 年で借りるとき、"
+            "元利均等と元金均等では利息の合計はどれだけ違う？"
+        ),
     },
 )
 

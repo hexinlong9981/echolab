@@ -36,7 +36,7 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 
 ## 当前状态：M6（第三个领域包：无职转生）
 
-从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮・房贷・无职转生三个领域包（M3・M6）。
+从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮・无职转生・房贷三个领域包（M6・M3）。
 可以用 OCR 读取声骸界面的截图并评分，提示词注入的评估在 CI 中每次运行（M4）。
 无职转生领域包在检索层不返回超出用户指定进度的信息（防剧透，M6）。
 可以在网页上回放执行轨迹、查看评估看板（M5；公开网站只有静态文件，零费用）。
@@ -47,8 +47,9 @@ flowchart LR
   A <--> L["LLM（Claude）<br/>回答为占位符模板"]
   A --> G["网关<br/>许可列表・Schema・编号・成本上限"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鸣潮领域包"]
-  G -->|MCP stdio| M["mortgage-calc（Python）<br/>房贷领域包"]
   G -->|MCP stdio| O["vision-mcp（Python）<br/>截图 OCR"]
+  G -->|MCP stdio| N["mushoku-lore（Python）<br/>无职转生领域包"]
+  G -->|MCP stdio| M["mortgage-calc（Python）<br/>房贷领域包"]
   G --> K["比较工具 compare.*"]
   A --> V["数值验证器・渲染器"]
   V --> R["附带出处的回答"]
@@ -62,9 +63,9 @@ flowchart LR
 | 网关 | 只暴露 `domain.yaml` 中声明的工具（默认拒绝）、用 JSON Schema 校验输入、分配调用 ID 与出处 ID、每日与每月的成本上限 |
 | 计算 | 将 calc-engine 作为 MCP 服务器（Spring Boot + Spring AI，stdio）公开。期望伤害、声骸评分、抽卡概率（精确解与蒙特卡洛法）。差值、比值、增长率由 `compare.diff`、`compare.ratio` 计算 |
 | 未确认数据 | 计算中使用的未确认数据的 ID 会传递到结果中，引用它的回答会自动附加注释（ADR-0006） |
-| 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。房贷领域包在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009）。用户指定的项目（`user_context`，如进度）由网关加入，不给 LLM 看（ADR-0012） |
+| 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。无职转生与房贷领域包都在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009）。用户指定的项目（`user_context`，如进度）由网关加入，不给 LLM 看（ADR-0012） |
 | 截图 | `servers/vision_mcp` 用 Tesseract（OCR）读取，只返回领域包模板中声明的数值字段。限制图片位置，超出范围的值视为错误（ADR-0010） |
-| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）、退回率、被拒绝的工具调用数。脚本模式的用例（鸣潮 8 个、房贷 5 个、注入 7 个、无职转生 3 个、诱导剧透 7 个）在 CI 中每次运行 |
+| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）、退回率、被拒绝的工具调用数。脚本模式的用例（鸣潮 8 个、注入 7 个、无职转生 3 个、诱导剧透 7 个、房贷 5 个）在 CI 中每次运行 |
 | 追踪 | 一次提问记录为一个 JSONL 文件（提问、LLM 调用及费用、工具调用、验证判定、回答） |
 | 测试 | 黄金用例在 Java、Python 参考实现、经由 MCP 的端到端测试三处核对。Java 有单元测试、性质测试（jqwik）、ArchUnit，Python 使用 pytest |
 | 质量门禁 | Error Prone（警告视为错误）、Spotless、JaCoCo（行覆盖率 90% 以上）、ruff |
@@ -127,30 +128,7 @@ export ANTHROPIC_API_KEY=...
 - 用量与金额追加记录到 `.echolab/costs.jsonl`。上限可通过环境变量 `ECHOLAB_DAILY_USD`、`ECHOLAB_MONTHLY_USD` 修改。
 - 执行追踪保存在 `.echolab/traces/<执行 ID>.jsonl`（两者均不纳入 Git 管理）。
 
-### 4. 房贷领域包（`--domain mortgage`）
-
-比较等额本息（元利均等）与等额本金（元金均等），并计算部分提前还款（缩短期限型、减少月供型）的效果。计算由领域包内的 Python MCP 服务器
-（`domains/mortgage/calc`）完成，不需要 Java。**这只是计算示例，不构成金融建议。**回答末尾必定附上这一注记。
-
-```bash
-.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
-  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
-```
-
-```text
-利息の合計は元金均等返済の方が少なくなります。
-- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
-- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
-- 差：685,489 円（元利均等の方が多い）
-
-元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
-
-※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
-```
-
-（出处表从略。）加上 `--fake-backend` 时，由测试用的参考实现代替领域包的 MCP 服务器进行计算。
-
-### 5. 读取截图（OCR）
+### 4. 读取截图（OCR）
 
 在问题中写上声骸界面截图（PNG・JPEG）的路径，`servers/vision_mcp` 会用 Tesseract 读取，并把值变成出处 ID。
 需要 Tesseract 及其日语数据。默认只能读取仓库内的图片（可用 `ECHOLAB_VISION_ROOTS` 修改）。
@@ -174,18 +152,7 @@ c2.score             2.579167   echo.score            -
 c2.percent_of_ideal  73.690476  echo.score            -
 ```
 
-### 6. 网页界面（回放・评估看板・本机运行界面）
-
-可以在网页上逐步回放执行轨迹，并查看评估看板（M5、ADR-0011）。
-公开网站只有静态文件，不运行服务器和 LLM（零费用）。已公开：<https://echolab-web.echolab-web.workers.dev/>（Cloudflare（Workers 静态资源），设置见 [web/README.zh-CN.md](web/README.zh-CN.md)）。
-在本机运行时，同一界面多出「运行」标签页，可以用剧本演示或真实 Claude 提问（只监听 `127.0.0.1`）。
-
-```bash
-.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
-.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
-```
-
-### 7. 无职转生领域包（`--domain mushoku`，防剧透）
+### 5. 无职转生领域包（`--domain mushoku`，防剧透）
 
 回答设定检索・时间线（年龄・年数）・自制地图上的行程（M6、ADR-0012）。**进度由用户用 `--context progress=…` 指定**
 （`novel:<卷>` 或 `anime:<季>-<集>`），超出进度的事实・人物・事件・道路在检索层一律不返回。LLM 无法改变进度。
@@ -205,13 +172,48 @@ c2.percent_of_ideal  73.690476  echo.score            -
 ※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
 ```
 
+### 6. 房贷领域包（`--domain mortgage`）
+
+比较等额本息（元利均等）与等额本金（元金均等），并计算部分提前还款（缩短期限型、减少月供型）的效果。计算由领域包内的 Python MCP 服务器
+（`domains/mortgage/calc`）完成，不需要 Java。**这只是计算示例，不构成金融建议。**回答末尾必定附上这一注记。
+
+```bash
+.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
+```
+
+```text
+利息の合計は元金均等返済の方が少なくなります。
+- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
+- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
+- 差：685,489 円（元利均等の方が多い）
+
+元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
+
+※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
+```
+
+（出处表从略。）加上 `--fake-backend` 时，由测试用的参考实现代替领域包的 MCP 服务器进行计算。
+
+### 7. 网页界面（回放・评估看板・本机运行界面）
+
+可以在网页上逐步回放执行轨迹，并查看评估看板（M5、ADR-0011）。
+公开网站只有静态文件，不运行服务器和 LLM（零费用）。已公开：<https://echolab-web.echolab-web.workers.dev/>（Cloudflare（Workers 静态资源），设置见 [web/README.zh-CN.md](web/README.zh-CN.md)）。
+在本机运行时，同一界面多出「运行」标签页，可以用剧本演示或真实 Claude 提问（只监听 `127.0.0.1`）。
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
+.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
+```
+
 ### 评估与测试
 
 ```bash
 .venv/bin/python -m core.evals                       # 数值忠实度（脚本模式，无需 API 密钥）
-.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 房贷领域包
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入评估（攻击必须无一成功）
+.venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # 无职转生领域包
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # 诱导剧透的评估（无职转生）
+.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 房贷领域包
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名称>.md   # 真实 LLM（在本地手动运行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -232,9 +234,9 @@ docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
 ```
 core/          领域无关的核心（Python）：契约・网关・比较工具・验证器・Agent 与 CLI・追踪・评估
 config/        工具服务的启动方式（services.yaml）・成本上限与价格表（budget.yaml）
-domains/wuwa/  领域包①：鸣潮（domain.yaml・黄金用例・示例数据・提示词）
-domains/mortgage/  领域包②：房贷还款计算示例（domain.yaml・计算与 MCP 服务器・黄金用例・提示词）
-domains/mushoku/   领域包③：无职转生设定考证（防剧透的检索・时间线・行程，未确认的草稿资料）
+domains/wuwa/      领域包：鸣潮（domain.yaml・黄金用例・示例数据・提示词・截图模板）
+domains/mushoku/   领域包：无职转生设定考证（防剧透的检索・时间线・行程，未确认的草稿资料）
+domains/mortgage/  领域包：房贷还款计算示例（domain.yaml・计算与 MCP 服务器・黄金用例・提示词）
 services/      calc-engine（Java 21。计算库与 MCP 服务器）
 servers/       vision_mcp（截图 OCR。Python 的 MCP 服务器）・web_api（网页界面的数据导出与本机 API）
 web/           网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面
@@ -267,6 +269,9 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 在回答中使用由未确认数据计算出的数值时，必定加以注明（ADR-0006）。
 黄金用例的设计使期望值只由明确给出的输入值决定，不依赖游戏的官方数值。
 计算公式（防御、抗性乘区等）也是通用模型，未与游戏的实际公式核对。
+
+无职转生领域包的资料（事实・人物・年表・地图）是凭记忆写的**未确认草稿**（`verified: false`），
+使用这些资料的回答会附注记。不包含原作正文・台词・插图・影像。
 
 房贷领域包不带数据，所有输入都由用户给出。它是固定利率、按月还款的简单模型，给出不舍入到日元的理论值。
 **这只是计算示例，不构成金融建议**（回答中也必定注明）。

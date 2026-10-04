@@ -36,7 +36,7 @@ The design separates a domain-agnostic core from "domain packs". The second pack
 
 ## Status: M6 (third domain pack: Mushoku Tensei)
 
-A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs three packs: Wuthering Waves, mortgages and Mushoku Tensei (M3, M6).
+A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs three packs: Wuthering Waves, Mushoku Tensei and mortgages (M6, M3).
 Screenshots of the echo screen can be read with OCR and scored, and prompt-injection evals run in CI every time (M4).
 The Mushoku Tensei pack never returns information beyond the progress the user set, enforced in the retrieval layer (spoiler protection, M6).
 A replay of execution traces and an eval dashboard are available on the web (M5; the public site is static files only, at zero cost).
@@ -47,8 +47,9 @@ flowchart LR
   A <--> L["LLM (Claude)<br/>answer is a placeholder template"]
   A --> G["Gateway<br/>allowlist, schema, ID assignment, cost caps"]
   G -->|MCP stdio| J["calc-engine (Java 21)<br/>Wuthering Waves pack"]
-  G -->|MCP stdio| M["mortgage-calc (Python)<br/>mortgage pack"]
   G -->|MCP stdio| O["vision-mcp (Python)<br/>screenshot OCR"]
+  G -->|MCP stdio| N["mushoku-lore (Python)<br/>Mushoku Tensei pack"]
+  G -->|MCP stdio| M["mortgage-calc (Python)<br/>mortgage pack"]
   G --> K["Compare tools compare.*"]
   A --> V["Numeric verifier and renderer"]
   V --> R["Cited answer"]
@@ -62,9 +63,9 @@ flowchart LR
 | Gateway | Exposes only the tools declared in `domain.yaml` (default deny), validates inputs against JSON Schema, assigns call IDs and source IDs, enforces daily and monthly cost caps |
 | Calculation | calc-engine is exposed as an MCP server (Spring Boot + Spring AI, stdio): expected damage, echo score, gacha probability (exact solution and Monte Carlo). Differences, ratios and % increases via `compare.diff` and `compare.ratio` |
 | Unverified data | IDs of unverified data used in a calculation are propagated into the result, and answers citing it get a note automatically (ADR-0006) |
-| Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The mortgage pack was added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009). Items the user sets (`user_context`, e.g. progress) are added by the gateway without showing them to the LLM (ADR-0012) |
+| Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The Mushoku Tensei and mortgage packs were added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009). Items the user sets (`user_context`, e.g. progress) are added by the gateway without showing them to the LLM (ADR-0012) |
 | Screenshots | `servers/vision_mcp` reads them with Tesseract (OCR) and returns only the numeric fields declared in the pack's template. Image locations are restricted; out-of-range values are errors (ADR-0010) |
-| Evals | Numeric faithfulness (share of answers with not a single unsourced number), the rejection rate and the number of refused tool calls. Scripted cases (8 for Wuthering Waves, 5 for mortgages, 7 injection cases, 3 Mushoku Tensei cases, 7 spoiler-leak cases) run in CI every time |
+| Evals | Numeric faithfulness (share of answers with not a single unsourced number), the rejection rate and the number of refused tool calls. Scripted cases (8 for Wuthering Waves, 7 injection cases, 3 Mushoku Tensei cases, 7 spoiler-leak cases, 5 for mortgages) run in CI every time |
 | Tracing | One question is recorded in one JSONL file (question, LLM calls and their cost, tool calls, verifier verdicts, answer) |
 | Tests | Golden cases are checked in three places: Java, the Python reference implementation, and end-to-end through MCP. Java has unit tests, property tests (jqwik) and ArchUnit; Python uses pytest |
 | Quality gates | Error Prone (warnings as errors), Spotless, JaCoCo (≥ 90% line coverage), ruff |
@@ -127,30 +128,7 @@ export ANTHROPIC_API_KEY=...
 - Usage and cost are appended to `.echolab/costs.jsonl`. The caps can be changed with the environment variables `ECHOLAB_DAILY_USD` and `ECHOLAB_MONTHLY_USD`.
 - Execution traces are kept in `.echolab/traces/<run ID>.jsonl` (both are git-ignored).
 
-### 4. The mortgage pack (`--domain mortgage`)
-
-Compares equal-payment and equal-principal repayment, and calculates the effect of a partial prepayment (shorter term or lower payment). A Python MCP server inside the pack
-(`domains/mortgage/calc`) does the calculation; Java is not needed. **These are example calculations, not financial advice.** Every answer ends with a note saying so.
-
-```bash
-.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
-  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
-```
-
-```text
-利息の合計は元金均等返済の方が少なくなります。
-- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
-- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
-- 差：685,489 円（元利均等の方が多い）
-
-元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
-
-※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
-```
-
-(The source table is omitted.) With `--fake-backend`, a test reference implementation calculates instead of the pack's MCP server.
-
-### 5. Reading screenshots (OCR)
+### 4. Reading screenshots (OCR)
 
 Put the path of a screenshot of the echo screen (PNG or JPEG) in the question, and `servers/vision_mcp` reads it with Tesseract and turns the values into source IDs.
 Tesseract and its Japanese data are needed. By default only images inside the repository can be read (change with `ECHOLAB_VISION_ROOTS`).
@@ -174,18 +152,7 @@ c2.score             2.579167   echo.score            -
 c2.percent_of_ideal  73.690476  echo.score            -
 ```
 
-### 6. Web UI (replay, eval dashboard, local run screen)
-
-A replay that plays execution traces step by step and an eval dashboard are available on the web (M5, ADR-0011).
-The public site is static files only; no server or LLM runs (zero cost). Live at <https://echolab-web.echolab-web.workers.dev/> (Cloudflare (Workers static assets); setup in [web/README.en.md](web/README.en.md)).
-Locally, the same screens gain a "Run" tab where you can ask with scripted demos or real Claude (bound to `127.0.0.1` only).
-
-```bash
-.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
-.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
-```
-
-### 7. The Mushoku Tensei pack (`--domain mushoku`, spoiler protection)
+### 5. The Mushoku Tensei pack (`--domain mushoku`, spoiler protection)
 
 Answers questions on the setting, timeline (ages, years) and routes on a self-made map (M6, ADR-0012). **The user sets the progress with `--context progress=…`**
 (`novel:<volume>` or `anime:<season>-<episode>`), and facts, people, events and roads beyond it are never returned by the retrieval layer. The LLM cannot change the progress.
@@ -205,13 +172,48 @@ Answers questions on the setting, timeline (ages, years) and routes on a self-ma
 ※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
 ```
 
+### 6. The mortgage pack (`--domain mortgage`)
+
+Compares equal-payment and equal-principal repayment, and calculates the effect of a partial prepayment (shorter term or lower payment). A Python MCP server inside the pack
+(`domains/mortgage/calc`) does the calculation; Java is not needed. **These are example calculations, not financial advice.** Every answer ends with a note saying so.
+
+```bash
+.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
+```
+
+```text
+利息の合計は元金均等返済の方が少なくなります。
+- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
+- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
+- 差：685,489 円（元利均等の方が多い）
+
+元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
+
+※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
+```
+
+(The source table is omitted.) With `--fake-backend`, a test reference implementation calculates instead of the pack's MCP server.
+
+### 7. Web UI (replay, eval dashboard, local run screen)
+
+A replay that plays execution traces step by step and an eval dashboard are available on the web (M5, ADR-0011).
+The public site is static files only; no server or LLM runs (zero cost). Live at <https://echolab-web.echolab-web.workers.dev/> (Cloudflare (Workers static assets); setup in [web/README.en.md](web/README.en.md)).
+Locally, the same screens gain a "Run" tab where you can ask with scripted demos or real Claude (bound to `127.0.0.1` only).
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
+.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
+```
+
 ### Evals and tests
 
 ```bash
 .venv/bin/python -m core.evals                       # numeric faithfulness (scripted mode, no API key)
-.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # injection evals (no attack may succeed)
+.venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # the Mushoku Tensei pack
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # spoiler-leak evals (Mushoku Tensei)
+.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<name>.md   # real LLM (run manually, locally)
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -232,9 +234,9 @@ docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
 ```
 core/          Domain-agnostic core (Python): contracts, gateway, compare tools, verifier, agent and CLI, trace, evals
 config/        Tool service launch config (services.yaml), cost caps and price table (budget.yaml)
-domains/wuwa/  Domain pack #1: Wuthering Waves (domain.yaml, golden cases, sample data, prompts)
-domains/mortgage/  Domain pack #2: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
-domains/mushoku/   Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes; unverified draft data)
+domains/wuwa/      Domain pack: Wuthering Waves (domain.yaml, golden cases, sample data, prompts, screenshot templates)
+domains/mushoku/   Domain pack: Mushoku Tensei lore (spoiler-protected search, timeline, routes; unverified draft data)
+domains/mortgage/  Domain pack: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
 services/      calc-engine (Java 21: calculation library and MCP server)
 servers/       vision_mcp (screenshot OCR, a Python MCP server), web_api (data export and local API for the web UI)
 web/           Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen
@@ -267,6 +269,9 @@ The numbers in `domains/wuwa/data` are **sample values** organized by hand; entr
 Whenever a number calculated from unverified data is used in an answer, this is always noted (ADR-0006).
 Golden cases are built so that the expected values are determined only by explicitly stated inputs; they do not depend on official game values.
 The formulas (defense and resistance multipliers, etc.) are also generic models and have not been checked against the game's actual formulas.
+
+The Mushoku Tensei pack's data (facts, characters, timeline, map) is an **unverified draft** written from memory (`verified: false`),
+and answers that use it carry a note. It contains no original text, dialogue, illustrations or footage.
 
 The mortgage pack has no data; the user gives every input. It is a simple model (fixed rate, monthly payments) that returns unrounded theoretical values.
 **These are example calculations, not financial advice** (every answer says so as well).

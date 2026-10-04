@@ -29,16 +29,6 @@ API キーも Java も使いません。LLM は台本（`ScriptedLLM`）また�
 | `test_trace.py` | 実行トレース：1 行 1 出来事の JSONL・契約の型の書き出し・Agent が残す出来事の中身 |
 | `test_evals.py` | 数値の忠実度の評価を台本モードで全ケース実行し、コミット済みの `evals/reports/scripted-baseline.md` と一致することを確認 |
 
-## ドメインパック②：住宅ローン（ADR-0009）
-
-Java は使いません。パックの MCP サーバ（Python）は実物を子プロセスで起動するので、CI の `python` ジョブで毎回通します。
-
-| ファイル | 内容 |
-|---|---|
-| `reference/mortgage_reference.py` | 住宅ローンの参照実装。パックの実装（`Decimal`、残高を 1 回ずつ進める）とは別の方法（`float`、残高の公式と対数で回数を求める）で計算する |
-| `test_mortgage_pack.py` | パックの実装とゴールデンケースの照合・入力の誤りの説明・実物の MCP サーバをゲートウェイから起動してのゴールデンケースの照合とエラー・Agent の往復と回答の注記・台本モードの評価（`evals/faithfulness/mortgage.yaml`）とベースライン |
-| `test_pack_isolation.py` | CI の「パックの変更でコアを変えない」検査（`.github/scripts/check_pack_isolation.py`）の規則を、一時的な git リポジトリで確かめる |
-
 ## スクリーンショットの読み取りと注入の評価（ADR-0010）
 
 | ファイル | 内容 |
@@ -48,20 +38,30 @@ Java は使いません。パックの MCP サーバ（Python）は実物を子�
 
 実物の OCR の試験は Tesseract（日本語のデータ付き）が要ります。無いときは飛ばします（CI では `ECHOLAB_OCR_REQUIRED=1` で、飛ばさずに失敗させます）。
 
-## Web UI（ADR-0011）
-
-| ファイル | 内容 |
-|---|---|
-| `test_web_api.py` | `servers/web_api`：書き出し（全デモ・全評価のトレース、手元のパスを含めない）・要求の検査（未知の LLM・台本・長すぎる質問・ドメイン）・手元の API（127.0.0.1 だけ・ほかのサイトの `Origin` と `Content-Type` の拒否・台本のデモの実行） |
-| `web/src/replay.test.ts` | 画面側（Vitest、`cd web && npm test`）：トレースの出来事 → 回放のコマ（届く箱・拒否・差し戻し・出典の表）、矢印の端の計算 |
-
-## ドメインパック③：無職転生（ADR-0012）
+## ドメインパック：無職転生（ADR-0012）
 
 | ファイル | 内容 |
 |---|---|
 | `reference/mushoku_reference.py` | 参照実装。旅程はダイクストラ法ではなく単純な経路をすべて調べ、ネタバレ防止の絞り込みも別に書き直す |
 | `test_mushoku_pack.py` | パックの実装とゴールデンケース・見えない項目と存在しない項目が同じ誤りになること・媒体の間で換算しないこと・正体の別名が明かされる前に当たらないこと・資料の規則（タグの人物は事実より先に登場・数字の無い文・未確認）・実物の MCP サーバ（progress が LLM に見えない・LLM が送れば拒む）・評価とベースライン |
 | `core/test_user_context.py` | コアの `user_context`（LLM に見せない・LLM の値を拒む・未指定は誤り・宣言の無い項目は開くときに誤り）と `texts` |
+
+## ドメインパック：住宅ローン（ADR-0009）
+
+Java は使いません。パックの MCP サーバ（Python）は実物を子プロセスで起動するので、CI の `python` ジョブで毎回通します。
+
+| ファイル | 内容 |
+|---|---|
+| `reference/mortgage_reference.py` | 住宅ローンの参照実装。パックの実装（`Decimal`、残高を 1 回ずつ進める）とは別の方法（`float`、残高の公式と対数で回数を求める）で計算する |
+| `test_mortgage_pack.py` | パックの実装とゴールデンケースの照合・入力の誤りの説明・実物の MCP サーバをゲートウェイから起動してのゴールデンケースの照合とエラー・Agent の往復と回答の注記・台本モードの評価（`evals/faithfulness/mortgage.yaml`）とベースライン |
+| `test_pack_isolation.py` | CI の「パックの変更でコアを変えない」検査（`.github/scripts/check_pack_isolation.py`）の規則を、一時的な git リポジトリで確かめる |
+
+## Web UI（ADR-0011）
+
+| ファイル | 内容 |
+|---|---|
+| `test_web_api.py` | `servers/web_api`：書き出し（全デモ・全評価のトレース、手元のパスを含めない）・要求の検査（未知の LLM・台本・長すぎる質問・ドメイン）・手元の API（127.0.0.1 だけ・ほかのサイトの `Origin` と `Content-Type` の拒否・台本のデモの実行） |
+| `web/src/replay.test.ts` | 画面側（Vitest、`cd web && npm test`）：トレースの出来事 → 回放のコマ（届く箱・拒否・差し戻し・出典の表）、矢印の端の計算 |
 
 ## 端から端までの試験：`tests/e2e/`
 

@@ -34,7 +34,7 @@ LLM はもっともらしい数値を作ってしまいます。業務で AI を
 
 ## 現在の状態：M6（3 つ目のドメインパック：無職転生）
 
-質問から出典付きの回答までを、CLI で端から端まで通せます（M2）。同じコアで、鳴潮・住宅ローン・無職転生の 3 つのパックが動きます（M3・M6）。
+質問から出典付きの回答までを、CLI で端から端まで通せます（M2）。同じコアで、鳴潮・無職転生・住宅ローンの 3 つのパックが動きます（M6・M3）。
 声骸の画面のスクリーンショットを OCR で読んで採点でき、注入（プロンプトインジェクション）の評価を CI で毎回実行します（M4）。
 実行トレースのリプレイと評価のダッシュボードを Web で見られます（M5、公開は静的なファイルだけで費用ゼロ）。
 無職転生のパックは、利用者が指定した進み具合より先の情報を検索の層で出さない「ネタバレ防止」を行います（M6）。
@@ -45,8 +45,9 @@ flowchart LR
   A <--> L["LLM（Claude）<br/>回答はプレースホルダのテンプレート"]
   A --> G["ゲートウェイ<br/>許可リスト・スキーマ・採番・コスト上限"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鳴潮のパック"]
-  G -->|MCP stdio| M["mortgage-calc（Python）<br/>住宅ローンのパック"]
   G -->|MCP stdio| O["vision-mcp（Python）<br/>スクリーンショットの OCR"]
+  G -->|MCP stdio| N["mushoku-lore（Python）<br/>無職転生のパック"]
+  G -->|MCP stdio| M["mortgage-calc（Python）<br/>住宅ローンのパック"]
   G --> K["比較ツール compare.*"]
   A --> V["数値検証器・レンダラ"]
   V --> R["出典付きの回答"]
@@ -60,9 +61,9 @@ flowchart LR
 | ゲートウェイ | `domain.yaml` に宣言したツールだけを見せる（既定拒否）・入力の JSON Schema 検証・呼び出し ID と出典 ID の採番・日次・月次のコスト上限 |
 | 計算 | calc-engine を MCP サーバ（Spring Boot + Spring AI、stdio）として公開。期待ダメージ・声骸スコア・ガチャ確率（厳密解とモンテカルロ法）。差・比・増加率は `compare.diff`・`compare.ratio` |
 | 未確認データ | 計算に使った未確認データの ID を結果に伝搬し、引用した回答には注記を自動で付ける（ADR-0006） |
-| ドメインパック | `domains/<名前>/domain.yaml` でツール・プロンプト・回答の注記を宣言する。住宅ローン・無職転生のパックは `core/` を変えずに追加し、CI の `pack-isolation` がそれを検査する（ADR-0009）。利用者が指定する項目（`user_context`、例：進み具合）は LLM に見せずにゲートウェイが加える（ADR-0012） |
+| ドメインパック | `domains/<名前>/domain.yaml` でツール・プロンプト・回答の注記を宣言する。無職転生・住宅ローンのパックは `core/` を変えずに追加し、CI の `pack-isolation` がそれを検査する（ADR-0009）。利用者が指定する項目（`user_context`、例：進み具合）は LLM に見せずにゲートウェイが加える（ADR-0012） |
 | スクリーンショット | `servers/vision_mcp` が Tesseract（OCR）で読み、パックのテンプレートで宣言した数値の項目だけを返す。画像の場所の制限・範囲外の値は誤り（ADR-0010） |
-| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率、拒んだツール呼び出しの数。台本モードのケース（鳴潮 8 件・住宅ローン 5 件・注入 7 件・無職転生 3 件・ネタバレの誘導 7 件）を CI で毎回実行 |
+| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率、拒んだツール呼び出しの数。台本モードのケース（鳴潮 8 件・注入 7 件・無職転生 3 件・ネタバレの誘導 7 件・住宅ローン 5 件）を CI で毎回実行 |
 | トレース | 1 回の質問を 1 つの JSONL に記録（質問・LLM 呼び出しと費用・ツール呼び出し・検証の判定・回答） |
 | テスト | ゴールデンケースを Java・Python の参照実装・MCP 経由の端から端までの試験の 3 か所で照合。Java は単体・性質テスト（jqwik）・ArchUnit、Python は pytest |
 | 品質ゲート | Error Prone（警告はエラー）・Spotless・JaCoCo（行カバレッジ 90% 以上）・ruff |
@@ -125,30 +126,7 @@ export ANTHROPIC_API_KEY=...
 - 使用量と金額は `.echolab/costs.jsonl` に追記します。上限は環境変数 `ECHOLAB_DAILY_USD`・`ECHOLAB_MONTHLY_USD` で変えられます。
 - 実行トレースは `.echolab/traces/<実行 ID>.jsonl` に残ります（どちらも Git の管理外）。
 
-### 4. 住宅ローンのパック（`--domain mortgage`）
-
-元利均等・元金均等の比較と、繰上返済（期間短縮型・返済額軽減型）の効果を計算します。計算はパックの中の Python の MCP サーバ
-（`domains/mortgage/calc`）が行い、Java は要りません。**計算例であり、金融上の助言ではありません**。回答の末尾にはその旨の注記を必ず付けます。
-
-```bash
-.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
-  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
-```
-
-```text
-利息の合計は元金均等返済の方が少なくなります。
-- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
-- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
-- 差：685,489 円（元利均等の方が多い）
-
-元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
-
-※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
-```
-
-（出典の表は省略。）`--fake-backend` を付けると、パックの MCP サーバの代わりに試験用の参照実装で計算します。
-
-### 5. スクリーンショットを読む（OCR）
+### 4. スクリーンショットを読む（OCR）
 
 声骸の画面のスクリーンショット（PNG・JPEG）のパスを質問に書くと、`servers/vision_mcp` が Tesseract で読み、値を出典 ID にします。
 Tesseract と日本語のデータが要ります。画像は既定でリポジトリの中だけ読めます（`ECHOLAB_VISION_ROOTS` で変えられます）。
@@ -172,18 +150,7 @@ c2.score             2.579167   echo.score            -
 c2.percent_of_ideal  73.690476  echo.score            -
 ```
 
-### 6. Web UI（リプレイ・評価のダッシュボード・手元の実行画面）
-
-実行トレースを 1 コマずつ再生するリプレイと、評価のダッシュボードを Web で見られます（M5・ADR-0011）。
-公開サイトは静的なファイルだけで、サーバも LLM も動かしません（費用ゼロ）。公開中：<https://echolab-web.echolab-web.workers.dev/>（Cloudflare（Workers の静的アセット）。設定は [web/README.md](web/README.md)）。
-手元では、同じ画面に「実行」タブが加わり、台本のデモや実物の Claude で質問できます（`127.0.0.1` だけにつなぐ）。
-
-```bash
-.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
-.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
-```
-
-### 7. 無職転生のパック（`--domain mushoku`、ネタバレ防止）
+### 5. 無職転生のパック（`--domain mushoku`、ネタバレ防止）
 
 設定の検索・時系列（年齢・年数）・自作の地図の旅程に答えます（M6・ADR-0012）。**進み具合は利用者が `--context progress=…` で指定**し
 （`novel:<巻>` か `anime:<期>-<話>`）、それより先の事実・人物・出来事・道は検索の層で返しません。LLM は進み具合を変えられません。
@@ -203,13 +170,48 @@ c2.percent_of_ideal  73.690476  echo.score            -
 ※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
 ```
 
+### 6. 住宅ローンのパック（`--domain mortgage`）
+
+元利均等・元金均等の比較と、繰上返済（期間短縮型・返済額軽減型）の効果を計算します。計算はパックの中の Python の MCP サーバ
+（`domains/mortgage/calc`）が行い、Java は要りません。**計算例であり、金融上の助言ではありません**。回答の末尾にはその旨の注記を必ず付けます。
+
+```bash
+.venv/bin/python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
+  --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml
+```
+
+```text
+利息の合計は元金均等返済の方が少なくなります。
+- 元利均等返済：毎月 91,855 円、利息の合計 8,579,239 円
+- 元金均等返済：初回 108,929 円から最終回 71,518 円まで減り、利息の合計 7,893,750 円
+- 差：685,489 円（元利均等の方が多い）
+
+元金均等返済は返済の初めの負担が大きいので、毎月の返済額の上限と合わせて考えてください。
+
+※ この回答は単純なモデルによる計算例であり、金融上の助言ではありません。実際の返済額は金融機関にご確認ください。
+```
+
+（出典の表は省略。）`--fake-backend` を付けると、パックの MCP サーバの代わりに試験用の参照実装で計算します。
+
+### 7. Web UI（リプレイ・評価のダッシュボード・手元の実行画面）
+
+実行トレースを 1 コマずつ再生するリプレイと、評価のダッシュボードを Web で見られます（M5・ADR-0011）。
+公開サイトは静的なファイルだけで、サーバも LLM も動かしません（費用ゼロ）。公開中：<https://echolab-web.echolab-web.workers.dev/>（Cloudflare（Workers の静的アセット）。設定は [web/README.md](web/README.md)）。
+手元では、同じ画面に「実行」タブが加わり、台本のデモや実物の Claude で質問できます（`127.0.0.1` だけにつなぐ）。
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
+.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
+```
+
 ### 評価とテスト
 
 ```bash
 .venv/bin/python -m core.evals                       # 数値の忠実度（台本モード、API キー不要）
-.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 住宅ローンのパック
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入の評価（攻撃が 1 件も通らないこと）
+.venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # 無職転生のパック
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # ネタバレの誘導の評価（無職転生）
+.venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 住宅ローンのパック
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名前>.md   # 実物の LLM（手元で手動実行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -230,9 +232,9 @@ docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
 ```
 core/          ドメイン非依存のコア（Python）：契約・ゲートウェイ・比較ツール・検証器・Agent と CLI・トレース・評価
 config/        ツールサービスの起動方法（services.yaml）・コスト上限と料金表（budget.yaml）
-domains/wuwa/  ドメインパック①：鳴潮（domain.yaml・ゴールデンケース・サンプルデータ・プロンプト）
-domains/mortgage/  ドメインパック②：住宅ローンの返済の計算例（domain.yaml・計算と MCP サーバ・ゴールデンケース・プロンプト）
-domains/mushoku/   ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程、未確認の下書き資料）
+domains/wuwa/      ドメインパック：鳴潮（domain.yaml・ゴールデンケース・サンプルデータ・プロンプト・スクリーンショットのテンプレート）
+domains/mushoku/   ドメインパック：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程、未確認の下書き資料）
+domains/mortgage/  ドメインパック：住宅ローンの返済の計算例（domain.yaml・計算と MCP サーバ・ゴールデンケース・プロンプト）
 services/      calc-engine（Java 21。計算ライブラリと MCP サーバ）
 servers/       vision_mcp（スクリーンショットの OCR。Python の MCP サーバ）・web_api（Web UI のデータの書き出しと手元の API）
 web/           Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面
@@ -265,6 +267,9 @@ M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 
 未確認のデータから計算した数値を回答に使うときは、その旨を必ず注記します（ADR-0006）。
 ゴールデンケースは明示した入力値だけで期待値が決まるように作ってあり、ゲームの公式数値には依存しません。
 計算式（防御・耐性の乗区など）も汎用のモデルで、ゲームの実際の式とは確認していません。
+
+無職転生のパックの資料（事実・人物・年表・地図）は記憶をもとに書いた**未確認の下書き**（`verified: false`）で、
+それを使った回答には注記が付きます。原作の本文・台詞・挿絵・映像は含みません。
 
 住宅ローンのパックはデータを持たず、入力はすべて利用者が与えます。固定金利・毎月払いの単純なモデルで、円未満を丸めない理論値です。
 **計算例であり、金融上の助言ではありません**（回答にも必ず表示します）。
