@@ -55,21 +55,42 @@ function pageLang() {
 const LANG = pageLang();
 const T = UI[LANG];
 
+
 function buildNav(current) {
   const nav = document.querySelector("nav.side");
   if (nav) {
     let html = `<a class="brand" href="index.html">${T.brand}</a>`;
+    // 分組は折りたたむ（アコーディオン）：開くのは 1 つだけ。最初は今のページの分組を開く
+    const currentGroup = (PAGES.find((p) => p.file === current) || {}).group;
     let group = null;
     for (const p of PAGES) {
       if (p.group !== group) {
         if (group !== null) html += "</ul>";
         group = p.group;
-        html += `<h3>${GROUPS[group][LANG]}</h3><ul>`;
+        const open = group === currentGroup;
+        html +=
+          `<h3><button type="button" class="nav-group" data-group="${group}" aria-expanded="${open}">` +
+          `<span class="caret" aria-hidden="true"></span>${GROUPS[group][LANG]}</button></h3>` +
+          `<ul${open ? "" : " hidden"}>`;
       }
       const cls = p.file === current ? ' class="current"' : "";
       html += `<li><a href="${p.file}"${cls}>${p[LANG]}</a></li>`;
     }
     nav.innerHTML = html + "</ul>";
+    const buttons = nav.querySelectorAll("button.nav-group");
+    const setOpen = (btn, open) => {
+      btn.setAttribute("aria-expanded", String(open));
+      const list = btn.parentElement.nextElementSibling;
+      if (list) list.hidden = !open;
+    };
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const open = btn.getAttribute("aria-expanded") !== "true";
+        // 1 つを開くと、ほかの分組（今のページの分組も）は閉じる
+        if (open) buttons.forEach((other) => other !== btn && setOpen(other, false));
+        setOpen(btn, open);
+      });
+    });
   }
   const i = PAGES.findIndex((p) => p.file === current);
   const pager = document.querySelector(".pager");

@@ -170,3 +170,18 @@ html:lang(ja):not(.no-furi.no-eng) .flow-anim .node:has(ruby.furi) { padding-top
 ruby.furi.eng rt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: .5em; letter-spacing: 0; }
 html.no-eng ruby.furi.eng rt { display: none; }
 #eng-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; margin-right: 8px; }
+/* 左のメニューの分組（折りたたみ） */
+nav.side h3 button.nav-group {
+  display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 2px 0; margin: 0;
+  background: none; border: 0; cursor: pointer; text-align: left;
+  font: inherit; color: inherit; letter-spacing: inherit;
+}
+nav.side h3 button.nav-group:hover { color: var(--text, inherit); }
+nav.side h3 button.nav-group:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+nav.side h3 .caret {
+  display: inline-block; width: 6px; height: 6px; flex: none; margin-right: 4px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform .15s; position: relative; top: -1px;
+}
+nav.side h3 button.nav-group[aria-expanded="true"] .caret { transform: rotate(45deg); }
+nav.side ul[hidden] { display: none; }
