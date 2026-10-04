@@ -61,6 +61,33 @@ CI（`.github/workflows/web.yml`）は main への push のたびにビルドし
 静的アセットへのリクエストは Workers の無料プランで無料です。ビルドは GitHub Actions で行うので、Cloudflare 側のビルドは使いません。
 トークンが要らなくなったら、Cloudflare の画面で無効にしてください。
 
+## 公開のデモサーバ（Hugging Face Spaces、ADR-0013）
+
+デモのリプレイの下の「サーバで実際に実行」は、公開のデモサーバでそのデモを**実物の計算サービス**（Java の calc-engine・OCR・無職転生・住宅ローン）と**台本の LLM** で実行します。
+実物の Claude は使わないので費用はかかりません。サーバは `python -m servers.web_api --public`（`servers/web_api/public.py`）で、像は `deploy/hf/Dockerfile` です。
+
+手元で試す：
+
+```bash
+docker build -f deploy/hf/Dockerfile -t echolab-public .
+docker run --rm -p 7860:7860 echolab-public            # → http://127.0.0.1:7860/api/health
+```
+
+公開の手順（最初の 1 回だけ）：
+
+1. <https://huggingface.co/join> でアカウントを作る（無料・クレジットカード不要）。
+2. <https://huggingface.co/new-space> で Space を作る：名前 `echolab`、SDK は **Docker**（Blank）、ハードウェアは **CPU basic（無料）**、公開範囲は **Public**（画面からログインなしで呼ぶため）。
+3. 書き込み用のトークンを作る：<https://huggingface.co/settings/tokens> →「Create new token」→「Fine-grained」→「Repositories permissions」でこの Space を選び **Write** にする（作った直後に 1 回だけ表示される値を控える）。
+4. **自分の端末**（Windows Terminal の WSL など。Claude Code の `!` は入力を受け取れない）で登録する：
+   ```bash
+   gh secret set HF_TOKEN -R hexinlong9981/echolab                                   # トークンを貼り付けて Enter
+   gh variable set HF_SPACE -R hexinlong9981/echolab --body "<ユーザ名>/echolab"
+   gh variable set LIVE_API_URL -R hexinlong9981/echolab --body "https://<ユーザ名>-echolab.hf.space"
+   ```
+5. GitHub の「Actions」→「hf-space」→「Run workflow」で Space に送る（初回の像の作成に数分）。続けて「web」を実行すると、画面に「サーバで実際に実行」が出る。
+
+無料の CPU は使われないと休止し、次の呼び出しで起動します（画面は「起動を待っています」と表示します）。
+
 ## 構成
 
 | 場所 | 内容 |

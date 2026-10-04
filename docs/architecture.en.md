@@ -93,9 +93,9 @@ The verifier policy is in ADR-0005; the placeholder approach and the contracts b
 | Format | By default up to 2 decimal places; `N` means N decimal places; `%N` means a percentage with N decimal places. Rounding is ROUND_HALF_EVEN |
 | Unverified data | `unverified_inputs` is propagated to the sources, and the renderer adds a note to any answer that cites them (ADR-0006) |
 
-## Current state (M6)
+## Current state (M7)
 
-M1 through M6 are implemented. The repository holds directories only for implemented parts (ADR-0007).
+M1 through M7 are implemented. The repository holds directories only for implemented parts (ADR-0007).
 
 | Location | Contents |
 |---|---|
@@ -107,6 +107,7 @@ M1 through M6 are implemented. The repository holds directories only for impleme
 | `domains/mortgage` | Example mortgage repayment calculations: calculation and Python MCP server (`calc/`), golden cases, prompts (ADR-0009) |
 | `servers/vision_mcp` | Screenshot OCR (Tesseract). Returns only numbers declared in templates (ADR-0010) |
 | `servers/web_api` | Data export for the web UI and the local-only API (ADR-0011) |
+| `deploy/hf` | Docker image of the public demo server (Hugging Face Spaces), running `servers/web_api/public.py` (ADR-0013) |
 | `web/` | Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen (ADR-0011) |
 | `evals/` | Eval cases (`faithfulness/`, `redteam/`) and aggregated reports (`reports/`) |
 | `tests/` | Schema checks, checks against the Python reference implementation, core unit tests (`tests/core/`), pack, OCR, injection and web tests, end-to-end tests (`tests/e2e/`) |
@@ -131,6 +132,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 | M4 | Screenshot reading (OCR), prompt-injection eval set (scripted mode added to CI) | Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Done (<https://echolab-web.echolab-web.workers.dev/>) |
 | M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | Done (data checked by the author) |
+| M7 | Public demo server (Hugging Face Spaces, scripted LLM, real calc services, zero cost) | Implemented (published after Hugging Face is set up) |
 
 ### M2: Vertical slice (question → answer with sources): implemented
 
@@ -244,6 +246,19 @@ The policy is ADR-0012. The highlight is **spoiler protection**, which has the s
 
 - The user sets the progress with CLI `--context progress=novel:5` (or `anime:2-12`). The service filters only by the declared medium's note and never returns items without a note or hidden items (hidden items give the same error as nonexistent ones).
 - Aliases that reveal an identity are used only from the volume/episode of the reveal. Fact tags are limited to what the sentence itself reveals, checked by tests as data rules.
+
+### M7: Public demo server: implemented
+
+The policy is ADR-0013. The M5 public site only replays records made with the test calc services, so a server was added that shows **the real calc services running on demand**. The zero-cost policy is unchanged.
+
+| Location | Role |
+|---|---|
+| `servers/web_api/public.py` | `python -m servers.web_api --public`. Runs only the fixed demos with the real calc services (calc-engine jar, OCR, Mushoku Tensei, mortgage) and the scripted LLM. Real Claude is always refused. 1 run at a time, up to 3 waiting, 6 runs/minute and 60/day per client, 120 s per run. CORS (including preflight) only for allowed `Origin`s |
+| `deploy/hf/` | Dockerfile and Space README for Hugging Face Spaces (Docker, free CPU) |
+| `.github/workflows/hf-space.yml` | Sends to the Space when the secret `HF_TOKEN` and variable `HF_SPACE` exist |
+| `web/` | "Run on the server" below a demo's replay (only with the build-time `VITE_LIVE_API`) |
+
+- The free CPU sleeps when unused and starts on the next call (the page says it is waking the server up). In local Docker: about 7 s to start, 2.5–10 s per demo.
 
 ## Language split
 

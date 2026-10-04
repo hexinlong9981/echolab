@@ -64,6 +64,8 @@
 |---|---|
 | `test_web_api.py` | `servers/web_api`：导出（全部演示与评估的轨迹，不含本机路径）・请求检查（未知的 LLM・剧本・过长的问题・领域）・本机 API（只监听 127.0.0.1・拒绝其他网站的 `Origin` 与错误的 `Content-Type`・运行剧本演示） |
 | `web/src/replay.test.ts` | 界面端（Vitest，`cd web && npm test`）：执行轨迹事件 → 回放步骤（到达的方框・拒绝・退回・出处表）、箭头端点的计算 |
+| `test_web_api.py`（公开演示服务器） | `servers/web_api/public.py`：拒绝剧本以外・测试用服务・未知演示，CORS 与预检，不允许的 `Origin` 返回 403，每个来源的次数上限・排队上限，响应不含本机路径（ADR-0013） |
+| `web/src/liveApi.test.ts` | 界面端：「在服务器上实际运行」的调用，以及区分错误种类（次数上限・繁忙・超时・连不上） |
 
 ## 端到端测试：`tests/e2e/`
 

@@ -93,9 +93,9 @@ sequenceDiagram
 | 格式 | 省略时最多保留 2 位小数，`N` 为 N 位小数，`%N` 为保留 N 位小数的百分数。舍入方式为 ROUND_HALF_EVEN |
 | 未确认数据 | 将 `unverified_inputs` 传播到出处，对引用了它们的回答由渲染器添加注记（ADR-0006） |
 
-## 当前状态（M6）
+## 当前状态（M7）
 
-M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
+M1〜M7 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 
 | 位置 | 内容 |
 |---|---|
@@ -107,6 +107,7 @@ M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | `domains/mortgage` | 房贷还款计算示例：计算与 Python MCP 服务器（`calc/`）・黄金用例・提示词（ADR-0009） |
 | `servers/vision_mcp` | 截图 OCR（Tesseract）。只返回模板声明的数值（ADR-0010） |
 | `servers/web_api` | 网页界面的数据导出与只在本机的 API（ADR-0011） |
+| `deploy/hf` | 公开演示服务器的 Docker 镜像（Hugging Face Spaces），运行 `servers/web_api/public.py`（ADR-0013） |
 | `web/` | 网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面（ADR-0011） |
 | `evals/` | 评估用例（`faithfulness/`・`redteam/`）与汇总报告（`reports/`） |
 | `tests/` | Schema 检查・与 Python 参考实现的核对・核心单元测试（`tests/core/`）・领域包・OCR・注入・网页的测试・端到端测试（`tests/e2e/`） |
@@ -131,6 +132,7 @@ M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | M4 | 截图读取（OCR）・注入攻击评估集（将脚本模式加入 CI） | 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | 完成（<https://echolab-web.echolab-web.workers.dev/>） |
 | M6 | 领域包③：无职转生设定考证（防剧透的检索・时间线・行程） | 完成（资料已由作者核对） |
+| M7 | 公开的演示服务器（Hugging Face Spaces・剧本 LLM・真实计算服务，零费用） | 已实现（设置 Hugging Face 后公开） |
 
 ### M2：纵向切片（提问 → 带出处的回答）：已实现
 
@@ -244,6 +246,19 @@ flowchart LR
 
 - 进度由用户用 CLI 的 `--context progress=novel:5`（或 `anime:2-12`）指定。服务只按声明媒体的标注过滤，不返回没有标注或看不到的条目（看不到的与不存在的返回同样的错误）。
 - 会暴露身份的别名只在揭晓的卷・集之后使用。事实的标签只限于该句本身能看出的内容，作为资料规则由测试检查。
+
+### M7：公开的演示服务器：已实现
+
+方针见 ADR-0013。M5 的公开网站只回放用测试计算服务生成的记录，所以加了一台能展示**真实计算服务现场运行**的服务器。零费用的方针不变。
+
+| 位置 | 作用 |
+|---|---|
+| `servers/web_api/public.py` | `python -m servers.web_api --public`。只用真实计算服务（calc-engine 的 jar・OCR・无职转生・房贷）和剧本 LLM 运行固定演示。始终拒绝真实 Claude。同时 1 个・排队 3 个，每个来源每分钟 6 次・每天 60 次，每次最长 120 秒。只对允许的 `Origin` 返回 CORS（含预检） |
+| `deploy/hf/` | Hugging Face Spaces（Docker・免费 CPU）用的 Dockerfile 与 Space 的 README |
+| `.github/workflows/hf-space.yml` | 有 Secret `HF_TOKEN`・Variable `HF_SPACE` 时发送到 Space |
+| `web/` | 演示回放下方的「在服务器上实际运行」（只在构建时有 `VITE_LIVE_API` 时显示） |
+
+- 免费 CPU 闲置会休眠，下次调用时启动（网页显示正在唤醒）。本机 Docker 中启动约 7 秒，每个演示 2.5〜10 秒。
 
 ## 语言分工
 

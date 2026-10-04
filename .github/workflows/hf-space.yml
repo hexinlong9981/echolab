@@ -37,7 +37,7 @@ jobs:
     steps:
       - name: Skip when Hugging Face is not configured
         if: env.HF_TOKEN == '' || env.HF_SPACE == ''
-        run: echo "::notice::HF_TOKEN（Secret）/ HF_SPACE（Variable）が未設定のため、送るのを飛ばしました（deploy/hf/README.md）"
+        run: echo "::notice::HF_TOKEN（Secret）/ HF_SPACE（Variable）が未設定のため、送るのを飛ばしました（web/README.md）"
       - uses: actions/checkout@v4
         if: env.HF_TOKEN != '' && env.HF_SPACE != ''
       - uses: actions/setup-python@v5

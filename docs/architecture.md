@@ -91,9 +91,9 @@ sequenceDiagram
 | 書式 | 省略時は小数 2 桁まで、`N` は小数 N 桁、`%N` は百分率で小数 N 桁。丸めは ROUND_HALF_EVEN |
 | 未確認データ | `unverified_inputs` を出典に伝搬し、引用した回答にはレンダラが注記を付ける（ADR-0006） |
 
-## 現在の状態（M6）
+## 現在の状態（M7）
 
-M1〜M6 が実装済みです。リポジトリには実装済みの部分のディレクトリしか置きません（ADR-0007）。
+M1〜M7 が実装済みです。リポジトリには実装済みの部分のディレクトリしか置きません（ADR-0007）。
 
 | 場所 | 内容 |
 |---|---|
@@ -105,6 +105,7 @@ M1〜M6 が実装済みです。リポジトリには実装済みの部分のデ
 | `domains/mortgage` | 住宅ローンの返済の計算例：計算と Python の MCP サーバ（`calc/`）・ゴールデンケース・プロンプト（ADR-0009） |
 | `servers/vision_mcp` | スクリーンショットの OCR（Tesseract）。テンプレートで宣言した数値だけを返す（ADR-0010） |
 | `servers/web_api` | Web UI のデータの書き出しと、手元だけの API（ADR-0011） |
+| `deploy/hf` | 公開のデモサーバの Docker の像（Hugging Face Spaces）。`servers/web_api/public.py` を動かす（ADR-0013） |
 | `web/` | Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面（ADR-0011） |
 | `evals/` | 評価ケース（`faithfulness/`・`redteam/`）と集計済みのレポート（`reports/`） |
 | `tests/` | スキーマ検査・Python 参照実装による照合・`core` の単体テスト（`tests/core/`）・パック・OCR・注入・Web の試験・端から端までの試験（`tests/e2e/`） |
@@ -129,6 +130,7 @@ M1〜M6 が実装済みです。リポジトリには実装済みの部分のデ
 | M4 | スクリーンショット読み取り（OCR）・注入の評価セット（台本モードを CI に追加） | 完了 |
 | M5 | Web UI・トレースのリプレイ・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 完了（<https://echolab-web.echolab-web.workers.dev/>） |
 | M6 | ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程） | 完了（資料は作者が確認済み） |
+| M7 | 公開のデモサーバ（Hugging Face Spaces・台本の LLM・実物の計算サービス、費用ゼロ） | 実装済み（公開は Hugging Face の設定後） |
 
 ### M2：縦の切片（質問 → 出典付きの回答）：実装済み
 
@@ -242,6 +244,19 @@ flowchart LR
 
 - 進み具合は CLI の `--context progress=novel:5`（または `anime:2-12`）で利用者が指定します。サービスは申告した媒体の注記だけで絞り込み、注記の無い項目・見えない項目は返しません（見えない項目は存在しない項目と同じ誤り）。
 - 正体が分かる別名は、明かされる巻・話から先でだけ使います。事実のタグはその文だけで分かることに限り、資料の規則として試験で確かめます。
+
+### M7：公開のデモサーバ：実装済み
+
+方針は ADR-0013 です。M5 の公開サイトは試験用の計算サービスで作った記録のリプレイだけなので、**実物の計算サービスがその場で動く**ことを見せるサーバを加えました。費用ゼロの方針は変えません。
+
+| 場所 | 役割 |
+|---|---|
+| `servers/web_api/public.py` | `python -m servers.web_api --public`。決まったデモだけを実物の計算サービス（calc-engine の jar・OCR・無職転生・住宅ローン）と台本の LLM で実行する。実物の Claude は常に拒む。同時 1 件・待ち 3 件、接続元ごとに 1 分 6 回・1 日 60 回、1 件 120 秒まで。許可した `Origin` にだけ CORS（事前確認を含む） |
+| `deploy/hf/` | Hugging Face Spaces（Docker・無料の CPU）用の Dockerfile と Space の README |
+| `.github/workflows/hf-space.yml` | Secret `HF_TOKEN`・Variable `HF_SPACE` があれば Space に送る |
+| `web/` | デモのリプレイの下に「サーバで実際に実行」（ビルドのときの `VITE_LIVE_API` があるときだけ） |
+
+- 無料の CPU は使われないと休止し、次の呼び出しで起動します（画面は起動を待つ旨を表示）。手元の Docker では起動に約 7 秒、デモ 1 件に 2.5〜10 秒。
 
 ## 言語の分担
 

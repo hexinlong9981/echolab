@@ -19,3 +19,9 @@ short_description: Runs EchoLab's fixed demos live with real calc services
 - 同時に 1 件、接続元ごとに 1 分 6 回・1 日 60 回まで。しばらく使われないと休止し、次の呼び出しで起動します（1 分ほどかかります）。
 
 このファイルと Space の中身は、公開リポジトリの `deploy/hf/` から CI が自動で送ります。直接編集しないでください。
+
+---
+
+**English**: A server that runs EchoLab's fixed demos live with the real calc services (Java calc-engine, OCR, Mushoku Tensei, mortgage) and the scripted LLM only — no real Claude, no API key, no cost. Use it from <https://echolab-web.echolab-web.workers.dev/>. Deployed automatically from the public repo's `deploy/hf/`.
+
+**中文**：用真实计算服务（Java calc-engine・OCR・无职转生・房贷）和剧本 LLM 现场运行 EchoLab 固定演示的服务器，不使用真实 Claude、没有 API 密钥、没有费用。请从 <https://echolab-web.echolab-web.workers.dev/> 使用。由公开仓库的 `deploy/hf/` 自动部署。

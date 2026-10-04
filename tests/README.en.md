@@ -64,6 +64,8 @@ No Java is used. The pack's MCP server (Python) is started as a real child proce
 |---|---|
 | `test_web_api.py` | `servers/web_api`: export (traces of every demo and eval, no local paths), request checks (unknown LLM, script, overly long question, domain), the local API (127.0.0.1 only, refusing other sites' `Origin` and wrong `Content-Type`, running a scripted demo) |
 | `web/src/replay.test.ts` | The UI side (Vitest, `cd web && npm test`): trace events → replay steps (target boxes, refusals, rejections, source table), and the arrow end-point calculation |
+| `test_web_api.py` (public demo server) | `servers/web_api/public.py`: refusing non-scripted runs, fake services and unknown demos; CORS and preflight; 403 for disallowed `Origin`s; per-client rate and queue limits; no local paths in responses (ADR-0013) |
+| `web/src/liveApi.test.ts` | UI side: calling "Run on the server" and telling error kinds apart (rate limit, busy, timeout, offline) |
 
 ## End-to-end tests: `tests/e2e/`
 

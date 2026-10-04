@@ -63,6 +63,33 @@ CI（`.github/workflows/web.yml`）每次推送到 main 都会构建，有下面
 在 Workers 免费方案中，静态资源的请求是免费的。构建在 GitHub Actions 中完成，不使用 Cloudflare 的构建。
 不再需要令牌时，请在 Cloudflare 后台作废。
 
+## 公开的演示服务器（Hugging Face Spaces，ADR-0013）
+
+演示回放下方的「在服务器上实际运行」，会在公开的演示服务器上用**真实计算服务**（Java 的 calc-engine・OCR・无职转生・房贷）和**剧本 LLM** 运行该演示。
+不使用真实 Claude，所以没有费用。服务器是 `python -m servers.web_api --public`（`servers/web_api/public.py`），镜像是 `deploy/hf/Dockerfile`。
+
+在本机试用：
+
+```bash
+docker build -f deploy/hf/Dockerfile -t echolab-public .
+docker run --rm -p 7860:7860 echolab-public            # → http://127.0.0.1:7860/api/health
+```
+
+发布步骤（只需第一次）：
+
+1. 在 <https://huggingface.co/join> 注册账号（免费，不需要信用卡）。
+2. 在 <https://huggingface.co/new-space> 创建 Space：名称 `echolab`，SDK 选 **Docker**（Blank），硬件选 **CPU basic（免费）**，可见性选 **Public**（网页不登录就要能调用）。
+3. 创建写入用令牌：<https://huggingface.co/settings/tokens> →「Create new token」→「Fine-grained」→ 在「Repositories permissions」中选这个 Space 并设为 **Write**（记下只显示一次的值）。
+4. **在你自己的终端**（如 Windows Terminal 的 WSL；Claude Code 的 `!` 不能接收输入）中登记：
+   ```bash
+   gh secret set HF_TOKEN -R hexinlong9981/echolab                                   # 粘贴令牌后回车
+   gh variable set HF_SPACE -R hexinlong9981/echolab --body "<用户名>/echolab"
+   gh variable set LIVE_API_URL -R hexinlong9981/echolab --body "https://<用户名>-echolab.hf.space"
+   ```
+5. 在 GitHub 的「Actions」→「hf-space」→「Run workflow」发送到 Space（第一次构建镜像需要几分钟），接着运行「web」，网页上就会出现「在服务器上实际运行」。
+
+免费 CPU 闲置会休眠，下次调用时启动（网页显示"正在唤醒服务器"）。
+
 ## 结构
 
 | 位置 | 内容 |

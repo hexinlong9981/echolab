@@ -63,6 +63,33 @@ To publish from your machine (no API token needed after `npx wrangler login`):
 Requests to static assets are free on the Workers free plan. Builds run on GitHub Actions, so Cloudflare's builds are not used.
 Revoke the token in Cloudflare when it is no longer needed.
 
+## Public demo server (Hugging Face Spaces, ADR-0013)
+
+"Run on the server" below a demo's replay runs that demo on the public demo server with the **real calc services** (the Java calc-engine, OCR, Mushoku Tensei, mortgage) and the **scripted LLM**.
+Real Claude is not used, so it costs nothing. The server is `python -m servers.web_api --public` (`servers/web_api/public.py`); the image is `deploy/hf/Dockerfile`.
+
+Try it locally:
+
+```bash
+docker build -f deploy/hf/Dockerfile -t echolab-public .
+docker run --rm -p 7860:7860 echolab-public            # → http://127.0.0.1:7860/api/health
+```
+
+Publishing (first time only):
+
+1. Create an account at <https://huggingface.co/join> (free, no credit card).
+2. Create a Space at <https://huggingface.co/new-space>: name `echolab`, SDK **Docker** (Blank), hardware **CPU basic (free)**, visibility **Public** (the page calls it without logging in).
+3. Create a write token: <https://huggingface.co/settings/tokens> → "Create new token" → "Fine-grained" → under "Repositories permissions" pick this Space with **Write** (copy the value; it is shown only once).
+4. Register it **in your own terminal** (e.g. WSL in Windows Terminal; Claude Code's `!` cannot read input):
+   ```bash
+   gh secret set HF_TOKEN -R hexinlong9981/echolab                                   # paste the token, press Enter
+   gh variable set HF_SPACE -R hexinlong9981/echolab --body "<user>/echolab"
+   gh variable set LIVE_API_URL -R hexinlong9981/echolab --body "https://<user>-echolab.hf.space"
+   ```
+5. Run "Actions" → "hf-space" → "Run workflow" (the first image build takes a few minutes), then run "web" so the page shows "Run on the server".
+
+The free CPU sleeps when unused and starts on the next call (the page shows "waking the server up").
+
 ## Layout
 
 | Location | Contents |
