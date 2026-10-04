@@ -30,6 +30,7 @@ gcloud run deploy "$SERVICE" \
   --port=8080 \
   --min-instances=0 --max-instances=1 --concurrency=4 \
   --cpu=1 --memory=1Gi --cpu-throttling --timeout=120 \
+  --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=$REGION" \
   --quiet
 
 gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" \

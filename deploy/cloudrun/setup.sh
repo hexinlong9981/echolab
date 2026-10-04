@@ -52,9 +52,11 @@ gcloud artifacts repositories set-cleanup-policies "$REPOSITORY" --location="$RE
 
 say "サービスアカウント"
 gcloud iam service-accounts describe "$RUNTIME_SA" >/dev/null 2>&1 ||
-  gcloud iam service-accounts create "$RUNTIME_SA_NAME" --display-name="EchoLab demo (runtime, no roles)"
+  gcloud iam service-accounts create "$RUNTIME_SA_NAME" --display-name="EchoLab demo (runtime, Vertex AI caller)"
 gcloud iam service-accounts describe "$DEPLOYER_SA" >/dev/null 2>&1 ||
   gcloud iam service-accounts create "$DEPLOYER_SA_NAME" --display-name="EchoLab demo deployer (GitHub Actions)"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$RUNTIME_SA" \
+  --role="roles/aiplatform.user" --condition=None --quiet >/dev/null
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$DEPLOYER_SA" \
   --role="roles/run.admin" --condition=None --quiet >/dev/null
 gcloud artifacts repositories add-iam-policy-binding "$REPOSITORY" --location="$REGION" \
