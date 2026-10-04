@@ -210,6 +210,16 @@ class Gateway:
         if self._closed:
             return CallOutcome(call_id, route.tool, arguments, error="ゲートウェイは閉じています")
 
+        overridden = sorted(k for k in self._user_context if k in arguments)
+        if route.backend is not None and overridden:
+            # サービスのスキーマに関係なく拒む（利用者の指定を LLM が書き換えられないように）
+            return CallOutcome(
+                call_id,
+                route.tool,
+                arguments,
+                error=f"{', '.join(overridden)} は利用者が指定する項目のため、指定できません",
+            )
+
         errors = sorted(route.validator.iter_errors(arguments), key=lambda e: list(e.path))
         if errors:
             detail = "; ".join(_describe(e) for e in errors)

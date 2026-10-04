@@ -114,3 +114,18 @@ def test_envelope_texts_from_json() -> None:
     env = ToolEnvelope.from_json({"tool": "x.y", "values": {}, "texts": {"a": "文"}})
     assert env.texts == {"a": "文"}
     assert ToolEnvelope.from_json({"tool": "x.y", "values": {}}).texts == {}
+
+
+class OpenSchemaBackend(LoreBackend):
+    """入力スキーマに progress を書いていない（何でも受け付ける）サービス。"""
+
+    async def list_tools(self) -> list[ToolSpec]:
+        return [ToolSpec("lore_search", "設定の検索", {"type": "object"})]
+
+
+async def test_llm_value_is_rejected_even_if_the_service_schema_is_open(tmp_path: Path) -> None:
+    backend = OpenSchemaBackend()
+    gw = await _open(_repo(tmp_path, ["progress"]), backend, context={"progress": "novel:5"})
+    outcome = await gw.call("lore_search", {"query": "x", "progress": "novel:26"})
+    assert outcome.error == "progress は利用者が指定する項目のため、指定できません"
+    assert backend.calls == []
