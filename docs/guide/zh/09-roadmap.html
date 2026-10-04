@@ -21,9 +21,9 @@
   <main>
     <header class="top"><span class="tags"><span>进阶</span><span>路线图</span><span>现状</span></span><button id="theme-toggle">切换明暗</button></header>
     <h1>今后的功能（路线图）</h1>
-    <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理各阶段做了什么，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
+    <p class="lead">EchoLab 按阶段（M1～M6）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理各阶段做了什么，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout"><strong>现状：M1～M5 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）和网页界面（M5）都已可用。还没做的只有<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥）。公开网站：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（push 后自动重新发布要等作者把 API 令牌加入 Secrets 后才开始）。</div>
+    <div class="callout"><strong>现状：M1～M6 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）、网页界面（M5）和《无职转生》设定考证领域包（M6，<code>--domain mushoku</code>）都已可用。还没做的有：<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥），以及<strong>核对《无职转生》的资料</strong>（目前全部是凭记忆写的未确认草稿）。公开网站：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（推送到 main 后自动重新发布）。</div>
 
     <h2>阶段一览</h2>
     <table>
@@ -33,6 +33,7 @@
       <tr><td>M3</td><td>第二个领域包：住宅贷款还款的计算示例（最小示例），并在 CI 中证明核心零改动</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M4</td><td>截图读取（OCR）、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M5</td><td>网页界面：执行轨迹回放、评估看板（公开的是静态网站，零费用）、只在本机运行的实时界面</td><td><span class="badge done">已完成（已公开）</span></td></tr>
+      <tr><td>M6</td><td>第三个领域包：《无职转生》设定考证——防剧透的设定查询、时间线计算、自制地图的路线</td><td><span class="badge done">已完成（资料待核对）</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -42,16 +43,17 @@ flowchart LR
   M2 --> M3["M3 住宅贷款领域包<br/>证明核心零改动"]
   M3 --> M4["M4 截图读取<br/>注入评估・CI 评估"]
   M4 --> M5["M5 Web UI<br/>轨迹回放・评估看板"]
-  NOW(["现在在这里"]) -.-> M5
+  M5 --> M6["M6 无职转生领域包<br/>防剧透的检索"]
+  NOW(["现在在这里"]) -.-> M6
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3,M4,M5 done
+  class M1,M2,M3,M4,M5,M6 done
       </pre>
       <div class="caption">图 1：开发阶段时间线（实线绿色＝已完成，虚线黄色＝计划；先打通一条完整流程，再横向扩展）</div>
     </div>
 
     <h3>动画：逐个阶段看</h3>
-    <div class="flow-anim" id="ms" data-cols="9">
+    <div class="flow-anim" id="ms" data-cols="11">
       <div class="stage">
         <div class="node" data-id="m1">M1<small>计算引擎</small></div>
         <div class="arrow" data-id="a1">→</div>
@@ -62,6 +64,8 @@ flowchart LR
         <div class="node" data-id="m4">M4<small>截图・注入</small></div>
         <div class="arrow" data-id="a4">→</div>
         <div class="node" data-id="m5">M5<small>Web UI</small></div>
+        <div class="arrow" data-id="a5">→</div>
+        <div class="node" data-id="m6">M6<small>无职转生</small></div>
       </div>
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "已完成"},
@@ -72,8 +76,10 @@ flowchart LR
          "text": "<b>M3：住宅贷款领域包。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。核心代码一行没改就加了进来，CI 每次都检查这一点。<strong>只是计算示例，不是金融建议。</strong>"},
         {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "已完成"},
          "text": "<b>M4：截图读取与注入评估。</b>用 OCR（Tesseract）读取声骸截图，只返回模板里声明的数值，图片里的文字传不到 Claude；新增 7 个“提示词注入”评估题（使用合成截图，不用游戏原图），在 CI 中每次运行，没有一个攻击成功。"},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "已完成 · 现在"},
-         "text": "<b>M5：网页界面。</b>用流程图逐步回放执行轨迹、查看评估看板。公开的是静态网站（不运行服务器和 LLM，零费用）；在自己电脑上还能打开“运行”界面现场提问。本说明书第 5、7 页动画展示的内容，现在可以在界面里直接看到。"}
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "已完成"},
+         "text": "<b>M5：网页界面。</b>用流程图逐步回放执行轨迹、查看评估看板。公开的是静态网站（不运行服务器和 LLM，零费用）；在自己电脑上还能打开“运行”界面现场提问。本说明书第 5、7 页动画展示的内容，现在可以在界面里直接看到。"},
+        {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "已完成 · 现在"},
+         "text": "<b>M6：《无职转生》设定考证。</b>第三个领域包：防剧透的设定查询、时间线计算（年龄・年数）、自制地图上的最短行程。你读到第几卷、看到第几集，由你在提问时指定，AI 看不到也改不了；过滤在检索这一层完成。资料是凭记忆写的未确认草稿。"}
       ]</script>
     </div>
 
@@ -106,7 +112,7 @@ flowchart LR
       <div class="card"><h4>回放</h4><p>把执行轨迹画成流程图（React Flow）逐步播放：经过哪个方框、哪一稿被退回、哪个工具被拒绝，都用颜色标出，并显示当时已有的出典表。网址 <code>#replay/&lt;执行 ID&gt;/&lt;步&gt;</code> 可以直接打开某一步。</p></div>
       <div class="card"><h4>评估看板</h4><p>数值忠实度（鸣潮・住宅贷款）和注入评估的指标与每个用例的结果；每个用例都能跳到回放。</p></div>
       <div class="card"><h4>运行（只在本机）</h4><p>在自己电脑上用 <code>python -m servers.web_api</code> 打开时才出现：可以运行剧本演示，有 API 密钥时还能向真实 Claude 提问（受日／月成本上限保护）。只监听 <code>127.0.0.1</code>，不对外公开。</p></div>
-      <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare（Workers 的静态资源，原 Pages）（免费方案）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。<strong>推送到 main 后自动重新发布，要等作者把 API 令牌加入 GitHub Secrets 后才开始。</strong></p></div>
+      <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare（Workers 的静态资源，原 Pages）（免费方案）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。推送到 main 后自动重新发布。</p></div>
     </div>
     <p>在自己电脑上试用（需要 Node.js）：</p>
 <pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
@@ -126,6 +132,42 @@ flowchart LR
   U2["你的浏览器"] --> API
       </pre>
       <div class="caption">图 2：M5 的结构。公开网站只有静态文件；能现场提问的界面只在你的电脑上运行</div>
+    </div>
+
+    <h2>M6（已完成）：第三个领域包——《无职转生》设定考证（防剧透）</h2>
+    <p>第三个领域包回答《无职转生》的设定问题（非官方同人作品）。看点是<strong>防剧透</strong>：它和业务中“按用户权限过滤检索结果”（带权限的 RAG）是同一个结构（ADR-0012）。</p>
+    <div class="cards">
+      <div class="card"><h4>设定查询</h4><p>按人物・地点・关键词查找自己写的简短事实。只返回你的进度范围内的内容。</p></div>
+      <div class="card"><h4>时间线</h4><p>某个事件发生时某人的年龄、两个事件之间隔了几年。数字由工具计算。</p></div>
+      <div class="card"><h4>行程</h4><p>在自制的地图上求最短行程（天数）。天数是作者估的参考值。</p></div>
+    </div>
+    <h3>怎么问：进度由你指定</h3>
+    <p>提问时用 <code>--context progress=…</code> 告诉它你读到 / 看到哪里：小说写 <code>novel:&lt;卷&gt;</code>（例 <code>novel:5</code>），动画写 <code>anime:&lt;期&gt;-&lt;集&gt;</code>（例 <code>anime:2-12</code>）。不需要 API 密钥的试用：</p>
+<pre><code>python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" \
+  --domain mushoku --context progress=novel:3 \
+  --llm scripted --script domains/mushoku/examples/teleport_age.yaml</code></pre>
+    <p>输出（节选）：</p>
+<pre><code>転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
+資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
+
+※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
+
+※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。</code></pre>
+    <h3>防剧透是怎么保证的</h3>
+    <ul>
+      <li><strong>进度只有你能定</strong>：进度不会出现在 AI 能看到的工具说明里；AI 若在调用工具时自己填进度（例如被诱导去“看看后面的卷”），网关一律拒绝，再把你指定的值加进去。</li>
+      <li><strong>在检索这一层过滤</strong>：只看你声明的那种媒体（小说或动画）的标注，不在两者之间换算；没有标注的资料一律不返回。</li>
+      <li><strong>“看不到”和“不存在”给出同样的回答</strong>：连“它存在”这件事也不会泄露。</li>
+      <li><strong>别名也有进度</strong>：会暴露身份的别名，要到揭晓的那一卷 / 那一集之后才能用来查询。</li>
+      <li>没有指定进度时，不查询，而是先问你读到哪里。</li>
+    </ul>
+    <p>这些都写成了评估题（7 个“诱导剧透”的用例，在 CI 中每次运行，全部拦住）。</p>
+    <div class="callout warn"><strong>请注意</strong>
+      <ul>
+        <li><strong>资料都是未确认的草稿</strong>：事实、人物、年份、卷数・集数、地图天数都是凭记忆写的，可能有错。回答里会自动加上这一提醒。拿不准第几卷时，资料会标成较后的一卷（宁可晚出现，也不提前剧透）。</li>
+        <li><strong>已知的限制</strong>：AI 凭自己的记忆写出的“不含数字的剧透句子”，结构上拦不住（只能靠提示词禁止）；含数字的会被验证器拦下。</li>
+        <li>不收录原作正文、台词、插图和动画画面，只有自己写的简短要点与卷・集编号。</li>
+      </ul>
     </div>
 
     <h2>不会改变的东西</h2>

@@ -21,9 +21,9 @@
   <main>
     <header class="top"><span class="tags"><span>Advanced</span><span>Roadmap</span><span>Status</span></span><button id="theme-toggle">Toggle theme</button></header>
     <h1>Roadmap</h1>
-    <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
+    <p class="lead">EchoLab is developed in milestones (M1–M6). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout"><strong>Status: M1–M5 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR) and the web UI (M5) are all available. The only thing not done yet is <strong>a systematic eval with real Claude</strong> (it needs an API key). The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (automatic re-publishing on push starts once the author adds the API token secret).</div>
+    <div class="callout"><strong>Status: M1–M6 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) and the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) are all available. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key) and <strong>checking the Mushoku Tensei data</strong> (currently an unverified draft written from memory). The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -33,6 +33,7 @@
       <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (live)</span></td></tr>
+      <tr><td>M6</td><td>A third domain pack: <i>Mushoku Tensei</i> lore — spoiler-filtered lookups, timeline calculations, routes on a home-made map</td><td><span class="badge done">Done (data to be checked)</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -42,16 +43,17 @@ flowchart LR
   M2 --> M3["M3 Mortgage domain pack<br/>proves zero core changes"]
   M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
   M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
-  NOW(["You are here"]) -.-> M5
+  M5 --> M6["M6 Mushoku Tensei pack<br/>spoiler-filtered retrieval"]
+  NOW(["You are here"]) -.-> M6
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3,M4,M5 done
+  class M1,M2,M3,M4,M5,M6 done
       </pre>
       <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
     </div>
 
     <h3>Animation: one milestone at a time</h3>
-    <div class="flow-anim" id="ms" data-cols="9">
+    <div class="flow-anim" id="ms" data-cols="11">
       <div class="stage">
         <div class="node" data-id="m1">M1<small>Calc engine</small></div>
         <div class="arrow" data-id="a1">→</div>
@@ -62,6 +64,8 @@ flowchart LR
         <div class="node" data-id="m4">M4<small>Screenshots, injection</small></div>
         <div class="arrow" data-id="a4">→</div>
         <div class="node" data-id="m5">M5<small>Web UI</small></div>
+        <div class="arrow" data-id="a5">→</div>
+        <div class="node" data-id="m6">M6<small>Mushoku</small></div>
       </div>
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "Done"},
@@ -72,8 +76,10 @@ flowchart LR
          "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
         {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done"},
          "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done · now"},
-         "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."}
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done"},
+         "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."},
+        {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "Done · now"},
+         "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. The data is an unverified draft written from memory."}
       ]</script>
     </div>
 
@@ -106,7 +112,7 @@ flowchart LR
       <div class="card"><h4>Replay</h4><p>Plays an execution trace step by step as a flow diagram (React Flow). Boxes passed, rejected drafts and refused tools are shown in color, together with the source table at that moment. The URL <code>#replay/&lt;run ID&gt;/&lt;step&gt;</code> opens a specific step.</p></div>
       <div class="card"><h4>Eval dashboard</h4><p>Metrics and per-case results for numeric faithfulness (Wuthering Waves, mortgages) and the injection evals; every case links to its replay.</p></div>
       <div class="card"><h4>Run (local only)</h4><p>Appears only when opened through <code>python -m servers.web_api</code> on your own machine: run the scripted demos, or ask real Claude when you have an API key (protected by the daily and monthly cost caps). It listens on <code>127.0.0.1</code> only and is not public.</p></div>
-      <div class="card"><h4>Public site</h4><p>Hosted on Cloudflare (Workers static assets, formerly Pages) (free plan): <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>. CI generates the data in scripted mode, builds and publishes; the public replays are scripted-mode records, not real Claude answers. <strong>Automatic re-publishing on every push to main starts once the author adds the API token to GitHub Secrets.</strong></p></div>
+      <div class="card"><h4>Public site</h4><p>Hosted on Cloudflare (Workers static assets, formerly Pages) (free plan): <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>. CI generates the data in scripted mode, builds and publishes; the public replays are scripted-mode records, not real Claude answers. It is republished automatically on every push to main.</p></div>
     </div>
     <p>To try it on your own machine (Node.js needed):</p>
 <pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
@@ -126,6 +132,42 @@ flowchart LR
   U2["your browser"] --> API
       </pre>
       <div class="caption">Figure 2: how M5 is put together. The public site is static files only; the screen where you can ask live runs only on your machine</div>
+    </div>
+
+    <h2>M6 (Done): a third domain pack — <i>Mushoku Tensei</i> lore (spoiler protection)</h2>
+    <p>The third domain pack answers questions about the setting of <i>Mushoku Tensei</i> (an unofficial fan project). Its highlight is <strong>spoiler protection</strong>, which has the same structure as filtering search results by user permissions in business systems (permission-aware RAG) (ADR-0012).</p>
+    <div class="cards">
+      <div class="card"><h4>Lore lookup</h4><p>Finds short, self-written facts by character, place or keyword. Only returns what is within your progress.</p></div>
+      <div class="card"><h4>Timeline</h4><p>A character's age at an event, or the years between two events. The tool calculates the numbers.</p></div>
+      <div class="card"><h4>Routes</h4><p>The shortest route (in days) on a home-made map. The days are the author's rough estimates.</p></div>
+    </div>
+    <h3>How to ask: you set your progress</h3>
+    <p>Tell it how far you have read or watched with <code>--context progress=…</code>: <code>novel:&lt;volume&gt;</code> for the novels (e.g. <code>novel:5</code>) or <code>anime:&lt;season&gt;-&lt;episode&gt;</code> for the anime (e.g. <code>anime:2-12</code>). To try it without an API key:</p>
+<pre><code>python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" \
+  --domain mushoku --context progress=novel:3 \
+  --llm scripted --script domains/mushoku/examples/teleport_age.yaml</code></pre>
+    <p>Output (excerpt; the program answers in Japanese):</p>
+<pre><code>転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
+資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
+
+※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
+
+※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。</code></pre>
+    <h3>How spoilers are prevented</h3>
+    <ul>
+      <li><strong>Only you set the progress</strong>: it never appears in the tool descriptions the AI sees. If the AI fills in a progress value itself (for example when lured into "checking later volumes"), the gateway always refuses and adds the value you set.</li>
+      <li><strong>Filtering in the retrieval layer</strong>: only the annotations for the medium you declared (novels or anime) are used, with no conversion between them; data without annotations is never returned.</li>
+      <li><strong>"Hidden" and "does not exist" give the same answer</strong>, so not even the existence of something is leaked.</li>
+      <li><strong>Aliases have progress too</strong>: an alias that reveals someone's identity only works from the volume or episode where it is revealed.</li>
+      <li>Without a progress value it does not search; it first asks how far you are.</li>
+    </ul>
+    <p>All of this is written as evals (7 spoiler-luring cases that run in CI every time; all are stopped).</p>
+    <div class="callout warn"><strong>Please note</strong>
+      <ul>
+        <li><strong>The data is an unverified draft</strong>: facts, characters, years, volume and episode numbers, and map days were written from memory and may be wrong. Answers carry a note saying so automatically. When unsure of a volume, the data uses the later one (better late than an early spoiler).</li>
+        <li><strong>Known limitation</strong>: a spoiler sentence without numbers that the AI writes from its own memory cannot be stopped structurally (only the prompt forbids it); sentences with numbers are stopped by the verifier.</li>
+        <li>No source text, dialogue, illustrations or anime images are included; only short self-written points and volume/episode numbers.</li>
+      </ul>
     </div>
 
     <h2>What will not change</h2>

@@ -25,7 +25,7 @@
     <div class="term" data-title="bash — 帮助">
       <script type="application/json">[
         {"cmd": "python -m core.agent --help"},
-        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN]"},
+        {"out": "usage: python -m core.agent [-h] [--domain DOMAIN] [--context NAME=VALUE]"},
         {"out": "                            [--llm {anthropic,scripted}] [--script SCRIPT]"},
         {"out": "                            [--fake-backend] [--trace-dir TRACE_DIR] [--debug]"},
         {"out": "                            question"},
@@ -38,6 +38,7 @@
         {"out": "options:"},
         {"out": "  -h, --help            show this help message and exit"},
         {"out": "  --domain DOMAIN       ドメインパック（既定 wuwa）"},
+        {"out": "  --context NAME=VALUE  利用者が指定する項目（例 --context progress=novel:5）。ドメインが宣言したものだけ"},
         {"out": "  --llm {anthropic,scripted}"},
         {"out": "                        anthropic（実物の Claude。既定）か scripted（台本。API キー不要）"},
         {"out": "  --script SCRIPT       --llm scripted の台本（YAML）"},
@@ -60,7 +61,8 @@
       <thead><tr><th>参数 / 选项</th><th>默认值</th><th>说明</th></tr></thead>
       <tbody>
         <tr><td><code>question</code>（必填）</td><td>—</td><td>问题文本。含空格时用引号括起来。要读截图时，把图片路径写在问题里（M4，见<a href="02-what-to-ask.html">能问什么</a>）。缺少时 argparse 报 <code>error: the following arguments are required: question</code>，退出码 2。</td></tr>
-        <tr><td><code>--domain DOMAIN</code></td><td><code>wuwa</code></td><td>领域包（读取 <code>domains/&lt;DOMAIN&gt;/domain.yaml</code>）。目前有 <code>wuwa</code>（鸣潮）和 <code>mortgage</code>（住宅贷款还款的计算示例，示例台本 <code>domains/mortgage/examples/compare_methods.yaml</code>）。指定不存在的领域时，无论是否加 <code>--fake-backend</code>，都输出 <code>エラー: ドメインが見つかりません: &lt;DOMAIN&gt;（使えるドメイン: mortgage、wuwa）</code>，退出码 2。</td></tr>
+        <tr><td><code>--domain DOMAIN</code></td><td><code>wuwa</code></td><td>领域包（读取 <code>domains/&lt;DOMAIN&gt;/domain.yaml</code>）。目前有 <code>wuwa</code>（鸣潮）、<code>mortgage</code>（住宅贷款还款的计算示例，示例台本 <code>domains/mortgage/examples/compare_methods.yaml</code>）和 <code>mushoku</code>（《无职转生》设定考证，示例台本 <code>domains/mushoku/examples/teleport_age.yaml</code>，需要 <code>--context progress=…</code>）。指定不存在的领域时，无论是否加 <code>--fake-backend</code>，都输出 <code>エラー: ドメインが見つかりません: &lt;DOMAIN&gt;（使えるドメイン: mortgage、mushoku、wuwa）</code>，退出码 2。</td></tr>
+        <tr><td><code>--context NAME=VALUE</code></td><td>—</td><td>由你（而不是 AI）指定的项目，可以写多次。只接受领域包在 <code>domain.yaml</code> 的 <code>user_context</code> 里声明的名字；目前只有 <code>mushoku</code> 的 <code>progress</code>（你的进度：<code>novel:&lt;卷&gt;</code> 或 <code>anime:&lt;期&gt;-&lt;集&gt;</code>，例 <code>--context progress=novel:5</code>）。AI 看不到这个值，也改不了。写成别的名字时输出 <code>エラー: ドメイン mushoku は利用者の指定 foo を受け付けません（受け付ける項目: progress）</code>，退出码 2；格式不对时报 <code>エラー: --context は NAME=VALUE の形で指定してください: …</code>。</td></tr>
         <tr><td><code>--llm {anthropic,scripted}</code></td><td><code>anthropic</code></td><td><code>anthropic</code>：调用真实 Claude（模型 <code>claude-opus-5-5</code>），需要凭据。<code>scripted</code>：按台本文件回放，不需要凭据。</td></tr>
         <tr><td><code>--script SCRIPT</code></td><td>—</td><td>台本 YAML 文件路径（相对路径以<strong>当前目录</strong>为基准）。<code>--llm scripted</code> 时必填，缺少时输出 <code>エラー: --llm scripted には --script（台本の YAML）が必要です</code>；文件不存在时输出 <code>エラー: 台本が見つかりません: &lt;路径&gt;</code>。两者退出码都是 2。项目自带示例：<code>core/agent/examples/compare_builds.yaml</code>。</td></tr>
         <tr><td><code>--fake-backend</code></td><td>关闭</td><td>不启动 Java 计算服务，改用测试用的 Python 参考实现。可与任一 <code>--llm</code> 组合。注意：假服务不提供 <code>gacha_simulate</code>（蒙特卡洛）工具。</td></tr>
@@ -190,7 +192,7 @@ stateDiagram-v2
       <script type="application/json">[
         {"cmd": "python -m core.agent \"攻撃力 2000 のときの期待ダメージは？\" --domain lol --fake-backend"},
         {"pause": 400},
-        {"out": "エラー: ドメインが見つかりません: lol（使えるドメイン: mortgage、wuwa）", "cls": "err"},
+        {"out": "エラー: ドメインが見つかりません: lol（使えるドメイン: mortgage、mushoku、wuwa）", "cls": "err"},
         {"out": "（--debug を付けるとトレースバックを表示します）", "cls": "dim"},
         {"cmd": "echo $?"},
         {"out": "2"}
