@@ -102,6 +102,31 @@ export function outputText(lang: Lang, jaText: string): string | null {
   return lang === "ja" ? null : (OUTPUTS[lang][jaText] ?? null);
 }
 
+export const PACK_ORDER = ["wuwa", "mushoku", "mortgage"];
+
+const DOMAIN_NAMES: Record<Lang, Record<string, string>> = {
+  zh: {
+    wuwa: "鸣潮",
+    mushoku: "无职转生",
+    mortgage: "房贷",
+  },
+  ja: {
+    wuwa: "鳴潮",
+    mushoku: "無職転生",
+    mortgage: "住宅ローン",
+  },
+  en: {
+    wuwa: "Wuthering Waves",
+    mushoku: "Mushoku Tensei",
+    mortgage: "Mortgage",
+  },
+};
+
+/** ドメインパックの表示名（漢名・英名）。 */
+export function domainTitle(lang: Lang, domain: string): string {
+  return DOMAIN_NAMES[lang]?.[domain] ?? domain;
+}
+
 /** データの表示名（プレーンテキスト。select の選択肢など）。 */
 export function titleText(lang: Lang, key: string, jaTitle: string): string {
   return lang === "ja" ? jaTitle : (TITLES[lang][key] ?? jaTitle);

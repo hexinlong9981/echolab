@@ -1,11 +1,42 @@
 import { useState } from "react";
 import { type AskRequest, ask } from "./data";
-import { titleText, useI18n } from "./i18n";
+import { type Lang, PACK_ORDER, domainTitle, titleText, useI18n } from "./i18n";
 import { LiveError, askOnServer, wake } from "./liveApi";
 import { Question } from "./Question";
 import { RunPlayer } from "./RunPlayer";
 import { Tx } from "./Tx";
 import type { LocalInfo, RunRecord } from "./types";
+
+const SAMPLES: Record<string, { label: Record<Lang, string>; text: string; progress?: string }[]> = {
+  wuwa: [
+    {
+      label: { zh: "填入示例：配装期望伤害", ja: "入力例：期待ダメージ計算", en: "Sample: Expected Damage" },
+      text: "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？",
+    },
+  ],
+  mushoku: [
+    {
+      label: { zh: "填入示例：转移事件时年龄", ja: "入力例：転移事件時の年齢", en: "Sample: Age at Displacement" },
+      text: "ルーデウスの転移事件時の年齢は？",
+      progress: "novel:3",
+    },
+    {
+      label: { zh: "填入示例：布耶纳村到罗亚行程", ja: "入力例：ブエナ村からロアの日数", en: "Sample: Buena to Roa route" },
+      text: "ブエナ村からロアまでの移動にかかる日数は？",
+      progress: "novel:5",
+    },
+  ],
+  mortgage: [
+    {
+      label: { zh: "填入示例：等额本息与等额本金利息差", ja: "入力例：元利均等と元金均等の比較", en: "Sample: Equal payment vs principal" },
+      text: "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？",
+    },
+    {
+      label: { zh: "填入示例：提前还款比较", ja: "入力例：繰り上げ返済の比較", en: "Sample: Prepayment comparison" },
+      text: "借入 3000 万円、年利 1.5%、35 年で 5 年後に 200 万円を繰り上げ返済するとき、期間短縮型と返済額軽減型で利息軽減額の違いは？",
+    },
+  ],
+};
 
 /** リアルタイム対話・実行画面（手元の API または公開の Cloud Run デモサーバ）。 */
 export function LiveView({
@@ -18,10 +49,16 @@ export function LiveView({
   apiBase?: string | null;
 }) {
   const { lang, t } = useI18n();
+  // サーバ接続時は既定で gemini、手元は scripted
   const [mode, setMode] = useState<"scripted" | "gemini" | "anthropic">(apiBase ? "gemini" : "scripted");
   const [demo, setDemo] = useState(info.demos[0]?.id ?? "");
   const [question, setQuestion] = useState("");
-  const [domain, setDomain] = useState(info.domains.includes("wuwa") ? "wuwa" : (info.domains[0] ?? ""));
+  const orderedDomains = [...info.domains].sort((a, b) => {
+    const ia = PACK_ORDER.indexOf(a);
+    const ib = PACK_ORDER.indexOf(b);
+    return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
+  });
+  const [domain, setDomain] = useState(orderedDomains[0] ?? "wuwa");
   const [progress, setProgress] = useState("novel:1");
   const [fake, setFake] = useState(!apiBase);
   const [busy, setBusy] = useState(false);
@@ -102,10 +139,29 @@ export function LiveView({
         ) : (
           <>
             <select value={domain} onChange={(e) => setDomain(e.target.value)}>
-              {info.domains.map((d) => (
-                <option key={d}>{d}</option>
+              {orderedDomains.map((d) => (
+                <option key={d} value={d}>
+                  {domainTitle(lang, d)}
+                </option>
               ))}
             </select>
+            {SAMPLES[domain] && (
+              <div className="samples">
+                {SAMPLES[domain].map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="sample-chip"
+                    onClick={() => {
+                      setQuestion(s.text);
+                      if (s.progress) setProgress(s.progress);
+                    }}
+                  >
+                    {s.label[lang] ?? s.label.zh}
+                  </button>
+                ))}
+              </div>
+            )}
             {domain === "mushoku" && (
               <label>
                 <Tx k="live.progress" />{" "}
