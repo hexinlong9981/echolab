@@ -40,3 +40,6 @@ evals/reports/raw/
 
 # 実行時の記録（コスト台帳・トレース）
 .echolab/
+
+# Web UI のデータ（CI が python -m servers.web_api.export で生成する）
+web/public/data/
