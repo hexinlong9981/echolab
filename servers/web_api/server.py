@@ -73,8 +73,8 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
     台本は DEMOS のものだけを使う（任意のファイルは読ませない）。
     """
     llm = body.get("llm")
-    if llm not in ("scripted", "anthropic"):
-        raise ApiError(HTTPStatus.BAD_REQUEST, "llm は scripted か anthropic です")
+    if llm not in ("scripted", "anthropic", "gemini"):
+        raise ApiError(HTTPStatus.BAD_REQUEST, "llm は scripted、anthropic、または gemini です")
     fake = body.get("fake_backend", False)
     if not isinstance(fake, bool):
         raise ApiError(HTTPStatus.BAD_REQUEST, "fake_backend は真偽値です")
@@ -106,7 +106,7 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
     return {
         "question": question,
         "domain": domain,
-        "llm_kind": "anthropic",
+        "llm_kind": llm,
         "script": None,
         "fake_backend": fake,
         # 進み具合は利用者が指定する（ドメインが受け付けなければ ContextError で 400）

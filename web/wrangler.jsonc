@@ -1,13 +1,14 @@
-// Cloudflare への公開の設定（ADR-0011）。静的なファイル（web/dist）だけを配る。Worker のコードは無い。
-// Cloudflare Pages は Workers に統合されたため、wrangler deploy で「静的アセット」として公開する（無料プランの範囲）。
+// Cloudflare への公開の設定（ADR-0011）。Worker（worker.js）で Basic 認証を行い、通過後に静的ファイルを配る。
+// 密码存在 Cloudflare Worker secret WEB_PASSWORD 里。
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "echolab-web",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    // 画面の切り替えは URL のハッシュ（#replay/…）なので、index.html への差し戻し（SPA）は要らない。
-    // 無いファイル（古い一覧から読んだ記録など）は 404 にして、HTML を JSON として読まないようにする
-    "not_found_handling": "none"
+    "binding": "ASSETS",
+    "run_worker_first": true
   }
 }
+

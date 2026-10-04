@@ -52,7 +52,7 @@ export async function loadLocalInfo(): Promise<LocalInfo | null> {
 }
 
 export interface AskRequest {
-  llm: "scripted" | "anthropic";
+  llm: "scripted" | "anthropic" | "gemini";
   demo?: string;
   question?: string;
   domain?: string;
@@ -61,8 +61,9 @@ export interface AskRequest {
   fake_backend: boolean;
 }
 
-export async function ask(req: AskRequest): Promise<RunRecord> {
-  const res = await fetch("api/ask", {
+export async function ask(req: AskRequest, base?: string | null): Promise<RunRecord> {
+  const url = base ? `${base.replace(/\/+$/, "")}/api/ask` : "api/ask";
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { forgetRuns, loadIndex, loadLocalInfo } from "./data";
 import { EvalsView } from "./EvalsView";
 import { detectLang, LANGS, type Lang, LangContext, loadRubyPrefs, makeI18n, store } from "./i18n";
+import { liveApiBase } from "./liveApi";
 import { LiveView } from "./LiveView";
 import { ReplayView } from "./ReplayView";
 import { Tx } from "./Tx";
@@ -29,6 +30,27 @@ export function App() {
   const [lang, setLang] = useState<Lang>(detectLang);
   const [ruby, setRuby] = useState(loadRubyPrefs);
   const i18n = useMemo(() => makeI18n(lang), [lang]);
+  const liveBase = useMemo(() => liveApiBase(), []);
+
+  const serverInfo = useMemo<LocalInfo | null>(() => {
+    if (local) return local;
+    if (liveBase && index) {
+      return {
+        domains: ["wuwa", "mushoku", "mortgage"],
+        demos: index.demos.map((d) => ({
+          id: d.id,
+          title: d.title,
+          question: d.question,
+          domain: d.domain,
+          script: d.script,
+        })),
+        has_api_key: true,
+        caps_usd: { daily: "1.00", monthly: "10.00" },
+        ocr: true,
+      };
+    }
+    return null;
+  }, [local, liveBase, index]);
 
   useEffect(() => {
     const onHash = () => setRoute(readHash());
@@ -122,8 +144,10 @@ export function App() {
           />
         )}
         {index && route.tab === "evals" && <EvalsView index={index} onOpen={(id) => go(`replay/${id}`)} />}
-        {index && route.tab === "live" && local && <LiveView info={local} services={index.services} />}
-        {index && route.tab === "live" && !local && <Tx k="live.unavailable" as="p" />}
+        {index && route.tab === "live" && serverInfo && (
+          <LiveView info={serverInfo} services={index.services} apiBase={local ? undefined : liveBase} />
+        )}
+        {index && route.tab === "live" && !serverInfo && <Tx k="live.unavailable" as="p" />}
         <footer className="foot">
           <Tx k="foot.main" />{" "}
           {index && (

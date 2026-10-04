@@ -1,6 +1,7 @@
 // 公開のデモサーバ（Google Cloud Run、ADR-0013）を呼ぶ。台本の LLM・実物の計算サービス。
 // サーバの URL はビルドのときの環境変数 VITE_LIVE_API（例 https://echolab-demo-xxxxx.a.run.app）。
 // 設定が無ければ、画面に「サーバで実行」のボタンを出さない。
+import type { AskRequest } from "./data";
 import type { RunRecord } from "./types";
 
 export type LiveErrorCode = "rate_limited" | "busy" | "timeout" | "offline" | "other";
@@ -47,14 +48,14 @@ export async function wake(base: string, fetchImpl: Fetch = fetch, timeoutMs = 1
   return false;
 }
 
-/** デモを 1 回、サーバで実行する。 */
-export async function runOnServer(base: string, demo: string, fetchImpl: Fetch = fetch): Promise<RunRecord> {
+/** 質問またはデモをサーバで実行する。 */
+export async function askOnServer(base: string, req: AskRequest, fetchImpl: Fetch = fetch): Promise<RunRecord> {
   let res: Response;
   try {
     res = await fetchImpl(`${base}/api/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ demo }),
+      body: JSON.stringify(req),
     });
   } catch (e) {
     throw new LiveError("offline", (e as Error).message);
@@ -70,4 +71,9 @@ export async function runOnServer(base: string, demo: string, fetchImpl: Fetch =
     throw new LiveError(classifyError(res.status, body), message || `HTTP ${res.status}`);
   }
   return body as RunRecord;
+}
+
+/** デモを 1 回、サーバで実行する。 */
+export async function runOnServer(base: string, demo: string, fetchImpl: Fetch = fetch): Promise<RunRecord> {
+  return askOnServer(base, { demo } as unknown as AskRequest, fetchImpl);
 }

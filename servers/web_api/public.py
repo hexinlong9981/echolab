@@ -151,30 +151,62 @@ class Runner:
 
 
 def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
-    """公開の ``POST /api/ask`` の本文を検査する。決まったデモ・台本・実物のサービスだけ。"""
-    llm = body.get("llm", "scripted")
-    if llm != "scripted":
-        raise PublicError(
-            HTTPStatus.FORBIDDEN,
-            "llm_not_allowed",
-            "公開のサーバでは台本の LLM だけを使えます（実物の Claude は使えません）",
-        )
+    """公開の ``POST /api/ask`` の本文を検査する。固定デモ（台本）または即時対話（Gemini）。"""
     if body.get("fake_backend"):
         raise PublicError(
             HTTPStatus.BAD_REQUEST,
             "fake_not_allowed",
             "公開のサーバは実物の計算サービスだけを使います",
         )
-    demo = next((d for d in DEMOS if d["id"] == body.get("demo")), None)
-    if demo is None:
-        raise PublicError(HTTPStatus.BAD_REQUEST, "unknown_demo", "demo（デモの ID）が不正です")
+    llm = body.get("llm")
+    if llm == "anthropic":
+        msg = (
+            "公開のサーバでは Claude API は使えません"
+            "（Vertex AI Gemini または台本をお使いください）"
+        )
+        raise PublicError(HTTPStatus.FORBIDDEN, "llm_not_allowed", msg)
+    if "demo" in body:
+        demo = next((d for d in DEMOS if d["id"] == body.get("demo")), None)
+        if demo is None:
+            raise PublicError(HTTPStatus.BAD_REQUEST, "unknown_demo", "demo（デモの ID）が不正です")
+        return {
+            "question": demo["question"],
+            "domain": demo["domain"],
+            "llm_kind": "scripted",
+            "script": REPO_ROOT / demo["script"],
+            "fake_backend": False,
+            "context": {"progress": demo["progress"]} if "progress" in demo else None,
+        }
+    question = body.get("question")
+    if question is None:
+        raise PublicError(
+            HTTPStatus.BAD_REQUEST, "unknown_demo", "demo または question を指定してください"
+        )
+    if not isinstance(question, str) or not question.strip():
+        msg = "question（質問文）を指定してください"
+        raise PublicError(HTTPStatus.BAD_REQUEST, "missing_question", msg)
+    if len(question) > 2000:
+        raise PublicError(HTTPStatus.BAD_REQUEST, "question_too_long", "質問は 2000 文字までです")
+
+    from core.gateway.gateway import available_domains
+
+    domain = body.get("domain", "wuwa")
+    if domain not in available_domains(REPO_ROOT):
+        msg = f"ドメインが見つかりません: {domain}"
+        raise PublicError(HTTPStatus.BAD_REQUEST, "unknown_domain", msg)
+
+    progress = body.get("progress")
+    if progress is not None and (not isinstance(progress, str) or not 0 < len(progress) <= 40):
+        msg = "progress は 40 文字までの文字列です"
+        raise PublicError(HTTPStatus.BAD_REQUEST, "invalid_progress", msg)
+
     return {
-        "question": demo["question"],
-        "domain": demo["domain"],
-        "llm_kind": "scripted",
-        "script": REPO_ROOT / demo["script"],
+        "question": question,
+        "domain": domain,
+        "llm_kind": "gemini",
+        "script": None,
         "fake_backend": False,
-        "context": {"progress": demo["progress"]} if "progress" in demo else None,
+        "context": {"progress": progress} if progress else None,
     }
 
 
@@ -209,7 +241,9 @@ def health() -> dict[str, Any]:
         "ok": True,
         "mode": "public",
         "llm": "scripted",
+        "llms": ["scripted", "gemini"],
         "demos": [d["id"] for d in DEMOS],
+        "domains": ["wuwa", "mushoku", "mortgage"],
         "ocr": ocr.available(),
         "limits": {"per_minute": PER_MINUTE, "per_day": PER_DAY, "concurrency": 1},
     }

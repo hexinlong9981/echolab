@@ -224,6 +224,23 @@ def test_public_mode_uses_real_services() -> None:
     assert params["llm_kind"] == "scripted" and params["fake_backend"] is False
 
 
+def test_public_mode_allows_gemini_question() -> None:
+    params = public.parse_public_ask(
+        {"question": "攻撃力 2000 のときの期待ダメージは？", "domain": "wuwa"}
+    )
+    assert params["llm_kind"] == "gemini"
+    assert params["fake_backend"] is False
+    assert params["question"] == "攻撃力 2000 のときの期待ダメージは？"
+
+    mushoku_params = public.parse_public_ask(
+        {"question": "ルーデウスの年齢は？", "domain": "mushoku", "progress": "novel:5"}
+    )
+    assert mushoku_params["context"] == {"progress": "novel:5"}
+
+    with pytest.raises(public.PublicError, match="2000"):
+        public.parse_public_ask({"question": "x" * 2001})
+
+
 def test_rate_limiter_per_minute_and_per_day() -> None:
     now = [0.0]
     limiter = public.RateLimiter(per_minute=2, per_day=3, clock=lambda: now[0])
