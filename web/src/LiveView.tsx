@@ -6,33 +6,59 @@ import { RunPlayer } from "./RunPlayer";
 import { Tx } from "./Tx";
 import type { LocalInfo, RunRecord } from "./types";
 
-const SAMPLES: Record<string, { label: Record<Lang, string>; text: string; progress?: string }[]> = {
+interface SampleItem {
+  label: Record<Lang, string>;
+  text: Record<Lang, string>;
+  progress?: string;
+}
+
+const SAMPLES: Record<string, SampleItem[]> = {
   wuwa: [
     {
       label: { zh: "填入示例：配装期望伤害", ja: "入力例：期待ダメージ計算", en: "Sample: Expected Damage" },
-      text: "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？",
+      text: {
+        zh: "攻击力2000，技能倍率2.5，伤害加成0.3，暴击率0.6，暴击伤害2.2，防御常数1600，敌人防御1000，防御穿透0，敌人抗性0.1，抗性降低0，此时的期望伤害是多少？",
+        ja: "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？",
+        en: "What is the expected damage when attack is 2000, skill multiplier is 2.5, damage bonus is 0.3, crit rate is 0.6, crit damage is 2.2, defense constant is 1600, enemy defense is 1000, and enemy resistance is 0.1?",
+      },
     },
   ],
   mushoku: [
     {
       label: { zh: "填入示例：转移事件时年龄", ja: "入力例：転移事件時の年齢", en: "Sample: Age at Displacement" },
-      text: "ルーデウスの転移事件時の年齢は？",
+      text: {
+        zh: "鲁迪乌斯在转移事件发生时几岁？",
+        ja: "ルーデウスの転移事件時の年齢は？",
+        en: "How old was Rudeus at the time of the Displacement Incident?",
+      },
       progress: "novel:3",
     },
     {
       label: { zh: "填入示例：布耶纳村到罗亚行程", ja: "入力例：ブエナ村からロアの日数", en: "Sample: Buena to Roa route" },
-      text: "ブエナ村からロアまでの移動にかかる日数は？",
+      text: {
+        zh: "从布耶纳村到罗亚移动需要多少天？",
+        ja: "ブエナ村からロアまでの移動にかかる日数は？",
+        en: "How many days does it take to travel from Buena Village to Roa?",
+      },
       progress: "novel:5",
     },
   ],
   mortgage: [
     {
       label: { zh: "填入示例：等额本息与等额本金利息差", ja: "入力例：元利均等と元金均等の比較", en: "Sample: Equal payment vs principal" },
-      text: "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？",
+      text: {
+        zh: "贷款 3000 万日元，年利率 1.5%，期限 35 年，等额本息和等额本金的总利息差多少？",
+        ja: "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？",
+        en: "Borrowing 30 million yen at 1.5% annual interest for 35 years, what is the difference in total interest between equal payment and equal principal?",
+      },
     },
     {
       label: { zh: "填入示例：提前还款比较", ja: "入力例：繰り上げ返済の比較", en: "Sample: Prepayment comparison" },
-      text: "借入 3000 万円、年利 1.5%、35 年で 5 年後に 200 万円を繰り上げ返済するとき、期間短縮型と返済額軽減型で利息軽減額の違いは？",
+      text: {
+        zh: "贷款 3000 万日元，年利率 1.5%，期限 35 年，在 5 年后提前还款 200 万日元，缩短期限型和减少月供型能节省多少利息？",
+        ja: "借入 3000 万円、年利 1.5%、35 年で 5 年後に 200 万円を繰り上げ返済するとき、期間短縮型と返済額軽減型で利息軽減額の違いは？",
+        en: "Borrowing 30 million yen at 1.5% for 35 years and prepaying 2 million yen after 5 years, what is the difference in interest saved between shortening the term and reducing monthly payments?",
+      },
     },
   ],
 };
@@ -123,7 +149,7 @@ export function LiveView({
                 type="button"
                 className="sample-chip"
                 onClick={() => {
-                  setQuestion(s.text);
+                  setQuestion(s.text[lang] ?? s.text.zh);
                   if (s.progress) setProgress(s.progress);
                 }}
               >

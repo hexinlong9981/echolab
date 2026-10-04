@@ -56,7 +56,7 @@
   "live.anthropic": "実物の Claude",
   "live.noKey": "（ANTHROPIC_API_KEY が未設定）",
   "live.scriptedNote": "台本モードは質問の中身を読まず、台本を順に再生します（再現のための仕組みです）。",
-  "live.placeholder": "質問（日本語）",
+  "live.placeholder": "質問を入力（日本語・中国語・英語に対応）",
   "live.fake": "試験用の計算サービスを使う（Java・Tesseract 不要）",
   "live.noOcr": "Tesseract が見つからないため、実物の OCR は使えません。",
   "live.run": "実行する",

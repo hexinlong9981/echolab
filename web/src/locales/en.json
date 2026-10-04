@@ -56,7 +56,7 @@
   "live.anthropic": "Real Claude",
   "live.noKey": " (ANTHROPIC_API_KEY is not set)",
   "live.scriptedNote": "Scripted mode does not read the question; it replays the script in order (for reproducibility).",
-  "live.placeholder": "Question (in Japanese)",
+  "live.placeholder": "Enter your question (Chinese, English, or Japanese)",
   "live.fake": "Use test calc services (no Java or Tesseract needed)",
   "live.noOcr": "Tesseract was not found, so real OCR is unavailable.",
   "live.run": "Run",
