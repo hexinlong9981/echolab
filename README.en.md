@@ -43,9 +43,9 @@ A replay of execution traces and an eval dashboard are available on the web (M5;
 
 ```mermaid
 flowchart LR
-  Q["Question (CLI)"] --> A["Agent<br/>core/agent"]
+  Q["Question (CLI)"] --> A["Agent<br/>core/agent<br/>checks cost caps before each LLM call"]
   A <--> L["LLM (Claude)<br/>answer is a placeholder template"]
-  A --> G["Gateway<br/>allowlist, schema, ID assignment, cost caps"]
+  A --> G["Gateway<br/>allowlist, schema, ID assignment"]
   G -->|MCP stdio| J["calc-engine (Java 21)<br/>Wuthering Waves pack"]
   G -->|MCP stdio| O["vision-mcp (Python)<br/>screenshot OCR"]
   G -->|MCP stdio| N["mushoku-lore (Python)<br/>Mushoku Tensei pack"]
@@ -60,7 +60,7 @@ flowchart LR
 |---|---|
 | Answering | The LLM writes a template and cites numbers with placeholders such as `[[c1.total\|0]]`. The renderer fills in the numbers deterministically from the source IDs (ADR-0008) |
 | Verification | Outside placeholders, the only digits allowed are numbers quoted from the question or allowlisted ones (such as list markers). Otherwise the draft is sent back; after more than two rejections the agent ends with an answer that contains no numbers |
-| Gateway | Exposes only the tools declared in `domain.yaml` (default deny), validates inputs against JSON Schema, assigns call IDs and source IDs, enforces daily and monthly cost caps |
+| Gateway | Exposes only the tools declared in `domain.yaml` (default deny), validates inputs against JSON Schema, assigns call IDs and source IDs. The daily and monthly cost caps are checked by the Agent before every LLM call (the ledger is `core/gateway/budget.py`) |
 | Calculation | calc-engine is exposed as an MCP server (Spring Boot + Spring AI, stdio): expected damage, echo score, gacha probability (exact solution and Monte Carlo). Differences, ratios and % increases via `compare.diff` and `compare.ratio` |
 | Unverified data | IDs of unverified data used in a calculation are propagated into the result, and answers citing it get a note automatically (ADR-0006) |
 | Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The Mushoku Tensei and mortgage packs were added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009). Items the user sets (`user_context`, e.g. progress) are added by the gateway without showing them to the LLM (ADR-0012) |
@@ -255,7 +255,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | Milestone | Scope | Status |
 |---|---|---|
 | M1 | Java calc-engine, golden cases, CI | ✅ Done |
-| M2 | Vertical slice via CLI: question → gateway (allowlist, schema, cost caps) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
+| M2 | Vertical slice via CLI: question → cost cap check → gateway (allowlist, schema) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |

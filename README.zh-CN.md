@@ -43,9 +43,9 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 
 ```mermaid
 flowchart LR
-  Q["提问（CLI）"] --> A["Agent<br/>core/agent"]
+  Q["提问（CLI）"] --> A["Agent<br/>core/agent<br/>调用 LLM 前确认成本上限"]
   A <--> L["LLM（Claude）<br/>回答为占位符模板"]
-  A --> G["网关<br/>许可列表・Schema・编号・成本上限"]
+  A --> G["网关<br/>许可列表・Schema・编号"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鸣潮领域包"]
   G -->|MCP stdio| O["vision-mcp（Python）<br/>截图 OCR"]
   G -->|MCP stdio| N["mushoku-lore（Python）<br/>无职转生领域包"]
@@ -60,7 +60,7 @@ flowchart LR
 |---|---|
 | 回答 | LLM 编写模板，用占位符 `[[c1.total\|0]]` 引用数值。数值由渲染器根据出处 ID 确定性地填入（ADR-0008） |
 | 验证 | 占位符以外的数字，只允许引用问题中的数值或许可列表中的数字（如列表序号）。不符合则退回，退回超过 2 次后以不含数值的回答结束 |
-| 网关 | 只暴露 `domain.yaml` 中声明的工具（默认拒绝）、用 JSON Schema 校验输入、分配调用 ID 与出处 ID、每日与每月的成本上限 |
+| 网关 | 只暴露 `domain.yaml` 中声明的工具（默认拒绝）、用 JSON Schema 校验输入、分配调用 ID 与出处 ID。每日与每月的成本上限由 Agent 在每次调用 LLM 前检查（台账在 `core/gateway/budget.py`） |
 | 计算 | 将 calc-engine 作为 MCP 服务器（Spring Boot + Spring AI，stdio）公开。期望伤害、声骸评分、抽卡概率（精确解与蒙特卡洛法）。差值、比值、增长率由 `compare.diff`、`compare.ratio` 计算 |
 | 未确认数据 | 计算中使用的未确认数据的 ID 会传递到结果中，引用它的回答会自动附加注释（ADR-0006） |
 | 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。无职转生与房贷领域包都在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009）。用户指定的项目（`user_context`，如进度）由网关加入，不给 LLM 看（ADR-0012） |
@@ -255,7 +255,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | M1 | Java calc-engine・黄金用例・CI | ✅ 完成 |
-| M2 | 纵向切片：在 CLI 中实现"提问 → 网关（许可列表・Schema・成本上限）→ calc-engine（MCP）→ 数值追踪验证器・比较工具 → 附带出处的回答"。数值忠实度评估・执行追踪 | ✅ 完成 |
+| M2 | 纵向切片：在 CLI 中实现"提问 → 确认成本上限 → 网关（许可列表・Schema）→ calc-engine（MCP）→ 数值追踪验证器・比较工具 → 附带出处的回答"。数值忠实度评估・执行追踪 | ✅ 完成 |
 | M3 | 领域包②：房贷还款计算示例（最小示例・Python MCP 服务器）。在 CI 中检查"核心差异为零" | ✅ 完成 |
 | M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 完成（[已公开](https://echolab-web.echolab-web.workers.dev/)） |
