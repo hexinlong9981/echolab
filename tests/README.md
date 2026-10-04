@@ -55,6 +55,14 @@ Java は使いません。パックの MCP サーバ（Python）は実物を子�
 | `test_web_api.py` | `servers/web_api`：書き出し（全デモ・全評価のトレース、手元のパスを含めない）・要求の検査（未知の LLM・台本・長すぎる質問・ドメイン）・手元の API（127.0.0.1 だけ・ほかのサイトの `Origin` と `Content-Type` の拒否・台本のデモの実行） |
 | `web/src/replay.test.ts` | 画面側（Vitest、`cd web && npm test`）：トレースの出来事 → 回放のコマ（届く箱・拒否・差し戻し・出典の表）、矢印の端の計算 |
 
+## ドメインパック③：無職転生（ADR-0012）
+
+| ファイル | 内容 |
+|---|---|
+| `reference/mushoku_reference.py` | 参照実装。旅程はダイクストラ法ではなく単純な経路をすべて調べ、ネタバレ防止の絞り込みも別に書き直す |
+| `test_mushoku_pack.py` | パックの実装とゴールデンケース・見えない項目と存在しない項目が同じ誤りになること・媒体の間で換算しないこと・正体の別名が明かされる前に当たらないこと・資料の規則（タグの人物は事実より先に登場・数字の無い文・未確認）・実物の MCP サーバ（progress が LLM に見えない・LLM が送れば拒む）・評価とベースライン |
+| `core/test_user_context.py` | コアの `user_context`（LLM に見せない・LLM の値を拒む・未指定は誤り・宣言の無い項目は開くときに誤り）と `texts` |
+
 ## 端から端までの試験：`tests/e2e/`
 
 `test_mcp_e2e.py` は実物の calc-engine（MCP サーバの jar）を `config/services.yaml` のとおりに起動します。

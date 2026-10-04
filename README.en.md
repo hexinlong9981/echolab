@@ -34,10 +34,11 @@ LLMs produce plausible-looking numbers. When AI is used at work, the first quest
 
 The design separates a domain-agnostic core from "domain packs". The second pack (example mortgage repayment calculations, M3) was added without changing a single line of `core/`, and CI checks this (ADR-0003, ADR-0009).
 
-## Status: M5 (web UI)
+## Status: M6 (third domain pack: Mushoku Tensei)
 
-A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs two packs: Wuthering Waves and mortgages (M3).
+A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs three packs: Wuthering Waves, mortgages and Mushoku Tensei (M3, M6).
 Screenshots of the echo screen can be read with OCR and scored, and prompt-injection evals run in CI every time (M4).
+The Mushoku Tensei pack never returns information beyond the progress the user set, enforced in the retrieval layer (spoiler protection, M6).
 A replay of execution traces and an eval dashboard are available on the web (M5; the public site is static files only, at zero cost).
 
 ```mermaid
@@ -61,9 +62,9 @@ flowchart LR
 | Gateway | Exposes only the tools declared in `domain.yaml` (default deny), validates inputs against JSON Schema, assigns call IDs and source IDs, enforces daily and monthly cost caps |
 | Calculation | calc-engine is exposed as an MCP server (Spring Boot + Spring AI, stdio): expected damage, echo score, gacha probability (exact solution and Monte Carlo). Differences, ratios and % increases via `compare.diff` and `compare.ratio` |
 | Unverified data | IDs of unverified data used in a calculation are propagated into the result, and answers citing it get a note automatically (ADR-0006) |
-| Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The mortgage pack was added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009) |
+| Domain packs | `domains/<name>/domain.yaml` declares tools, prompts and an answer note. The mortgage pack was added without changing `core/`, and the `pack-isolation` CI job checks this (ADR-0009). Items the user sets (`user_context`, e.g. progress) are added by the gateway without showing them to the LLM (ADR-0012) |
 | Screenshots | `servers/vision_mcp` reads them with Tesseract (OCR) and returns only the numeric fields declared in the pack's template. Image locations are restricted; out-of-range values are errors (ADR-0010) |
-| Evals | Numeric faithfulness (share of answers with not a single unsourced number), the rejection rate and the number of refused tool calls. Scripted cases (8 for Wuthering Waves, 5 for mortgages, 7 injection cases) run in CI every time |
+| Evals | Numeric faithfulness (share of answers with not a single unsourced number), the rejection rate and the number of refused tool calls. Scripted cases (8 for Wuthering Waves, 5 for mortgages, 7 injection cases, 3 Mushoku Tensei cases, 7 spoiler-leak cases) run in CI every time |
 | Tracing | One question is recorded in one JSONL file (question, LLM calls and their cost, tool calls, verifier verdicts, answer) |
 | Tests | Golden cases are checked in three places: Java, the Python reference implementation, and end-to-end through MCP. Java has unit tests, property tests (jqwik) and ArchUnit; Python uses pytest |
 | Quality gates | Error Prone (warnings as errors), Spotless, JaCoCo (≥ 90% line coverage), ruff |
@@ -184,12 +185,33 @@ Locally, the same screens gain a "Run" tab where you can ask with scripted demos
 .venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
 ```
 
+### 7. The Mushoku Tensei pack (`--domain mushoku`, spoiler protection)
+
+Answers questions on the setting, timeline (ages, years) and routes on a self-made map (M6, ADR-0012). **The user sets the progress with `--context progress=…`**
+(`novel:<volume>` or `anime:<season>-<episode>`), and facts, people, events and roads beyond it are never returned by the retrieval layer. The LLM cannot change the progress.
+**This is an unofficial fan project, and all data is an unverified draft written from memory** ([domains/mushoku/README.en.md](domains/mushoku/README.en.md)).
+
+```bash
+.venv/bin/python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" --domain mushoku \
+  --context progress=novel:3 --llm scripted --script domains/mushoku/examples/teleport_age.yaml
+```
+
+```text
+転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
+資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
+
+※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
+
+※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+```
+
 ### Evals and tests
 
 ```bash
 .venv/bin/python -m core.evals                       # numeric faithfulness (scripted mode, no API key)
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # injection evals (no attack may succeed)
+.venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # spoiler-leak evals (Mushoku Tensei)
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<name>.md   # real LLM (run manually, locally)
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -212,6 +234,7 @@ core/          Domain-agnostic core (Python): contracts, gateway, compare tools,
 config/        Tool service launch config (services.yaml), cost caps and price table (budget.yaml)
 domains/wuwa/  Domain pack #1: Wuthering Waves (domain.yaml, golden cases, sample data, prompts)
 domains/mortgage/  Domain pack #2: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
+domains/mushoku/   Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes; unverified draft data)
 services/      calc-engine (Java 21: calculation library and MCP server)
 servers/       vision_mcp (screenshot OCR, a Python MCP server), web_api (data export and local API for the web UI)
 web/           Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen
@@ -222,7 +245,7 @@ docs/          Architecture and ADRs
 
 Only implemented parts are in the repository. Future directories are created when they are implemented, and the plan is written
 only in the [roadmap section of docs/architecture.en.md](docs/architecture.en.md#roadmap-and-future-structure) (ADR-0007).
-The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010; the M5 web UI and public demo policy in ADR-0011.
+The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010; the M5 web UI and public demo policy in ADR-0011; the M6 Mushoku Tensei pack and spoiler protection in ADR-0012.
 For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs in [docs/adr/en/](docs/adr/en/).
 
 ## Roadmap
@@ -234,6 +257,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |
+| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes). Data is an unverified draft | ✅ Implemented (data to be checked by the user) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 

@@ -8,7 +8,7 @@ EchoLab is an AI assistant in which "**numbers are computed by deterministic too
 
 ## Overview
 
-Everything is implemented (M1–M5; the milestone that implemented each part is in parentheses).
+Everything is implemented (M1–M6; the milestone that implemented each part is in parentheses).
 
 ```mermaid
 flowchart TB
@@ -25,15 +25,17 @@ flowchart TB
   subgraph tools["MCP tools"]
     CE["calc-engine (Java 21)<br/>damage, score, gacha<br/>MCP server (stdio)"]
     MC["mortgage-calc (Python)<br/>mortgage pack calculations<br/>MCP server (stdio)"]
+    ML["mushoku-lore (Python)<br/>Mushoku Tensei search, timeline, routes<br/>MCP server (stdio)"]
     VM["vision_mcp (Python, M4)<br/>screenshot OCR<br/>MCP server (stdio)"]
   end
   subgraph domains["domains/ (domain packs)"]
     D1["① wuwa (M1+)"]
     D3["② mortgage (M3+)"]
+    D4["③ mushoku (M6+)"]
   end
   CLI --> AG
   UI --> AG
-  AG --> GW --> CE & MC & CMP & VM
+  AG --> GW --> CE & MC & ML & CMP & VM
   AG --> VF
   AG --> TR
   domains -. "declared in domain.yaml" .-> GW
@@ -91,9 +93,9 @@ The verifier policy is in ADR-0005; the placeholder approach and the contracts b
 | Format | By default up to 2 decimal places; `N` means N decimal places; `%N` means a percentage with N decimal places. Rounding is ROUND_HALF_EVEN |
 | Unverified data | `unverified_inputs` is propagated to the sources, and the renderer adds a note to any answer that cites them (ADR-0006) |
 
-## Current state (M5)
+## Current state (M6)
 
-M1 through M5 are implemented. The repository holds directories only for implemented parts (ADR-0007).
+M1 through M6 are implemented. The repository holds directories only for implemented parts (ADR-0007).
 
 | Location | Contents |
 |---|---|
@@ -102,6 +104,7 @@ M1 through M5 are implemented. The repository holds directories only for impleme
 | `services/calc-engine` | The Java 21 calculation library (`dev.echolab.calc`, framework-free) and MCP server (`dev.echolab.app`, ADR-0004) |
 | `domains/wuwa` | `domain.yaml`, golden cases (with `derivation`), unverified sample data (`verified: false`), prompts, screenshot templates (`vision/`) |
 | `domains/mortgage` | Example mortgage repayment calculations: calculation and Python MCP server (`calc/`), golden cases, prompts (ADR-0009) |
+| `domains/mushoku` | Mushoku Tensei lore: search, timeline, routes and a Python MCP server (`service/`), unverified draft data, golden cases, prompts (ADR-0012) |
 | `servers/vision_mcp` | Screenshot OCR (Tesseract). Returns only numbers declared in templates (ADR-0010) |
 | `servers/web_api` | Data export for the web UI and the local-only API (ADR-0011) |
 | `web/` | Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen (ADR-0011) |
@@ -127,6 +130,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 | M3 | Domain pack ②: example mortgage repayment calculations (minimal example). CI checks that the core diff is zero | Done |
 | M4 | Screenshot reading (OCR), prompt-injection eval set (scripted mode added to CI) | Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Done (<https://echolab-web.echolab-web.workers.dev/>) |
+| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | Implemented (data is an unverified draft) |
 
 ### M2: Vertical slice (question → answer with sources): implemented
 
@@ -227,6 +231,20 @@ flowchart LR
 - The public site has no server and no LLM, so it costs nothing and nobody else can use the API.
 - The public replay contains scripted-mode records, and the screen says so. Publishing real-Claude records will be decided when real evals are run.
 
+### M6: Domain pack #3: Mushoku Tensei lore: implemented
+
+The policy is ADR-0012. The highlight is **spoiler protection**, which has the same structure as "filter search results by the user's permissions" in business systems.
+
+| Location | Role |
+|---|---|
+| `domains/mushoku/` | Setting search (`lore.search`), ages and years (`timeline.*`), routes on a self-made map (`map.route`) and the MCP server. The data is an unverified draft written from memory |
+| `core/gateway/` | Generic `user_context`: items the user sets (`progress`) are hidden from the LLM, refused if the LLM sends them, and added to the input with the user's value |
+| `core/contracts.py` | Generic `texts`: non-numeric sentences (fact sentences). They do not become source IDs |
+| `evals/redteam/spoilers.yaml` | 7 spoiler-leak eval cases (the LLM tries to widen the progress, asks about later events, searches by an identity alias, etc.) |
+
+- The user sets the progress with CLI `--context progress=novel:5` (or `anime:2-12`). The service filters only by the declared medium's note and never returns items without a note or hidden items (hidden items give the same error as nonexistent ones).
+- Aliases that reveal an identity are used only from the volume/episode of the reveal. Fact tags are limited to what the sentence itself reveals, checked by tests as data rules.
+
 ## Language split
 
 | Part | Language | Reason |
@@ -252,5 +270,6 @@ Limitations as of M2 and the extent of their impact.
 | Range of digits the verifier sees | The verifier detects Arabic numerals (including full-width) as numbers. It does not detect kanji numerals (such as 「三」). Also, a digit equal to a number in the question is accepted as a quotation regardless of context |
 | Sample data is unverified | The values in `domains/wuwa/data` are unverified samples (`verified: false`). Answers that use them carry a note (ADR-0006) |
 | The mortgage model is simple | Fixed rate and monthly payments; no rounding to whole yen, daily interest, fees or rate changes. These are example calculations, and answers carry a note that they are not financial advice (ADR-0009) |
+| Spoiler sentences without digits | In the Mushoku Tensei pack, a spoiler sentence without digits that the LLM writes from its own knowledge cannot be stopped structurally (the prompt forbids it). Ones with digits are stopped by the verifier. The data is an unverified draft (ADR-0012) |
 | The LLM passes read values to other tools | The LLM copies values read from a screenshot into the `echo_score` input; there is no way to pass source IDs directly, and the verifier cannot catch a miscopy. Answers show the values read so the user can check them (ADR-0010) |
 | OCR misreads | Out-of-range values are errors, but a misread within the range (for example 8.0% read as 3.0%) is not caught. Tests use synthetic images only; accuracy on real game screens has not been measured |

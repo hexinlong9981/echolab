@@ -34,10 +34,11 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 
 采用将领域无关的核心与"领域包"分离的设计。第二个领域包（房贷还款计算示例，M3）在不改动 `core/` 一行代码的情况下加入，并由 CI 检查这一点（ADR-0003、ADR-0009）。
 
-## 当前状态：M5（网页界面）
+## 当前状态：M6（第三个领域包：无职转生）
 
-从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮与房贷两个领域包（M3）。
+从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮・房贷・无职转生三个领域包（M3・M6）。
 可以用 OCR 读取声骸界面的截图并评分，提示词注入的评估在 CI 中每次运行（M4）。
+无职转生领域包在检索层不返回超出用户指定进度的信息（防剧透，M6）。
 可以在网页上回放执行轨迹、查看评估看板（M5；公开网站只有静态文件，零费用）。
 
 ```mermaid
@@ -61,9 +62,9 @@ flowchart LR
 | 网关 | 只暴露 `domain.yaml` 中声明的工具（默认拒绝）、用 JSON Schema 校验输入、分配调用 ID 与出处 ID、每日与每月的成本上限 |
 | 计算 | 将 calc-engine 作为 MCP 服务器（Spring Boot + Spring AI，stdio）公开。期望伤害、声骸评分、抽卡概率（精确解与蒙特卡洛法）。差值、比值、增长率由 `compare.diff`、`compare.ratio` 计算 |
 | 未确认数据 | 计算中使用的未确认数据的 ID 会传递到结果中，引用它的回答会自动附加注释（ADR-0006） |
-| 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。房贷领域包在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009） |
+| 领域包 | 在 `domains/<名称>/domain.yaml` 中声明工具、提示词和回答注记。房贷领域包在不改动 `core/` 的情况下加入，CI 的 `pack-isolation` 作业检查这一点（ADR-0009）。用户指定的项目（`user_context`，如进度）由网关加入，不给 LLM 看（ADR-0012） |
 | 截图 | `servers/vision_mcp` 用 Tesseract（OCR）读取，只返回领域包模板中声明的数值字段。限制图片位置，超出范围的值视为错误（ADR-0010） |
-| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）、退回率、被拒绝的工具调用数。脚本模式的用例（鸣潮 8 个、房贷 5 个、注入 7 个）在 CI 中每次运行 |
+| 评估 | 数值忠实度（不含任何无出处数值的回答所占比例）、退回率、被拒绝的工具调用数。脚本模式的用例（鸣潮 8 个、房贷 5 个、注入 7 个、无职转生 3 个、诱导剧透 7 个）在 CI 中每次运行 |
 | 追踪 | 一次提问记录为一个 JSONL 文件（提问、LLM 调用及费用、工具调用、验证判定、回答） |
 | 测试 | 黄金用例在 Java、Python 参考实现、经由 MCP 的端到端测试三处核对。Java 有单元测试、性质测试（jqwik）、ArchUnit，Python 使用 pytest |
 | 质量门禁 | Error Prone（警告视为错误）、Spotless、JaCoCo（行覆盖率 90% 以上）、ruff |
@@ -184,12 +185,33 @@ c2.percent_of_ideal  73.690476  echo.score            -
 .venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
 ```
 
+### 7. 无职转生领域包（`--domain mushoku`，防剧透）
+
+回答设定检索・时间线（年龄・年数）・自制地图上的行程（M6、ADR-0012）。**进度由用户用 `--context progress=…` 指定**
+（`novel:<卷>` 或 `anime:<季>-<集>`），超出进度的事实・人物・事件・道路在检索层一律不返回。LLM 无法改变进度。
+**这是非官方同人作品，资料全部是凭记忆写的未确认草稿**（[domains/mushoku/README.zh-CN.md](domains/mushoku/README.zh-CN.md)）。
+
+```bash
+.venv/bin/python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" --domain mushoku \
+  --context progress=novel:3 --llm scripted --script domains/mushoku/examples/teleport_age.yaml
+```
+
+```text
+転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
+資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
+
+※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
+
+※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+```
+
 ### 评估与测试
 
 ```bash
 .venv/bin/python -m core.evals                       # 数值忠实度（脚本模式，无需 API 密钥）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 房贷领域包
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入评估（攻击必须无一成功）
+.venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # 诱导剧透的评估（无职转生）
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名称>.md   # 真实 LLM（在本地手动运行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -212,6 +234,7 @@ core/          领域无关的核心（Python）：契约・网关・比较工�
 config/        工具服务的启动方式（services.yaml）・成本上限与价格表（budget.yaml）
 domains/wuwa/  领域包①：鸣潮（domain.yaml・黄金用例・示例数据・提示词）
 domains/mortgage/  领域包②：房贷还款计算示例（domain.yaml・计算与 MCP 服务器・黄金用例・提示词）
+domains/mushoku/   领域包③：无职转生设定考证（防剧透的检索・时间线・行程，未确认的草稿资料）
 services/      calc-engine（Java 21。计算库与 MCP 服务器）
 servers/       vision_mcp（截图 OCR。Python 的 MCP 服务器）・web_api（网页界面的数据导出与本机 API）
 web/           网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面
@@ -222,7 +245,7 @@ docs/          架构与 ADR
 
 仓库中只放已实现的部分。今后的目录在实现时再创建，计划只写在
 [docs/architecture.zh-CN.md 的路线图一节](docs/architecture.zh-CN.md#路线图与今后的结构)中（ADR-0007）。
-M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009，M4 的截图读取与注入评估见 ADR-0010，M5 的网页界面与公开方针见 ADR-0011。
+M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009，M4 的截图读取与注入评估见 ADR-0010，M5 的网页界面与公开方针见 ADR-0011，M6 的无职转生领域包与防剧透见 ADR-0012。
 详情请参阅 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md) 与 [docs/adr/zh-CN/](docs/adr/zh-CN/) 中的 ADR。
 
 ## 路线图
@@ -234,6 +257,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | M3 | 领域包②：房贷还款计算示例（最小示例・Python MCP 服务器）。在 CI 中检查"核心差异为零" | ✅ 完成 |
 | M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 完成（[已公开](https://echolab-web.echolab-web.workers.dev/)） |
+| M6 | 领域包③：无职转生设定考证（防剧透的检索・时间线・行程）。资料是未确认的草稿 | ✅ 已实现（资料由用户核对） |
 
 该顺序的理由见 ADR-0007（在横向扩展功能之前，先打通端到端）。
 

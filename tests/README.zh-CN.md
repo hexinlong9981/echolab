@@ -57,6 +57,14 @@
 | `test_web_api.py` | `servers/web_api`：导出（全部演示与评估的轨迹，不含本机路径）・请求检查（未知的 LLM・剧本・过长的问题・领域）・本机 API（只监听 127.0.0.1・拒绝其他网站的 `Origin` 与错误的 `Content-Type`・运行剧本演示） |
 | `web/src/replay.test.ts` | 界面端（Vitest，`cd web && npm test`）：执行轨迹事件 → 回放步骤（到达的方框・拒绝・退回・出处表）、箭头端点的计算 |
 
+## 领域包③：无职转生（ADR-0012）
+
+| 文件 | 内容 |
+|---|---|
+| `reference/mushoku_reference.py` | 参考实现。行程不用 Dijkstra，而是遍历所有简单路径；防剧透的过滤也另外重写 |
+| `test_mushoku_pack.py` | 领域包实现与黄金用例・看不到的与不存在的条目返回同样的错误・媒体之间不换算・身份别名在揭晓前不命中・资料规则（标签人物先于事实登场・句子无数字・未确认）・真实 MCP 服务器（progress 不给 LLM 看、LLM 送来就拒绝）・评估与基线 |
+| `core/test_user_context.py` | 核心的 `user_context`（不给 LLM 看・拒绝 LLM 的值・未指定是错误・未声明的项目在打开时报错）与 `texts` |
+
 ## 端到端测试：`tests/e2e/`
 
 `test_mcp_e2e.py` 按照 `config/services.yaml` 启动真实的 calc-engine（MCP 服务器的 jar）。

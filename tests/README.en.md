@@ -57,6 +57,14 @@ The real-OCR tests need Tesseract (with Japanese data). They are skipped without
 | `test_web_api.py` | `servers/web_api`: export (traces of every demo and eval, no local paths), request checks (unknown LLM, script, overly long question, domain), the local API (127.0.0.1 only, refusing other sites' `Origin` and wrong `Content-Type`, running a scripted demo) |
 | `web/src/replay.test.ts` | The UI side (Vitest, `cd web && npm test`): trace events → replay steps (target boxes, refusals, rejections, source table), and the arrow end-point calculation |
 
+## Domain pack #3: Mushoku Tensei (ADR-0012)
+
+| File | Contents |
+|---|---|
+| `reference/mushoku_reference.py` | Reference implementation. Routes are found by checking every simple path instead of Dijkstra, and the spoiler filter is written separately |
+| `test_mushoku_pack.py` | The pack against golden cases; hidden and nonexistent items give the same error; no conversion between media; identity aliases do not match before the reveal; data rules (tagged people appear before the fact, no digits, unverified); the real MCP server (progress hidden from the LLM and refused if sent); evals and baselines |
+| `core/test_user_context.py` | The core `user_context` (hidden from the LLM, LLM values refused, missing is an error, undeclared items fail at open) and `texts` |
+
 ## End-to-end tests: `tests/e2e/`
 
 `test_mcp_e2e.py` starts the real calc-engine (the MCP server jar) as configured in `config/services.yaml`.

@@ -32,11 +32,12 @@ LLM はもっともらしい数値を作ってしまいます。業務で AI を
 
 ドメインに依存しないコアと「ドメインパック」に分ける設計です。2 つ目のパック（住宅ローンの返済の計算例、M3）は `core/` を 1 行も変えずに足し、そのことを CI で検査しています（ADR-0003・ADR-0009）。
 
-## 現在の状態：M5（Web UI）
+## 現在の状態：M6（3 つ目のドメインパック：無職転生）
 
-質問から出典付きの回答までを、CLI で端から端まで通せます（M2）。同じコアで、鳴潮と住宅ローンの 2 つのパックが動きます（M3）。
+質問から出典付きの回答までを、CLI で端から端まで通せます（M2）。同じコアで、鳴潮・住宅ローン・無職転生の 3 つのパックが動きます（M3・M6）。
 声骸の画面のスクリーンショットを OCR で読んで採点でき、注入（プロンプトインジェクション）の評価を CI で毎回実行します（M4）。
 実行トレースのリプレイと評価のダッシュボードを Web で見られます（M5、公開は静的なファイルだけで費用ゼロ）。
+無職転生のパックは、利用者が指定した進み具合より先の情報を検索の層で出さない「ネタバレ防止」を行います（M6）。
 
 ```mermaid
 flowchart LR
@@ -59,9 +60,9 @@ flowchart LR
 | ゲートウェイ | `domain.yaml` に宣言したツールだけを見せる（既定拒否）・入力の JSON Schema 検証・呼び出し ID と出典 ID の採番・日次・月次のコスト上限 |
 | 計算 | calc-engine を MCP サーバ（Spring Boot + Spring AI、stdio）として公開。期待ダメージ・声骸スコア・ガチャ確率（厳密解とモンテカルロ法）。差・比・増加率は `compare.diff`・`compare.ratio` |
 | 未確認データ | 計算に使った未確認データの ID を結果に伝搬し、引用した回答には注記を自動で付ける（ADR-0006） |
-| ドメインパック | `domains/<名前>/domain.yaml` でツール・プロンプト・回答の注記を宣言する。住宅ローンのパックは `core/` を変えずに追加し、CI の `pack-isolation` がそれを検査する（ADR-0009） |
+| ドメインパック | `domains/<名前>/domain.yaml` でツール・プロンプト・回答の注記を宣言する。住宅ローン・無職転生のパックは `core/` を変えずに追加し、CI の `pack-isolation` がそれを検査する（ADR-0009）。利用者が指定する項目（`user_context`、例：進み具合）は LLM に見せずにゲートウェイが加える（ADR-0012） |
 | スクリーンショット | `servers/vision_mcp` が Tesseract（OCR）で読み、パックのテンプレートで宣言した数値の項目だけを返す。画像の場所の制限・範囲外の値は誤り（ADR-0010） |
-| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率、拒んだツール呼び出しの数。台本モードのケース（鳴潮 8 件・住宅ローン 5 件・注入 7 件）を CI で毎回実行 |
+| 評価 | 数値の忠実度（出典の無い数値を 1 つも含まない回答の割合）と差し戻し率、拒んだツール呼び出しの数。台本モードのケース（鳴潮 8 件・住宅ローン 5 件・注入 7 件・無職転生 3 件・ネタバレの誘導 7 件）を CI で毎回実行 |
 | トレース | 1 回の質問を 1 つの JSONL に記録（質問・LLM 呼び出しと費用・ツール呼び出し・検証の判定・回答） |
 | テスト | ゴールデンケースを Java・Python の参照実装・MCP 経由の端から端までの試験の 3 か所で照合。Java は単体・性質テスト（jqwik）・ArchUnit、Python は pytest |
 | 品質ゲート | Error Prone（警告はエラー）・Spotless・JaCoCo（行カバレッジ 90% 以上）・ruff |
@@ -182,12 +183,33 @@ c2.percent_of_ideal  73.690476  echo.score            -
 .venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
 ```
 
+### 7. 無職転生のパック（`--domain mushoku`、ネタバレ防止）
+
+設定の検索・時系列（年齢・年数）・自作の地図の旅程に答えます（M6・ADR-0012）。**進み具合は利用者が `--context progress=…` で指定**し
+（`novel:<巻>` か `anime:<期>-<話>`）、それより先の事実・人物・出来事・道は検索の層で返しません。LLM は進み具合を変えられません。
+**非公式のファン作品で、資料はすべて記憶をもとに書いた未確認の下書きです**（[domains/mushoku/README.md](domains/mushoku/README.md)）。
+
+```bash
+.venv/bin/python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" --domain mushoku \
+  --context progress=novel:3 --llm scripted --script domains/mushoku/examples/teleport_age.yaml
+```
+
+```text
+転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
+資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
+
+※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
+
+※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+```
+
 ### 評価とテスト
 
 ```bash
 .venv/bin/python -m core.evals                       # 数値の忠実度（台本モード、API キー不要）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 住宅ローンのパック
 .venv/bin/python -m core.evals --cases evals/redteam/cases.yaml           # 注入の評価（攻撃が 1 件も通らないこと）
+.venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # ネタバレの誘導の評価（無職転生）
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名前>.md   # 実物の LLM（手元で手動実行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -210,6 +232,7 @@ core/          ドメイン非依存のコア（Python）：契約・ゲート�
 config/        ツールサービスの起動方法（services.yaml）・コスト上限と料金表（budget.yaml）
 domains/wuwa/  ドメインパック①：鳴潮（domain.yaml・ゴールデンケース・サンプルデータ・プロンプト）
 domains/mortgage/  ドメインパック②：住宅ローンの返済の計算例（domain.yaml・計算と MCP サーバ・ゴールデンケース・プロンプト）
+domains/mushoku/   ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程、未確認の下書き資料）
 services/      calc-engine（Java 21。計算ライブラリと MCP サーバ）
 servers/       vision_mcp（スクリーンショットの OCR。Python の MCP サーバ）・web_api（Web UI のデータの書き出しと手元の API）
 web/           Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面
@@ -220,7 +243,7 @@ docs/          アーキテクチャと ADR
 
 実装済みの部分だけを置いています。今後の構成は実装するときに作り、計画は
 [docs/architecture.md のロードマップ](docs/architecture.md#ロードマップと今後の構成)にだけ書きます（ADR-0007）。
-M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md)、M4 のスクリーンショットの読み取りと注入の評価は [ADR-0010](docs/adr/0010-スクリーンショットの読み取りと注入の評価.md) 、M5 の Web UI と公開の方針は [ADR-0011](docs/adr/0011-Web-UIと公開の方針.md) にあります。
+M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md)、M4 のスクリーンショットの読み取りと注入の評価は [ADR-0010](docs/adr/0010-スクリーンショットの読み取りと注入の評価.md) 、M5 の Web UI と公開の方針は [ADR-0011](docs/adr/0011-Web-UIと公開の方針.md) 、M6 の無職転生のパックとネタバレ防止は [ADR-0012](docs/adr/0012-無職転生のパックとネタバレ防止.md) にあります。
 詳しくは [docs/architecture.md](docs/architecture.md) と [docs/adr/](docs/adr/) を参照してください。
 
 ## ロードマップ
@@ -232,6 +255,7 @@ M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 
 | M3 | ドメインパック②：住宅ローンの返済の計算例（最小例・Python の MCP サーバ）。「コアの差分ゼロ」を CI で検査 | ✅ 完了 |
 | M4 | スクリーンショットの読み取り（OCR）・注入の評価セット（台本モードで CI に追加、実物の LLM では手元で実行） | ✅ 完了 |
 | M5 | Web UI・トレースのリプレイ・評価のダッシュボード・デモの公開（静的・費用ゼロ） | ✅ 完了（[公開中](https://echolab-web.echolab-web.workers.dev/)） |
+| M6 | ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程）。資料は未確認の下書き | ✅ 実装済み（資料の確認は利用者が行う） |
 
 順序の理由は ADR-0007（機能を横に広げる前に、端から端までを先に通す）を参照してください。
 

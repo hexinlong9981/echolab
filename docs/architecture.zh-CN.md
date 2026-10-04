@@ -8,7 +8,7 @@ EchoLab 是一个“**数值由确定性工具计算，AI 只负责理解与说�
 
 ## 整体概览
 
-全部已实现（M1〜M5，括号内为实现该部分的里程碑）。
+全部已实现（M1〜M6，括号内为实现该部分的里程碑）。
 
 ```mermaid
 flowchart TB
@@ -25,15 +25,17 @@ flowchart TB
   subgraph tools["MCP 工具"]
     CE["calc-engine（Java 21）<br/>伤害・评分・抽卡<br/>MCP 服务器（stdio）"]
     MC["mortgage-calc（Python）<br/>房贷领域包的计算<br/>MCP 服务器（stdio）"]
+    ML["mushoku-lore（Python）<br/>无职转生领域包的检索・时间线・行程<br/>MCP 服务器（stdio）"]
     VM["vision_mcp（Python・M4）<br/>截图 OCR<br/>MCP 服务器（stdio）"]
   end
   subgraph domains["domains/（领域包）"]
     D1["① wuwa（M1 起）"]
     D3["② mortgage（M3〜）"]
+    D4["③ mushoku（M6〜）"]
   end
   CLI --> AG
   UI --> AG
-  AG --> GW --> CE & MC & CMP & VM
+  AG --> GW --> CE & MC & ML & CMP & VM
   AG --> VF
   AG --> TR
   domains -. "在 domain.yaml 中声明" .-> GW
@@ -91,9 +93,9 @@ sequenceDiagram
 | 格式 | 省略时最多保留 2 位小数，`N` 为 N 位小数，`%N` 为保留 N 位小数的百分数。舍入方式为 ROUND_HALF_EVEN |
 | 未确认数据 | 将 `unverified_inputs` 传播到出处，对引用了它们的回答由渲染器添加注记（ADR-0006） |
 
-## 当前状态（M5）
+## 当前状态（M6）
 
-M1〜M5 已实现。仓库中只放已实现部分的目录（ADR-0007）。
+M1〜M6 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 
 | 位置 | 内容 |
 |---|---|
@@ -102,6 +104,7 @@ M1〜M5 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | `services/calc-engine` | Java 21 的计算库（`dev.echolab.calc`，不依赖框架）与 MCP 服务器（`dev.echolab.app`，ADR-0004） |
 | `domains/wuwa` | `domain.yaml`・黄金用例（带 `derivation`）・未确认的示例数据（`verified: false`）・提示词・截图模板（`vision/`） |
 | `domains/mortgage` | 房贷还款计算示例：计算与 Python MCP 服务器（`calc/`）・黄金用例・提示词（ADR-0009） |
+| `domains/mushoku` | 无职转生设定考证：检索・时间线・行程与 Python MCP 服务器（`service/`）・未确认的草稿资料・黄金用例・提示词（ADR-0012） |
 | `servers/vision_mcp` | 截图 OCR（Tesseract）。只返回模板声明的数值（ADR-0010） |
 | `servers/web_api` | 网页界面的数据导出与只在本机的 API（ADR-0011） |
 | `web/` | 网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面（ADR-0011） |
@@ -127,6 +130,7 @@ M1〜M5 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | M3 | 领域包②：房贷还款计算示例（最小示例）。在 CI 中检查“核心差异为零” | 完成 |
 | M4 | 截图读取（OCR）・注入攻击评估集（将脚本模式加入 CI） | 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | 完成（<https://echolab-web.echolab-web.workers.dev/>） |
+| M6 | 领域包③：无职转生设定考证（防剧透的检索・时间线・行程） | 已实现（资料是未确认的草稿） |
 
 ### M2：纵向切片（提问 → 带出处的回答）：已实现
 
@@ -227,6 +231,20 @@ flowchart LR
 - 公开网站没有服务器也没有 LLM，所以没有费用，也不会被第三方用掉 API。
 - 公开的回放是剧本模式的记录，界面上也如此标明。是否公开真实 Claude 的记录，等做了真实评估时再决定。
 
+### M6：领域包③：无职转生设定考证：已实现
+
+方针见 ADR-0012。看点是**防剧透**，与业务中"按用户权限过滤检索结果"结构相同。
+
+| 位置 | 作用 |
+|---|---|
+| `domains/mushoku/` | 设定检索（`lore.search`）・年龄与年数（`timeline.*`）・自制地图上的行程（`map.route`）与 MCP 服务器。资料是凭记忆写的未确认草稿 |
+| `core/gateway/` | 通用的 `user_context`：用户指定的项目（`progress`）不给 LLM 看，LLM 送来就拒绝，并把用户的值加进输入 |
+| `core/contracts.py` | 通用的 `texts`：不是数值的说明文字（事实的句子），不成为出处 ID |
+| `evals/redteam/spoilers.yaml` | 7 个诱导剧透的评估用例（LLM 试图扩大进度・询问之后的事件・用身份别名检索等） |
+
+- 进度由用户用 CLI 的 `--context progress=novel:5`（或 `anime:2-12`）指定。服务只按声明媒体的标注过滤，不返回没有标注或看不到的条目（看不到的与不存在的返回同样的错误）。
+- 会暴露身份的别名只在揭晓的卷・集之后使用。事实的标签只限于该句本身能看出的内容，作为资料规则由测试检查。
+
 ## 语言分工
 
 | 部分 | 语言 | 理由 |
@@ -252,5 +270,6 @@ M2 时点的限制及其影响范围。
 | 验证器检查的数字范围 | 验证器作为数值检测的是阿拉伯数字（含全角）。不检测汉字数字（如「三」）。此外，与提问中数值相等的数字，无论出现在什么上下文中都视为引用而允许 |
 | 示例数据未确认 | `domains/wuwa/data` 中的值是未确认的示例（`verified: false`）。使用这些数据的回答会附带注记（ADR-0006） |
 | 房贷模型很简单 | 固定利率、按月还款，不包含日元以下的取整、按日计息、手续费、利率调整。这只是计算示例，回答会附带不构成金融建议的注记（ADR-0009） |
+| 不含数字的剧透句子 | 在无职转生领域包中，LLM 凭自己的知识写出的"不含数字的剧透句子"无法从结构上拦住（只靠提示词禁止）。含数字的会被验证器拦住。资料是未确认的草稿（ADR-0012） |
 | 把读到的值传给其他工具的是 LLM | 把从截图读到的值抄进 `echo_score` 输入的是 LLM，没有直接传出处 ID 的机制，抄错时验证器发现不了。回答中展示读到的值，请用户确认（ADR-0010） |
 | OCR 误读 | 超出范围的值视为错误，但范围内的误读（如把 8.0% 读成 3.0%）发现不了。测试只用合成图片，没有测量在真实游戏画面上的准确率 |
