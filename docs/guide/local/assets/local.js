@@ -63,9 +63,11 @@ function buildNav(current) {
     let html =
       `<div class="nav-bar">` +
       `<a class="brand" href="index.html">${T.brand}</a>` +
+      `<div class="nav-tools">` +
       `<button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-content" aria-label="${menuLabel}">` +
       `<span class="nav-toggle-icon" aria-hidden="true">☰</span> <span class="nav-toggle-text">${menuLabel}</span>` +
       `</button>` +
+      `</div>` +
       `</div>` +
       `<div class="nav-content" id="nav-content">` +
       `<a class="back-guide" href="../../${LANG}/index.html">${back}</a>`;
@@ -164,96 +166,71 @@ function buildHeader(current) {
   }
 }
 
-// 日本語版：ふりがなの表示切り替え（既定は表示。選択は保存する）
-function setupFurigana() {
+// 日本語版：ふりがなとカタカナ英語の表示切り替え（既定は表示。選択は保存し、モバイルではナビバーに配置）
+function setupRubyToggles() {
   if (LANG !== "ja") return;
-  let off = false;
-  try { off = localStorage.getItem("furigana") === "off"; } catch {}
-  document.documentElement.classList.toggle("no-furi", off);
-  const header = document.querySelector("header.top");
-  const theme = document.querySelector("#theme-toggle");
-  if (!header || !theme) return;
-  const btn = document.createElement("button");
-  btn.id = "furi-toggle";
-  btn.type = "button";
-  const label = () => (btn.textContent = off ? "ふりがな：なし" : "ふりがな：あり");
-  label();
-  btn.addEventListener("click", () => {
-    off = !off;
-    document.documentElement.classList.toggle("no-furi", off);
-    try { localStorage.setItem("furigana", off ? "off" : "on"); } catch {}
-    label();
+  let furiOff = false;
+  let engOff = false;
+  try { furiOff = localStorage.getItem("furigana") === "off"; } catch {}
+  try { engOff = localStorage.getItem("eng-ruby") === "off"; } catch {}
+  document.documentElement.classList.toggle("no-furi", furiOff);
+  document.documentElement.classList.toggle("no-eng", engOff);
+
+  const container = document.createElement("span");
+  container.className = "ruby-toggles";
+
+  const furiBtn = document.createElement("button");
+  furiBtn.id = "furi-toggle";
+  furiBtn.type = "button";
+  const updateFuri = () => {
+    furiBtn.textContent = furiOff ? "ふりがな：なし" : "ふりがな：あり";
+    furiBtn.classList.toggle("on", !furiOff);
+  };
+  updateFuri();
+  furiBtn.addEventListener("click", () => {
+    furiOff = !furiOff;
+    document.documentElement.classList.toggle("no-furi", furiOff);
+    try { localStorage.setItem("furigana", furiOff ? "off" : "on"); } catch {}
+    updateFuri();
     spaceRuby();
   });
-  header.insertBefore(btn, theme);
-}
 
-// ルビは CSS で文字の真上に浮かせている。同じ行の隣り合うルビが実際の位置で重なるときだけ、後ろの文字の前を必要な分だけ空ける。
-// 仮名の上にはみ出すのはかまわない。位置はまとめて測ってまとめて書き込む。空けたことで改行が変わることがあるので、もう 1 回だけ確かめる。
-function spaceRuby(root = document) {
-  const rubies = [...root.querySelectorAll("ruby.furi")];
-  rubies.forEach((r) => (r.style.marginLeft = ""));
-  for (let pass = 0; pass < 2; pass++) {
-    const rt = rubies.map((r) => r.querySelector("rt")?.getBoundingClientRect());
-    const base = rubies.map((r) => r.getBoundingClientRect());
-    const add = new Array(rubies.length).fill(0);
-    let line = null, shift = 0, prevRight = null;
-    rubies.forEach((r, i) => {
-      const q = rt[i];
-      if (!q || !q.width) return; // 非表示のルビ
-      if (line === null || Math.abs(base[i].top - line) > 4) { line = base[i].top; shift = 0; prevRight = null; }
-      const left = q.left + shift;
-      if (prevRight !== null && left < prevRight + 1) {
-        add[i] = prevRight + 1 - left;
-        shift += add[i];
+  const engBtn = document.createElement("button");
+  engBtn.id = "eng-toggle";
+  engBtn.type = "button";
+  const updateEng = () => {
+    engBtn.textContent = engOff ? "英語：なし" : "英語：あり";
+    engBtn.classList.toggle("on", !engOff);
+  };
+  updateEng();
+  engBtn.addEventListener("click", () => {
+    engOff = !engOff;
+    document.documentElement.classList.toggle("no-eng", engOff);
+    try { localStorage.setItem("eng-ruby", engOff ? "off" : "on"); } catch {}
+    updateEng();
+    spaceRuby();
+  });
+
+  container.appendChild(furiBtn);
+  container.appendChild(engBtn);
+
+  const place = () => {
+    const navTools = document.querySelector("nav.side .nav-tools");
+    const header = document.querySelector("header.top");
+    const theme = document.querySelector("#theme-toggle");
+    if (window.innerWidth <= 860 && navTools) {
+      if (!navTools.contains(container)) {
+        navTools.insertBefore(container, navTools.firstChild);
       }
-      prevRight = q.right + shift;
-    });
-    let changed = false;
-    rubies.forEach((r, i) => {
-      if (add[i] > 0) { changed = true; r.style.marginLeft = `${(parseFloat(r.style.marginLeft) || 0) + add[i]}px`; }
-    });
-    if (!changed) break;
-  }
-  // ルビ（特に英語）がセル・カードなどの幅より広くはみ出すときは、内側へずらして枠に収める
-  const boxes = "td, th, .card, .callout, .node, .badge, .tags span, details, .caption-box";
-  const rts = [...root.querySelectorAll("ruby.furi rt")];
-  rts.forEach((rt) => (rt.style.transform = ""));
-  const moves = rts.map((rt) => {
-    const box = rt.closest(boxes);
-    const q = rt.getBoundingClientRect();
-    if (!box || !q.width) return null;
-    const b = box.getBoundingClientRect();
-    const pad = 2;
-    if (q.left < b.left + pad) return [rt, b.left + pad - q.left];
-    if (q.right > b.right - pad) return [rt, b.right - pad - q.right];
-    return null;
-  });
-  moves.forEach((m) => m && (m[0].style.transform = `translateX(calc(-50% + ${m[1]}px))`));
-}
+    } else if (header && theme) {
+      if (!header.contains(container)) {
+        header.insertBefore(container, theme);
+      }
+    }
+  };
 
-// カタカナの上の英語の表示切り替え（既定は表示。選択は保存する）
-function setupEnglish() {
-  if (LANG !== "ja") return;
-  let off = false;
-  try { off = localStorage.getItem("eng-ruby") === "off"; } catch {}
-  document.documentElement.classList.toggle("no-eng", off);
-  const header = document.querySelector("header.top");
-  const theme = document.querySelector("#theme-toggle");
-  if (!header || !theme) return;
-  const btn = document.createElement("button");
-  btn.id = "eng-toggle";
-  btn.type = "button";
-  const label = () => (btn.textContent = off ? "英語：なし" : "英語：あり");
-  label();
-  btn.addEventListener("click", () => {
-    off = !off;
-    document.documentElement.classList.toggle("no-eng", off);
-    try { localStorage.setItem("eng-ruby", off ? "off" : "on"); } catch {}
-    label();
-    spaceRuby();
-  });
-  header.insertBefore(btn, theme);
+  place();
+  window.addEventListener("resize", place);
 }
 
 function currentTheme() {
@@ -420,10 +397,9 @@ function setupFlows() {
 
 setupThemeToggle();
 buildHeader(document.body.dataset.page);
-setupFurigana();
-setupEnglish();
-if (LANG === "ja") (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => spaceRuby());
 buildNav(document.body.dataset.page);
+setupRubyToggles();
+if (LANG === "ja") (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => spaceRuby());
 setupTerminals();
 setupFlows();
 renderMermaid();
