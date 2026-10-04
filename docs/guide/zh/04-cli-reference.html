@@ -262,7 +262,7 @@ python -m servers.web_api                        # 只监听 127.0.0.1 → http:
         <tr><td>运行（本机）</td><td>只在通过 <code>python -m servers.web_api</code> 打开时出现：运行剧本演示，或（有 API 密钥时）向真实 Claude 提问，受费用上限保护</td></tr>
       </tbody>
     </table>
-    <p>选项：<code>--port</code>（默认 <code>8765</code>）。这个服务只在本机使用，不要对外公开。公开的回放网站是 CI 生成的静态文件（Cloudflare Pages，网址设置后公布）。详见仓库的 <code>web/README.zh-CN.md</code>。</p>
+    <p>选项：<code>--port</code>（默认 <code>8765</code>）。这个服务只在本机使用，不要对外公开。公开的回放网站是 CI 生成的静态文件（Cloudflare（Workers 的静态资源，原 Pages）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>）。详见仓库的 <code>web/README.zh-CN.md</code>。</p>
 
     <h2>环境变量</h2>
     <table>

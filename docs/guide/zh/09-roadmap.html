@@ -23,7 +23,7 @@
     <h1>今后的功能（路线图）</h1>
     <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理各阶段做了什么，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout"><strong>现状：M1～M5 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）和网页界面（M5）都已可用。还没做的只有<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥）。公开网站的网址要等作者完成 Cloudflare 的设置后公布。</div>
+    <div class="callout"><strong>现状：M1～M5 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）和网页界面（M5）都已可用。还没做的只有<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥）。公开网站：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（push 后自动重新发布要等作者把 API 令牌加入 Secrets 后才开始）。</div>
 
     <h2>阶段一览</h2>
     <table>
@@ -32,7 +32,7 @@
       <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书主要介绍的就是它）</span></td></tr>
       <tr><td>M3</td><td>第二个领域包：住宅贷款还款的计算示例（最小示例），并在 CI 中证明核心零改动</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M4</td><td>截图读取（OCR）、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge done">已完成</span></td></tr>
-      <tr><td>M5</td><td>网页界面：执行轨迹回放、评估看板（公开的是静态网站，零费用）、只在本机运行的实时界面</td><td><span class="badge done">已完成（公开网址设置后公布）</span></td></tr>
+      <tr><td>M5</td><td>网页界面：执行轨迹回放、评估看板（公开的是静态网站，零费用）、只在本机运行的实时界面</td><td><span class="badge done">已完成（已公开）</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -106,7 +106,7 @@ flowchart LR
       <div class="card"><h4>回放</h4><p>把执行轨迹画成流程图（React Flow）逐步播放：经过哪个方框、哪一稿被退回、哪个工具被拒绝，都用颜色标出，并显示当时已有的出典表。网址 <code>#replay/&lt;执行 ID&gt;/&lt;步&gt;</code> 可以直接打开某一步。</p></div>
       <div class="card"><h4>评估看板</h4><p>数值忠实度（鸣潮・住宅贷款）和注入评估的指标与每个用例的结果；每个用例都能跳到回放。</p></div>
       <div class="card"><h4>运行（只在本机）</h4><p>在自己电脑上用 <code>python -m servers.web_api</code> 打开时才出现：可以运行剧本演示，有 API 密钥时还能向真实 Claude 提问（受日／月成本上限保护）。只监听 <code>127.0.0.1</code>，不对外公开。</p></div>
-      <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare Pages（免费方案）。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。<strong>公开网址设置后公布。</strong></p></div>
+      <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare（Workers 的静态资源，原 Pages）（免费方案）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。<strong>推送到 main 后自动重新发布，要等作者把 API 令牌加入 GitHub Secrets 后才开始。</strong></p></div>
     </div>
     <p>在自己电脑上试用（需要 Node.js）：</p>
 <pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
@@ -118,7 +118,7 @@ flowchart LR
   subgraph CI["GitHub Actions"]
     EX["剧本模式运行全部演示与评估<br/>→ JSON 数据"] --> B["类型检查・测试・构建"]
   end
-  B --> CF["Cloudflare Pages<br/>静态的回放与评估看板（公开）"]
+  B --> CF["Cloudflare（Workers 静态资源）<br/>静态的回放与评估看板（公开）"]
   subgraph PC["你的电脑（127.0.0.1）"]
     API["python -m servers.web_api"] --> AG["EchoLab 核心<br/>（剧本或真实 Claude）"]
   end

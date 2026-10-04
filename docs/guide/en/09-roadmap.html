@@ -23,7 +23,7 @@
     <h1>Roadmap</h1>
     <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout"><strong>Status: M1–M5 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR) and the web UI (M5) are all available. The only thing not done yet is <strong>a systematic eval with real Claude</strong> (it needs an API key). The URL of the public site will be published once the author finishes the Cloudflare setup.</div>
+    <div class="callout"><strong>Status: M1–M5 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR) and the web UI (M5) are all available. The only thing not done yet is <strong>a systematic eval with real Claude</strong> (it needs an API key). The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (automatic re-publishing on push starts once the author adds the API token secret).</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -32,7 +32,7 @@
       <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide mainly describes)</span></td></tr>
       <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
-      <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (public URL to be announced after setup)</span></td></tr>
+      <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (live)</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -106,7 +106,7 @@ flowchart LR
       <div class="card"><h4>Replay</h4><p>Plays an execution trace step by step as a flow diagram (React Flow). Boxes passed, rejected drafts and refused tools are shown in color, together with the source table at that moment. The URL <code>#replay/&lt;run ID&gt;/&lt;step&gt;</code> opens a specific step.</p></div>
       <div class="card"><h4>Eval dashboard</h4><p>Metrics and per-case results for numeric faithfulness (Wuthering Waves, mortgages) and the injection evals; every case links to its replay.</p></div>
       <div class="card"><h4>Run (local only)</h4><p>Appears only when opened through <code>python -m servers.web_api</code> on your own machine: run the scripted demos, or ask real Claude when you have an API key (protected by the daily and monthly cost caps). It listens on <code>127.0.0.1</code> only and is not public.</p></div>
-      <div class="card"><h4>Public site</h4><p>Hosted on Cloudflare Pages (free plan). CI generates the data in scripted mode, builds and publishes; the public replays are scripted-mode records, not real Claude answers. <strong>The public URL will be announced after setup.</strong></p></div>
+      <div class="card"><h4>Public site</h4><p>Hosted on Cloudflare (Workers static assets, formerly Pages) (free plan): <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>. CI generates the data in scripted mode, builds and publishes; the public replays are scripted-mode records, not real Claude answers. <strong>Automatic re-publishing on every push to main starts once the author adds the API token to GitHub Secrets.</strong></p></div>
     </div>
     <p>To try it on your own machine (Node.js needed):</p>
 <pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
@@ -118,7 +118,7 @@ flowchart LR
   subgraph CI["GitHub Actions"]
     EX["run every demo and eval in scripted mode<br/>→ JSON data"] --> B["type check, tests, build"]
   end
-  B --> CF["Cloudflare Pages<br/>static replay and eval dashboard (public)"]
+  B --> CF["Cloudflare (Workers static assets)<br/>static replay and eval dashboard (public)"]
   subgraph PC["your machine (127.0.0.1)"]
     API["python -m servers.web_api"] --> AG["EchoLab core<br/>(scripted or real Claude)"]
   end
