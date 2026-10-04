@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "description": "旅程の入力。場所は名前か別名（例 ブエナ村、シャリーア）",
+  "properties": {
+    "from": { "type": "string", "minLength": 1, "maxLength": 40, "description": "出発地" },
+    "to": { "type": "string", "minLength": 1, "maxLength": 40, "description": "目的地" },
+    "progress": { "type": "string", "description": "利用者の進み具合（novel:<巻> か anime:<期>-<話>）。ゲートウェイが加える。LLM は指定しない" }
+  },
+  "required": ["from", "to", "progress"],
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+# 台本モードのデモ（API キー不要）。転移事件のときのルーデウスの年齢と、関係する事実を調べる。
+#
+#   python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" \
+#     --domain mushoku --context progress=novel:3 --llm scripted --script domains/mushoku/examples/teleport_age.yaml
+#
+# progress（進み具合）は利用者が --context で指定する。LLM には見せない。
+turns:
+  - tool_uses:
+      - name: timeline_age
+        input: {person: ルーデウス, event: 転移事件}
+      - name: lore_search
+        input: {keywords: [転移事件]}
+  - text: |-
+      転移事件のとき、ルーデウスは [[c1.age|0]] 歳でした（甲龍歴 [[c1.event_year|0]] 年、生まれは [[c1.birth_year|0]] 年）。
+      資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 [[c2.teleport_fittoa_novel_vol|0]] 巻）。

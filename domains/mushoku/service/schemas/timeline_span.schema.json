@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "description": "2 つの出来事の間の年数の入力",
+  "properties": {
+    "from_event": { "type": "string", "minLength": 1, "maxLength": 40, "description": "前の出来事の名前" },
+    "to_event": { "type": "string", "minLength": 1, "maxLength": 40, "description": "後の出来事の名前" },
+    "progress": { "type": "string", "description": "利用者の進み具合（novel:<巻> か anime:<期>-<話>）。ゲートウェイが加える。LLM は指定しない" }
+  },
+  "required": ["from_event", "to_event", "progress"],
+  "additionalProperties": false
+}

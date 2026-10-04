@@ -1,0 +1,30 @@
+# ドメインパック③：無職転生の設定考証（非公式・ファン作品、M6・ADR-0012）
+# 設定の検索はネタバレ防止のため、利用者が指定した進み具合（progress）で必ず絞り込む。
+# progress は LLM には見せず、ゲートウェイが入力に加える（user_context）。
+name: mushoku
+display_name: 無職転生 設定考証アシスタント（非公式）
+version: 0.1.0
+data_version: draft-1
+data_dir: data/draft-1
+golden_dir: golden
+prompts_dir: prompts
+filter_policy: progress
+user_context: [progress]
+answer_note: ※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+tools:
+  - name: lore.search
+    service: mushoku-lore
+    implemented_in: M6
+    description: 設定の短い事実の検索（進み具合より先は返さない）
+  - name: timeline.age
+    service: mushoku-lore
+    implemented_in: M6
+    description: 出来事の年の人物の年齢
+  - name: timeline.span
+    service: mushoku-lore
+    implemented_in: M6
+    description: 2 つの出来事の間の年数
+  - name: map.route
+    service: mushoku-lore
+    implemented_in: M6
+    description: 自作の地図での最短の旅程（日数）

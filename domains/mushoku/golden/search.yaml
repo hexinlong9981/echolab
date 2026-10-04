@@ -1,0 +1,28 @@
+# 設定の検索のゴールデンケース（件数と出典の巻・話）。ネタバレ防止の絞り込みを確かめる。
+schema_version: 1
+tool: lore.search
+cases:
+  - id: search-001
+    description: 小説 1 巻までなら、ロキシーの事実は 2 件（結婚の事実は 12 巻なので出ない）
+    derivation: hand
+    input: {keywords: [ロキシー], progress: "novel:1"}
+    expected: {count: 2, roxy_tutor_novel_vol: 1, roxy_migurd_novel_vol: 1}
+    tolerance: 0
+  - id: search-002
+    description: 小説 12 巻までなら、結婚の事実も含めて 3 件
+    derivation: hand
+    input: {keywords: [ロキシー], progress: "novel:12"}
+    expected: {count: 3, roxy_tutor_novel_vol: 1, roxy_migurd_novel_vol: 1, roxy_marriage_novel_vol: 12}
+    tolerance: 0
+  - id: search-003
+    description: 小説 8 巻まででは、フィッツの検索にシルフィエットの事実は当たらない（正体は 9 巻）
+    derivation: hand
+    input: {keywords: [フィッツ], progress: "novel:8"}
+    expected: {count: 1, fitz_bodyguard_novel_vol: 8}
+    tolerance: 0
+  - id: search-004
+    description: アニメの進み具合では、話の番号で出典を返す（2 期 10 話までならフィッツの正体が分かる）
+    derivation: hand
+    input: {keywords: [フィッツ, 正体], progress: "anime:2-10"}
+    expected: {count: 1, fitz_is_sylphie_anime_season: 2, fitz_is_sylphie_anime_episode: 10}
+    tolerance: 0

@@ -1,0 +1,64 @@
+# 数値の忠実度の評価ケース：無職転生のパック（ADR-0012）。core/evals が読む。
+# 形式は cases.yaml と同じ。context は利用者が指定する進み具合（LLM には見せない）。
+#
+#   python -m core.evals --cases evals/faithfulness/mushoku.yaml
+#
+# 資料は記憶をもとに書いた未確認の下書き。ここで確かめるのは、数値の出典と絞り込みの仕組み。
+schema_version: 1
+domain: mushoku
+cases:
+  - id: teleport-age
+    title: 転移事件のときの年齢と、関係する事実（小説 3 巻まで）
+    question: 転移事件のとき、ルーデウスは何歳だった？
+    context: {progress: "novel:3"}
+    turns:
+      - tool_uses:
+          - name: timeline_age
+            input: {person: ルーデウス, event: 転移事件}
+          - name: lore_search
+            input: {keywords: [転移事件]}
+      - text: >-
+          転移事件のとき、ルーデウスは [[c1.age|0]] 歳でした（甲龍歴 [[c1.event_year|0]] 年）。
+          フィットア領で大規模な転移事件が起き、住民が各地に飛ばされました（小説 [[c2.teleport_fittoa_novel_vol|0]] 巻）。
+    expect:
+      status: answered
+      cited: [c1.age, c1.event_year, c2.teleport_fittoa_novel_vol]
+      drafts_rejected: 0
+      tool_errors: 0
+      answer_note: true
+
+  - id: route-days
+    title: 自作の地図での旅程（小説 8 巻まで）
+    question: ブエナ村からシャリーアまで、何日くらいかかる？
+    context: {progress: "novel:8"}
+    turns:
+      - tool_uses:
+          - name: map_route
+            input: {from: ブエナ村, to: シャリーア}
+      - text: 自作の地図の目安では、ロアを経由して [[c1.total_days|0]] 日（[[c1.legs|0]] 区間）です。
+    expect:
+      status: answered
+      cited: [c1.total_days, c1.legs]
+      drafts_rejected: 0
+      tool_errors: 0
+      answer_note: true
+
+  - id: span-with-compare
+    title: 出来事の間の年数を比べる（比較ツール）
+    question: ルーデウスの誕生から転移事件までと、転移事件から帰還までは、どちらが何年長い？
+    context: {progress: "novel:6"}
+    turns:
+      - tool_uses:
+          - name: timeline_span
+            input: {from_event: ルーデウスの誕生, to_event: 転移事件}
+          - name: timeline_span
+            input: {from_event: 転移事件, to_event: 帰還}
+      - tool_uses:
+          - name: compare_diff
+            input: {a: c1.years, b: c2.years}
+      - text: 誕生から転移事件までは [[c1.years|0]] 年、転移事件から帰還までは [[c2.years|0]] 年で、前者が [[c3.diff|0]] 年長いです。
+    expect:
+      status: answered
+      cited: [c1.years, c2.years, c3.diff]
+      drafts_rejected: 0
+      tool_errors: 0

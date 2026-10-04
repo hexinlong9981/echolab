@@ -18,10 +18,15 @@ import yaml
 
 from core.compare import COMPARE_TOOLS
 from tests.reference import calc_reference as ref
-from tests.reference import mortgage_reference
+from tests.reference import mortgage_reference, mushoku_reference
 
 ROOT = Path(__file__).resolve().parents[1]
-GOLDEN_DIRS = [ROOT / "domains/wuwa/golden", ROOT / "domains/mortgage/golden", ROOT / "core/golden"]
+GOLDEN_DIRS = [
+    ROOT / "domains/wuwa/golden",
+    ROOT / "domains/mortgage/golden",
+    ROOT / "domains/mushoku/golden",
+    ROOT / "core/golden",
+]
 
 CALCULATORS: dict[str, Callable[[dict], dict[str, float]]] = {
     "damage.expected": lambda i: {k: float(v) for k, v in ref.damage_expected(i).items()},
@@ -40,6 +45,14 @@ def _compare(tool: str) -> Callable[[dict], dict[str, float]]:
 CALCULATORS.update({tool: _compare(tool) for tool in COMPARE_TOOLS})
 # 住宅ローンのパック（Java を持たない。パックの実装との照合は tests/test_mortgage_pack.py）
 CALCULATORS.update(mortgage_reference.TOOLS)
+
+
+# 無職転生のパック（検索・時系列・旅程。説明文 texts は照合しない）
+def _values_only(fn: Callable[[dict], tuple[dict, dict]]) -> Callable[[dict], dict[str, float]]:
+    return lambda i: fn(i)[0]
+
+
+CALCULATORS.update({tool: _values_only(fn) for tool, fn in mushoku_reference.TOOLS.items()})
 
 
 def _cases() -> list[tuple[str, dict]]:

@@ -1,0 +1,33 @@
+# 人物（無職転生）。記憶をもとに書いた下書きで、すべて未確認（verified: false）。利用者が原作で確かめる。
+# novel_vol：小説（MF ブックス版）で初めて出た巻。anime_ep：アニメで初めて出た話（"期-話"。未アニメ化は null）。
+# 迷ったときは遅い方の巻・話にする（早すぎるとネタバレになるため）。生年は確信のある人物だけ書く。
+# 別名そのものが正体のネタバレになるものは secret_aliases に、明かされる巻・話と一緒に書く。
+schema_version: 1
+people:
+  - {id: rudeus, name: ルーデウス・グレイラット, aliases: [ルーデウス, ルディ, Rudeus], birth_year: 407, novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 小説 1 巻・アニメ 1 期 1 話で確認する"}
+  - id: sylphiette
+    name: シルフィエット
+    aliases: [シルフィ, シルフィエット, Sylphie]
+    # 正体が明かされる前に別名で当てるとネタバレになるので、明かされる巻・話を付ける
+    secret_aliases: [{name: フィッツ, novel_vol: 9, anime_ep: "2-10"}]
+    birth_year: 407
+    novel_vol: 1
+    anime_ep: "1-2"
+    verified: false
+    source: "TODO: 生年と初登場、正体が明かされる巻・話を確認する"
+  - {id: paul, name: パウロ・グレイラット, aliases: [パウロ, Paul], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: zenith, name: ゼニス・グレイラット, aliases: [ゼニス, Zenith], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: lilia, name: リーリャ, aliases: [リーリャ, Lilia], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: roxy, name: ロキシー・ミグルディア, aliases: [ロキシー, Roxy], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: eris, name: エリス・ボレアス・グレイラット, aliases: [エリス, Eris], novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: ghislaine, name: ギレーヌ・デドルディア, aliases: [ギレーヌ, Ghislaine], novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: ruijerd, name: ルイジェルド・スペルディア, aliases: [ルイジェルド, Ruijerd], novel_vol: 3, anime_ep: "1-12", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: orsted, name: オルステッド, aliases: [オルステッド, 龍神, Orsted], novel_vol: 6, anime_ep: "1-22", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: hitogami, name: ヒトガミ, aliases: [ヒトガミ, 人神, Hitogami], novel_vol: 3, anime_ep: "1-12", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: zanoba, name: ザノバ・シーローン, aliases: [ザノバ, Zanoba], novel_vol: 5, anime_ep: "1-20", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: nanahoshi, name: ナナホシ・シズカ, aliases: [ナナホシ, 七星, Nanahoshi], novel_vol: 8, anime_ep: "2-5", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: cliff, name: クリフ・グリモル, aliases: [クリフ, Cliff], novel_vol: 8, anime_ep: "2-5", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: elinalise, name: エリナリーゼ・ドラゴンロード, aliases: [エリナリーゼ, Elinalise], novel_vol: 7, anime_ep: "2-1", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: ariel, name: アリエル・アネモイ・アスラ, aliases: [アリエル, Ariel], novel_vol: 8, anime_ep: "2-3", verified: false, source: "TODO: 初登場を確認する"}
+  - {id: norn, name: ノルン・グレイラット, aliases: [ノルン, Norn], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 誕生の巻・話を確認する"}
+  - {id: aisha, name: アイシャ・グレイラット, aliases: [アイシャ, Aisha], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 誕生の巻・話を確認する"}

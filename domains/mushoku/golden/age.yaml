@@ -1,0 +1,17 @@
+# 時系列のゴールデンケース。期待値は資料（data/draft-1）の年から手で計算した値。
+# 資料そのものは未確認の下書き（ADR-0006）。ここで確かめるのは計算と、進み具合による絞り込み。
+schema_version: 1
+tool: timeline.age
+cases:
+  - id: age-001
+    description: 転移事件（甲龍歴 417 年）のときのルーデウス（407 年生まれ）の年齢 = 417 − 407
+    derivation: hand
+    input: {person: ルーデウス, event: 転移事件, progress: "novel:3"}
+    expected: {age: 10, birth_year: 407, event_year: 417}
+    tolerance: 0
+  - id: age-002
+    description: 別名（ルディ）とアニメの進み具合でも同じ。帰還（422 年）のときは 15 歳
+    derivation: hand
+    input: {person: ルディ, event: 帰還, progress: "anime:1-23"}
+    expected: {age: 15, birth_year: 407, event_year: 422}
+    tolerance: 0

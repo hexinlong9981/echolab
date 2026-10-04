@@ -9,7 +9,7 @@ from typing import Any
 
 from core.contracts import ToolEnvelope, ToolError, ToolSpec, to_wire_name
 from tests.reference import calc_reference as ref
-from tests.reference import mortgage_reference
+from tests.reference import mortgage_reference, mushoku_reference
 
 
 def _rounded(fn: Callable[[dict], Mapping[str, float]]) -> Callable[[dict], Mapping[str, object]]:
@@ -45,12 +45,28 @@ def _vision_calculators() -> dict[str, Callable[[dict], Mapping[str, object]]]:
     return {t.tool: make(t) for t in load_templates(template_dirs(REPO_ROOT)).values()}
 
 
+#: 計算の結果のうち、数値でない説明文（ToolEnvelope.texts）を入れるキー
+_TEXTS = "__texts__"
+
+
+def _with_texts(fn: Callable[[dict], tuple[Mapping[str, float], Mapping[str, str]]]):
+    """(数値, 説明文) を返す参照実装を、_TEXTS 付きの辞書にする。"""
+
+    def calc(i: dict) -> Mapping[str, object]:
+        values, texts = fn(i)
+        return {**{k: Decimal(repr(v)) for k, v in values.items()}, _TEXTS: dict(texts)}
+
+    return calc
+
+
 _CALCULATORS: dict[str, Callable[[dict], Mapping[str, object]]] = {
     "damage.expected": ref.damage_expected,
     "echo.score": ref.echo_score,
     "gacha.probability_within": lambda i: {"probability": ref.gacha_probability_within(i)},
     # 住宅ローンのパック（mortgage-calc の代わり）
     **{tool: _rounded(fn) for tool, fn in mortgage_reference.TOOLS.items()},
+    # 無職転生のパック（mushoku-lore の代わり。説明文 texts は _TEXTS で返す）
+    **{tool: _with_texts(fn) for tool, fn in mushoku_reference.TOOLS.items()},
     # スクリーンショットの読み取り（domains/*/vision のテンプレートごと）
     **_vision_calculators(),
 }
@@ -102,10 +118,13 @@ class FakeCalcBackend:
             values = _CALCULATORS[tool](dict(arguments))
         except (KeyError, TypeError, ValueError, ArithmeticError) as e:
             raise ToolError(f"入力が不正です: {e}") from e
+        values = dict(values)
+        texts = values.pop(_TEXTS, {})
         return ToolEnvelope(
             tool=tool,
             values={k: _to_output(v) for k, v in values.items()},
             unverified_inputs=self.unverified.get(tool, ()),
+            texts=texts,
         )
 
     async def aclose(self) -> None:

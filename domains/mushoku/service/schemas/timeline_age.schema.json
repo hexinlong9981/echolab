@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "description": "出来事の年の年齢の入力。人物・出来事は名前か別名（例 ルーデウス、転移事件）",
+  "properties": {
+    "person": { "type": "string", "minLength": 1, "maxLength": 40, "description": "人物の名前" },
+    "event": { "type": "string", "minLength": 1, "maxLength": 40, "description": "出来事の名前" },
+    "progress": { "type": "string", "description": "利用者の進み具合（novel:<巻> か anime:<期>-<話>）。ゲートウェイが加える。LLM は指定しない" }
+  },
+  "required": ["person", "event", "progress"],
+  "additionalProperties": false
+}

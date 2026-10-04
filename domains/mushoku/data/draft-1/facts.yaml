@@ -1,0 +1,53 @@
+# 設定の短い事実（自作の要約。原作の本文・台詞は含めない）。記憶をもとに書いた下書きで、すべて未確認。
+# text には数字を書かない（数値は時系列・地図のツールで出す。ADR-0001）。
+# tags は人物・場所の id か話題。その事実の文だけで分かることに限る（タグで検索に当たると、
+# まだ明かされていない関係が漏れるため）。novel_vol・anime_ep は、その事実が初めて明かされる巻・話。
+# 迷ったときは遅い方にする（早すぎるとネタバレになる）。確信の無いことは書かない。
+schema_version: 1
+facts:
+  # 小説 1 巻：幼少期
+  - {id: rudeus_reincarnated, text: ルーデウスは前世の記憶を持ったまま異世界に生まれ変わった, tags: [rudeus, 転生], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 確認する"}
+  - {id: rudeus_parents, text: ルーデウスの両親はパウロとゼニスである, tags: [rudeus, paul, zenith, 家族], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 確認する"}
+  - {id: rudeus_born_buena, text: ルーデウスはアスラ王国のブエナ村で育った, tags: [rudeus, buena, 故郷], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 確認する"}
+  - {id: roxy_tutor, text: ロキシーはルーデウスの家庭教師として魔術を教えた, tags: [roxy, rudeus, 魔術, 師弟], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 確認する"}
+  - {id: roxy_migurd, text: ロキシーは魔族のミグルド族の出身である, tags: [roxy, 種族, 魔族], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 確認する"}
+  - {id: rudeus_chantless, text: ルーデウスは詠唱をせずに魔術を使える, tags: [rudeus, 魔術, 無詠唱], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 確認する"}
+  - {id: sylphie_friend, text: シルフィエットはブエナ村でルーデウスの幼なじみになった, tags: [sylphiette, rudeus, buena, 幼なじみ], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 確認する"}
+  - {id: sylphie_green_hair, text: シルフィエットは緑の髪のためにいじめられていた, tags: [sylphiette, 外見], novel_vol: 1, anime_ep: "1-2", verified: false, source: "TODO: 確認する"}
+  - {id: lilia_maid, text: リーリャはグレイラット家のメイドである, tags: [lilia, 家族], novel_vol: 1, anime_ep: "1-1", verified: false, source: "TODO: 確認する"}
+  # 小説 2 巻：ロア
+  - {id: eris_tutor, text: ルーデウスはロアでエリスの家庭教師になった, tags: [rudeus, eris, roa, 師弟], novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 確認する"}
+  - {id: ghislaine_swordsman, text: ギレーヌは剣王の位を持つ剣士で、エリスに剣を教えた, tags: [ghislaine, eris, 剣術], novel_vol: 2, anime_ep: "1-3", verified: false, source: "TODO: 確認する"}
+  - {id: ghislaine_learns_reading, text: ギレーヌはルーデウスから読み書きと算術を習った, tags: [ghislaine, rudeus, 師弟], novel_vol: 2, anime_ep: "1-4", verified: false, source: "TODO: 確認する"}
+  # 小説 3〜6 巻：転移と帰路
+  - {id: teleport_fittoa, text: フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされた, tags: [転移事件, rudeus, eris], novel_vol: 3, anime_ep: "1-11", verified: false, source: "TODO: 確認する"}
+  - {id: teleport_demon_continent, text: 転移事件でルーデウスとエリスは魔大陸に飛ばされた, tags: [rudeus, eris, 魔大陸, 転移事件], novel_vol: 3, anime_ep: "1-12", verified: false, source: "TODO: 確認する"}
+  - {id: ruijerd_superd, text: ルイジェルドは恐れられているスペルド族の戦士である, tags: [ruijerd, 種族, スペルド族], novel_vol: 3, anime_ep: "1-12", verified: false, source: "TODO: 確認する"}
+  - {id: dead_end_party, text: ルーデウスとエリスとルイジェルドは冒険者パーティを組んだ, tags: [rudeus, eris, ruijerd, 冒険者], novel_vol: 3, anime_ep: "1-14", verified: false, source: "TODO: 確認する"}
+  - {id: hitogami_advice, text: ヒトガミはルーデウスの夢に現れて助言をする, tags: [hitogami, rudeus, 夢], novel_vol: 3, anime_ep: "1-12", verified: false, source: "TODO: 確認する"}
+  - {id: ruijerd_goal, text: ルイジェルドはスペルド族の汚名をすすぐことを願っている, tags: [ruijerd, スペルド族], novel_vol: 4, anime_ep: "1-15", verified: false, source: "TODO: 確認する"}
+  - {id: paul_millishion, text: ルーデウスはミリシオンで父のパウロと再会した, tags: [rudeus, paul, millishion, 再会], novel_vol: 5, anime_ep: "1-18", verified: false, source: "TODO: 確認する"}
+  - {id: zenith_missing, text: 転移事件のあと、ゼニスの行方は分からなくなっていた, tags: [zenith, 転移事件, 行方不明], novel_vol: 5, anime_ep: "1-18", verified: false, source: "TODO: 確認する"}
+  - {id: zanoba_prince, text: ザノバはシーローン王国の王子で、人形を好む, tags: [zanoba, 王族, 人形], novel_vol: 5, anime_ep: "1-20", verified: false, source: "TODO: 確認する"}
+  - {id: orsted_dragon_god, text: オルステッドは龍神と呼ばれる非常に強い存在である, tags: [orsted, 龍神], novel_vol: 6, anime_ep: "1-22", verified: false, source: "TODO: 確認する"}
+  - {id: orsted_defeats_rudeus, text: ルーデウスは帰路でオルステッドと戦い、敗れた, tags: [rudeus, orsted, 戦い], novel_vol: 6, anime_ep: "1-22", verified: false, source: "TODO: 確認する"}
+  - {id: eris_leaves, text: エリスは置き手紙を残してルーデウスのもとを去った, tags: [eris, rudeus, 別れ], novel_vol: 6, anime_ep: "1-23", verified: false, source: "TODO: 確認する"}
+  # 小説 7〜9 巻：魔法大学
+  - {id: rudeus_adventures_north, text: エリスと別れたあと、ルーデウスは北方で冒険者として過ごした, tags: [rudeus, 冒険者], novel_vol: 7, anime_ep: "2-1", verified: false, source: "TODO: 確認する"}
+  - {id: elinalise_paul_party, text: エリナリーゼはかつてパウロと同じパーティにいた冒険者である, tags: [elinalise, paul, 冒険者], novel_vol: 7, anime_ep: "2-1", verified: false, source: "TODO: 確認する"}
+  - {id: rudeus_university, text: ルーデウスはラノア魔法大学に入学した, tags: [rudeus, sharia, 魔法大学], novel_vol: 8, anime_ep: "2-2", verified: false, source: "TODO: 確認する"}
+  - {id: fitz_bodyguard, text: フィッツと名乗る白い髪の魔術師がアリエル王女の護衛をしている, tags: [ariel, フィッツ, 護衛], novel_vol: 8, anime_ep: "2-3", verified: false, source: "TODO: 確認する"}
+  - {id: nanahoshi_otherworld, text: ナナホシはルーデウスと同じ世界から来た少女で、元の世界に帰る方法を探している, tags: [nanahoshi, 転移], novel_vol: 8, anime_ep: "2-5", verified: false, source: "TODO: 確認する"}
+  - {id: fitz_is_sylphie, text: フィッツの正体はシルフィエットだった, tags: [sylphiette, ariel, 正体], novel_vol: 9, anime_ep: "2-10", verified: false, source: "TODO: 巻と話を確認する（遅めに設定）"}
+  - {id: rudeus_marries_sylphie, text: ルーデウスはシルフィエットと結婚した, tags: [rudeus, sylphiette, 結婚], novel_vol: 9, anime_ep: "2-12", verified: false, source: "TODO: 巻と話を確認する"}
+  # 小説 10〜12 巻：迷宮
+  - {id: begaritt_rescue, text: ルーデウスはゼニスを救うためにベガリット大陸へ向かった, tags: [rudeus, zenith, ベガリット大陸], novel_vol: 11, anime_ep: "2-19", verified: false, source: "TODO: 確認する"}
+  - {id: teleport_labyrinth, text: ゼニスは転移迷宮の奥で見つかった, tags: [zenith, rapan, 迷宮], novel_vol: 12, anime_ep: "2-23", verified: false, source: "TODO: 確認する（遅めに設定）"}
+  - {id: paul_death, text: パウロは迷宮の戦いでルーデウスをかばって命を落とした, tags: [paul, rudeus, 迷宮, 死], novel_vol: 12, anime_ep: "2-23", verified: false, source: "TODO: 確認する（遅めに設定）"}
+  - {id: roxy_marriage, text: ルーデウスはロキシーとも結婚した, tags: [rudeus, roxy, 結婚], novel_vol: 12, anime_ep: "2-25", verified: false, source: "TODO: 確認する（遅めに設定）"}
+  # 小説 13 巻以降（アニメ化されていない部分は anime_ep を null にする）
+  - {id: orsted_fights_hitogami, text: オルステッドはヒトガミを倒すことを目的にしている, tags: [orsted, hitogami], novel_vol: 15, anime_ep: null, verified: false, source: "TODO: 巻を確認する（遅めに設定）"}
+  - {id: rudeus_joins_orsted, text: ルーデウスはヒトガミと対立し、オルステッドの配下になった, tags: [rudeus, orsted, hitogami], novel_vol: 15, anime_ep: null, verified: false, source: "TODO: 巻を確認する（遅めに設定）"}
+  - {id: hitogami_enemy, text: ヒトガミはルーデウスの味方ではなかった, tags: [hitogami, rudeus], novel_vol: 15, anime_ep: null, verified: false, source: "TODO: 巻を確認する（遅めに設定）"}
+  - {id: eris_returns, text: エリスはルーデウスのもとに戻り、彼と結婚した, tags: [eris, rudeus, 結婚, 再会], novel_vol: 16, anime_ep: null, verified: false, source: "TODO: 巻を確認する（遅めに設定）"}
+  - {id: ariel_asura_queen, text: アリエルはアスラ王国の王位を目指して帰国した, tags: [ariel, アスラ王国, 王族], novel_vol: 18, anime_ep: null, verified: false, source: "TODO: 巻を確認する（遅めに設定）"}

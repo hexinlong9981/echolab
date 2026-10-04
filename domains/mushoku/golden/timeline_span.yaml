@@ -1,0 +1,16 @@
+# 出来事の間の年数のゴールデンケース（資料の年から手で計算）。
+schema_version: 1
+tool: timeline.span
+cases:
+  - id: span-001
+    description: ルーデウスの誕生（407 年）から転移事件（417 年）まで = 10 年
+    derivation: hand
+    input: {from_event: ルーデウスの誕生, to_event: 転移事件, progress: "novel:3"}
+    expected: {years: 10, from_year: 407, to_year: 417}
+    tolerance: 0
+  - id: span-002
+    description: 逆順（帰還 → 転移事件）は負の年数
+    derivation: hand
+    input: {from_event: 帰還, to_event: 転移事件, progress: "novel:6"}
+    expected: {years: -5, from_year: 422, to_year: 417}
+    tolerance: 0

@@ -1,0 +1,17 @@
+# 旅程のゴールデンケース。自作の地図（data/draft-1/places.yaml）の日数から手で計算した値。
+# 進み具合より先の道は使わない（ネタバレ防止）。
+schema_version: 1
+tool: map.route
+cases:
+  - id: route-001
+    description: ブエナ村 → ロア（3 日）→ シャリーア（120 日）= 123 日・2 区間（小説 8 巻まで）
+    derivation: hand
+    input: {from: ブエナ村, to: シャリーア, progress: "novel:8"}
+    expected: {total_days: 123, legs: 2}
+    tolerance: 0
+  - id: route-002
+    description: リカリス → ウィンドポート（60）→ ザントポート（3）→ ミリシオン（20）→ ロア（90）= 173 日・4 区間
+    derivation: hand
+    input: {from: リカリス, to: ロア, progress: "novel:6"}
+    expected: {total_days: 173, legs: 4}
+    tolerance: 0

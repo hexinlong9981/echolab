@@ -18,3 +18,7 @@ services:
     # スクリーンショットの OCR（Tesseract）。テンプレートは domains/*/vision（ADR-0010）
     transport: stdio
     command: ["python", "-m", "servers.vision_mcp"]
+  mushoku-lore:
+    # 無職転生のパックの検索・時系列・旅程（Python、ADR-0012）
+    transport: stdio
+    command: ["python", "-m", "domains.mushoku.service"]
