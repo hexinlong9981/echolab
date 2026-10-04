@@ -1,0 +1,11 @@
+// Cloudflare への公開の設定（ADR-0011）。静的なファイル（web/dist）だけを配る。Worker のコードは無い。
+// Cloudflare Pages は Workers に統合されたため、wrangler deploy で「静的アセット」として公開する（無料プランの範囲）。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "echolab-web",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

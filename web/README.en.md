@@ -32,27 +32,26 @@ During development use `(cd web && npm run dev)` (http://127.0.0.1:5173/, `/api`
 So that pages on other sites cannot call the local API, it requires `Content-Type: application/json` and checks `Origin`.
 Only the fixed demo scripts can be used; arbitrary files cannot be read.
 
-## Publishing to Cloudflare Pages (manual, once)
+## Publishing to Cloudflare
 
-CI (`.github/workflows/web.yml`) builds on every push to main and publishes when the two secrets below exist. Without them, only publishing is skipped.
+Live: **<https://echolab-web.echolab-web.workers.dev/>**
 
-1. Create a Cloudflare account at <https://dash.cloudflare.com/sign-up> (free, no credit card).
-2. Note your **account ID**: on the right side of the dashboard's "Workers & Pages" screen, or on "Account home" via the account's "…" → "Copy account ID".
-3. Create an **API token**: profile at the top right → "My Profile" → "API Tokens" → "Create Token" → "Create Custom Token".
-   - Permissions: `Account` · `Cloudflare Pages` · `Edit` (only this one)
-   - Account Resources: `Include` · your account
-   - Copy the token shown after creation (it is shown only once).
-4. Add the secrets to the GitHub repository: "Settings" → "Secrets and variables" → "Actions" → "New repository secret" for
-   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Or with commands:
-   ```bash
-   gh secret set CLOUDFLARE_API_TOKEN -R hexinlong9981/echolab     # paste and press Enter
-   gh secret set CLOUDFLARE_ACCOUNT_ID -R hexinlong9981/echolab
-   ```
-5. Run "Actions" → "web" → "Run workflow" (or wait for the next push). The first run creates the project `echolab` before publishing.
-   The URL is `https://echolab.pages.dev/` (if the name is taken, Cloudflare assigns another one; check the dashboard).
+Cloudflare has been merged into Workers, so `web/dist` is published as Workers **static assets** (`web/wrangler.jsonc`; no Worker code, within the free plan).
+CI (`.github/workflows/web.yml`) builds on every push to main and publishes with `wrangler deploy` when the two secrets below exist. Without them, only publishing is skipped.
 
-It stays within the Cloudflare Pages free plan (unlimited bandwidth, up to 500 builds a month; builds run on GitHub Actions, so Cloudflare's builds are not used).
-The token can only edit Pages, so a leak cannot change anything else. Revoke it in Cloudflare when it is no longer needed.
+| Secret | Status / how to create |
+|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | Registered. The account ID is in the dashboard URL (`https://dash.cloudflare.com/<32 hex characters>/…`) or shown by `npx wrangler whoami` |
+| `CLOUDFLARE_API_TOKEN` | <https://dash.cloudflare.com/profile/api-tokens> → "Create Token" → template "Edit Cloudflare Workers" → "Use template" → "Continue to summary" → "Create Token". Register the token shown (only once) with `gh secret set CLOUDFLARE_API_TOKEN -R hexinlong9981/echolab` |
+
+To publish from your machine (no API token needed after `npx wrangler login`):
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm run build && npx wrangler@4 deploy)
+```
+
+Requests to static assets are free on the Workers free plan. Builds run on GitHub Actions, so Cloudflare's builds are not used.
+Revoke the token in Cloudflare when it is no longer needed.
 
 ## Layout
 

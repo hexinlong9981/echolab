@@ -126,7 +126,7 @@ M1〜M5 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | M2 | 纵向切片：CLI → 网关 → calc-engine（MCP）→ 数值追踪验证器 → 带出处的回答。数值忠实度评估・执行追踪 | 完成 |
 | M3 | 领域包②：房贷还款计算示例（最小示例）。在 CI 中检查“核心差异为零” | 完成 |
 | M4 | 截图读取（OCR）・注入攻击评估集（将脚本模式加入 CI） | 完成 |
-| M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | 已实现（Cloudflare 设置后发布） |
+| M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | 完成（<https://echolab-web.echolab-web.workers.dev/>） |
 
 ### M2：纵向切片（提问 → 带出处的回答）：已实现
 
@@ -209,7 +209,7 @@ flowchart LR
     EX["python -m servers.web_api.export<br/>用剧本模式运行全部演示与评估"] --> JSON["data/*.json<br/>（不含本机路径）"]
     JSON --> B["类型检查・Vitest・Vite 构建"]
   end
-  B -->|wrangler| CF["Cloudflare Pages<br/>静态回放・评估（公开）"]
+  B -->|wrangler| CF["Cloudflare<br/>Workers 静态资源<br/>静态回放・评估（公开）"]
   subgraph LOCAL["本机（127.0.0.1）"]
     API["python -m servers.web_api<br/>提供 web/dist・/api/ask"] --> AG["Agent（核心）"]
   end
@@ -222,7 +222,7 @@ flowchart LR
 | `web/` | React + TypeScript + Vite。回放（React Flow 流程图・逐步・出处表、`#replay/<执行 ID>/<步>`）、评估看板、仅在有本机 API 时出现的运行界面 |
 | `servers/web_api/export.py` | 用剧本模式（无需 API 密钥、测试用计算服务）运行 3 个演示与全部评估，写出 `index.json` 和 `runs/<执行 ID>.json` |
 | `servers/web_api/server.py` | 只在本机的 API（Python 标准库）。只监听 `127.0.0.1`，检查 `Content-Type: application/json` 与 `Origin`。只能用固定的演示剧本 |
-| `.github/workflows/web.yml` | 导出・类型检查・测试・构建。推送到 main 时，有 Secrets 就发布到 Cloudflare Pages |
+| `.github/workflows/web.yml` | 导出・类型检查・测试・构建。推送到 main 时，有 Secrets 就发布到 Cloudflare（Workers 静态资源） |
 
 - 公开网站没有服务器也没有 LLM，所以没有费用，也不会被第三方用掉 API。
 - 公开的回放是剧本模式的记录，界面上也如此标明。是否公开真实 Claude 的记录，等做了真实评估时再决定。

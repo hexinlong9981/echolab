@@ -77,4 +77,4 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 
 `pack-isolation` 作业在 git 历史中检查领域包的变更没有修改核心（ADR-0009）。
 
-`web.yml` 工作流导出网页界面的数据、做类型检查、运行 Vitest 并构建；在 main 上发布到 Cloudflare Pages（有 Secrets 时）。
+`web.yml` 工作流导出网页界面的数据、做类型检查、运行 Vitest 并构建；在 main 上发布到 Cloudflare（Workers 静态资源）（有 Secrets 时）。

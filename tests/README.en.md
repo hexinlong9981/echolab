@@ -77,4 +77,4 @@ In CI, the `python` job in `test.yml` runs `pytest -m "not e2e"`, and the `e2e` 
 
 The `pack-isolation` job checks in the git history that domain pack changes do not change the core (ADR-0009).
 
-The `web.yml` workflow exports the web UI data, type-checks, runs Vitest and builds; on main it publishes to Cloudflare Pages (when the secrets exist).
+The `web.yml` workflow exports the web UI data, type-checks, runs Vitest and builds; on main it publishes to Cloudflare (Workers static assets) (when the secrets exist).

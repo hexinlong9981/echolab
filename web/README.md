@@ -30,27 +30,26 @@ React + TypeScript + Vite の Web UI です（M5・[ADR-0011](../docs/adr/0011-W
 手元の API は、ほかのサイトのページから呼ばれないよう `Content-Type: application/json` を必須にし、`Origin` を確かめます。
 台本は決まったデモのものしか使えず、任意のファイルは読めません。
 
-## Cloudflare Pages への公開（最初の 1 回だけ、手作業）
+## Cloudflare への公開
 
-CI（`.github/workflows/web.yml`）は main への push のたびにビルドし、次の 2 つの Secrets があれば公開します。無ければ公開だけ飛ばします。
+公開中：**<https://echolab-web.echolab-web.workers.dev/>**
 
-1. <https://dash.cloudflare.com/sign-up> で Cloudflare のアカウントを作る（無料・クレジットカード不要）。
-2. **アカウント ID** を控える：ダッシュボードの「Workers & Pages」の画面右側、または「Account home」でアカウントの「…」→「Copy account ID」。
-3. **API トークン**を作る：右上のプロフィール →「My Profile」→「API Tokens」→「Create Token」→「Create Custom Token」。
-   - Permissions：`Account` ・ `Cloudflare Pages` ・ `Edit`（これ 1 つだけ）
-   - Account Resources：`Include` ・ 自分のアカウント
-   - 作成後に表示されるトークンを控える（1 回しか表示されません）。
-4. GitHub のリポジトリに Secrets を登録する：「Settings」→「Secrets and variables」→「Actions」→「New repository secret」で
-   `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID`。コマンドなら：
-   ```bash
-   gh secret set CLOUDFLARE_API_TOKEN -R hexinlong9981/echolab     # 貼り付けて Enter
-   gh secret set CLOUDFLARE_ACCOUNT_ID -R hexinlong9981/echolab
-   ```
-5. 「Actions」→「web」→「Run workflow」で実行する（または次の push を待つ）。初回はプロジェクト `echolab` を作ってから公開します。
-   URL は `https://echolab.pages.dev/`（名前が使われていれば Cloudflare が別名を付けます。ダッシュボードで確認できます）。
+Cloudflare は Workers に統合されたため、`web/dist` を Workers の**静的アセット**として公開します（`web/wrangler.jsonc`。Worker のコードは無く、無料プランの範囲）。
+CI（`.github/workflows/web.yml`）は main への push のたびにビルドし、次の 2 つの Secrets があれば `wrangler deploy` で公開します。無ければ公開だけ飛ばします。
 
-Cloudflare Pages の無料プランの範囲（帯域は無制限、ビルドは月 500 回まで。ビルドは GitHub Actions で行うので、Cloudflare 側のビルドは使いません）で動きます。
-トークンの権限は Pages の編集だけなので、漏れてもほかの設定は変えられません。不要になったら Cloudflare の画面で無効にしてください。
+| Secret | 状態・作り方 |
+|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | 登録済み。アカウント ID は、ダッシュボードの URL（`https://dash.cloudflare.com/<32 桁の英数字>/…`）か `npx wrangler whoami` で分かる |
+| `CLOUDFLARE_API_TOKEN` | <https://dash.cloudflare.com/profile/api-tokens> →「Create Token」→ テンプレート「Edit Cloudflare Workers」の「Use template」→「Continue to summary」→「Create Token」。表示されたトークン（1 回しか表示されない）を `gh secret set CLOUDFLARE_API_TOKEN -R hexinlong9981/echolab` で登録する |
+
+手元から公開するとき（`npx wrangler login` でログイン済みなら API トークンは要らない）：
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm run build && npx wrangler@4 deploy)
+```
+
+静的アセットへのリクエストは Workers の無料プランで無料です。ビルドは GitHub Actions で行うので、Cloudflare 側のビルドは使いません。
+トークンが要らなくなったら、Cloudflare の画面で無効にしてください。
 
 ## 構成
 

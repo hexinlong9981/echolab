@@ -176,7 +176,7 @@ c2.percent_of_ideal  73.690476  echo.score            -
 ### 6. Web UI (replay, eval dashboard, local run screen)
 
 A replay that plays execution traces step by step and an eval dashboard are available on the web (M5, ADR-0011).
-The public site is static files only; no server or LLM runs (zero cost). It is published on Cloudflare Pages (setup in [web/README.en.md](web/README.en.md)).
+The public site is static files only; no server or LLM runs (zero cost). Live at <https://echolab-web.echolab-web.workers.dev/> (Cloudflare (Workers static assets); setup in [web/README.en.md](web/README.en.md)).
 Locally, the same screens gain a "Run" tab where you can ask with scripted demos or real Claude (bound to `127.0.0.1` only).
 
 ```bash
@@ -233,7 +233,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M2 | Vertical slice via CLI: question → gateway (allowlist, schema, cost caps) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
-| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Implemented (publishing to Cloudflare Pages after the secrets are set) |
+| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 

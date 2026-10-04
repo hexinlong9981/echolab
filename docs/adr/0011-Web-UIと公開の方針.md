@@ -50,3 +50,10 @@ M5 では、対話・実行トレースの回放・評価のダッシュボー�
 - 公開には、利用者が Cloudflare のアカウントを作り、2 つの Secrets を登録する必要がある（手順は `web/README.md`）。
 - 公開の回放は台本モードの記録だけ。実物の LLM の記録を公開するかは、実物の評価を実施したときに改めて決める。
 - 試験：`tests/test_web_api.py`（書き出し・API の検査）、`web/src/replay.test.ts`（回放のコマの組み立て、Vitest）。
+
+## 追記（2026-10-04）：Cloudflare Pages は Workers に統合済み
+
+wrangler 4 で Pages のプロジェクトを作ると、Workers のプロジェクトになった（Cloudflare が Pages を Workers に統合したため）。
+そこで、`web/dist` を Workers の**静的アセット**として `wrangler deploy` で公開する（`web/wrangler.jsonc`。Worker のコードは無い）。
+静的アセットへのリクエストは無料プランで無料なので、費用ゼロの方針は変わらない。公開先：<https://echolab-web.echolab-web.workers.dev/>
+API トークンはテンプレート「Edit Cloudflare Workers」で作る。wrangler が自動で加えようとしたビルドの変更（`@cloudflare/vite-plugin`）は入れない（静的なファイルを配るだけなので不要）。

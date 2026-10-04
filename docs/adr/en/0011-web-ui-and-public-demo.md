@@ -52,3 +52,10 @@ Based on the user's decisions (2026-10-04).
 - To publish, the user must create a Cloudflare account and register two secrets (steps in `web/README.en.md`).
 - The public replay contains scripted-mode records only. Whether to publish real-LLM records will be decided when real evals are run.
 - Tests: `tests/test_web_api.py` (export and API checks), `web/src/replay.test.ts` (building replay steps, Vitest).
+
+## Addendum (2026-10-04): Cloudflare Pages has been merged into Workers
+
+Creating a Pages project with wrangler 4 produced a Workers project (Cloudflare has merged Pages into Workers).
+So `web/dist` is published as Workers **static assets** with `wrangler deploy` (`web/wrangler.jsonc`; no Worker code).
+Requests to static assets are free on the free plan, so the zero-cost policy is unchanged. Live at: <https://echolab-web.echolab-web.workers.dev/>
+The API token is created from the "Edit Cloudflare Workers" template. The build changes wrangler tried to add (`@cloudflare/vite-plugin`) are not used (only static files are served).

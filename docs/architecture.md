@@ -124,7 +124,7 @@ M1〜M5 が実装済みです。リポジトリには実装済みの部分のデ
 | M2 | 縦の切片：CLI → ゲートウェイ → calc-engine（MCP）→ 数値トレース検証器 → 出典付きの回答。数値の忠実度の評価・実行トレース | 完了 |
 | M3 | ドメインパック②：住宅ローンの返済の計算例（最小例）。「コアの差分ゼロ」を CI で検査 | 完了 |
 | M4 | スクリーンショット読み取り（OCR）・注入の評価セット（台本モードを CI に追加） | 完了 |
-| M5 | Web UI・トレースの回放・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 実装済み（公開は Cloudflare の設定後） |
+| M5 | Web UI・トレースの回放・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 完了（<https://echolab-web.echolab-web.workers.dev/>） |
 
 ### M2：縦の切片（質問 → 出典付きの回答）：実装済み
 
@@ -207,7 +207,7 @@ flowchart LR
     EX["python -m servers.web_api.export<br/>台本モードで全デモ・全評価"] --> JSON["data/*.json<br/>（手元のパスを除く）"]
     JSON --> B["型検査・Vitest・Vite のビルド"]
   end
-  B -->|wrangler| CF["Cloudflare Pages<br/>静的な回放・評価（公開）"]
+  B -->|wrangler| CF["Cloudflare<br/>Workers の静的アセット<br/>静的な回放・評価（公開）"]
   subgraph LOCAL["手元（127.0.0.1）"]
     API["python -m servers.web_api<br/>web/dist を配る・/api/ask"] --> AG["Agent（コア）"]
   end
@@ -220,7 +220,7 @@ flowchart LR
 | `web/` | React + TypeScript + Vite。回放（React Flow の図・コマ送り・出典の表、`#replay/<実行 ID>/<コマ>`）、評価のダッシュボード、手元の API があるときだけの実行画面 |
 | `servers/web_api/export.py` | 台本モード（API キー不要・試験用の計算サービス）でデモ 3 件と全評価を実行し、`index.json` と `runs/<実行 ID>.json` に書き出す |
 | `servers/web_api/server.py` | 手元だけの API（Python の標準ライブラリ）。`127.0.0.1` だけにつなぎ、`Content-Type: application/json` と `Origin` を確かめる。台本は決まったデモのものだけ |
-| `.github/workflows/web.yml` | 書き出し・型検査・試験・ビルド。main への push で、Secrets があれば Cloudflare Pages に公開 |
+| `.github/workflows/web.yml` | 書き出し・型検査・試験・ビルド。main への push で、Secrets があれば Cloudflare（Workers の静的アセット） に公開 |
 
 - 公開サイトにはサーバも LLM も無いので、費用がかからず、第三者に API を使われることもありません。
 - 公開の回放は台本モードの記録で、画面にもそう表示します。実物の Claude の記録の公開は、実物の評価を行ったときに改めて決めます。

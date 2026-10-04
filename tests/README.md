@@ -75,4 +75,4 @@ CI では、`test.yml` の `python` ジョブが `pytest -m "not e2e"` を、`e2
 
 `pack-isolation` ジョブは、ドメインパックの変更でコアを変えていないことを git の履歴で検査します（ADR-0009）。
 
-`web.yml` ジョブは、Web UI のデータの書き出し・型検査・Vitest・ビルドを行い、main では Cloudflare Pages に公開します（Secrets があるとき）。
+`web.yml` ジョブは、Web UI のデータの書き出し・型検査・Vitest・ビルドを行い、main では Cloudflare（Workers の静的アセット） に公開します（Secrets があるとき）。

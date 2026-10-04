@@ -176,7 +176,7 @@ c2.percent_of_ideal  73.690476  echo.score            -
 ### 6. 网页界面（回放・评估看板・本机运行界面）
 
 可以在网页上逐步回放执行轨迹，并查看评估看板（M5、ADR-0011）。
-公开网站只有静态文件，不运行服务器和 LLM（零费用）。发布到 Cloudflare Pages（设置见 [web/README.zh-CN.md](web/README.zh-CN.md)）。
+公开网站只有静态文件，不运行服务器和 LLM（零费用）。已公开：<https://echolab-web.echolab-web.workers.dev/>（Cloudflare（Workers 静态资源），设置见 [web/README.zh-CN.md](web/README.zh-CN.md)）。
 在本机运行时，同一界面多出「运行」标签页，可以用剧本演示或真实 Claude 提问（只监听 `127.0.0.1`）。
 
 ```bash
@@ -233,7 +233,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | M2 | 纵向切片：在 CLI 中实现"提问 → 网关（许可列表・Schema・成本上限）→ calc-engine（MCP）→ 数值追踪验证器・比较工具 → 附带出处的回答"。数值忠实度评估・执行追踪 | ✅ 完成 |
 | M3 | 领域包②：房贷还款计算示例（最小示例・Python MCP 服务器）。在 CI 中检查"核心差异为零" | ✅ 完成 |
 | M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
-| M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 已实现（设置 Secrets 后发布到 Cloudflare Pages） |
+| M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 完成（[已公开](https://echolab-web.echolab-web.workers.dev/)） |
 
 该顺序的理由见 ADR-0007（在横向扩展功能之前，先打通端到端）。
 

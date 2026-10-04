@@ -126,7 +126,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 | M2 | Vertical slice: CLI → gateway → calc-engine (MCP) → numeric-trace verifier → answer with sources. Numeric-faithfulness eval, execution trace | Done |
 | M3 | Domain pack ②: example mortgage repayment calculations (minimal example). CI checks that the core diff is zero | Done |
 | M4 | Screenshot reading (OCR), prompt-injection eval set (scripted mode added to CI) | Done |
-| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Implemented (publishing after Cloudflare is set up) |
+| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Done (<https://echolab-web.echolab-web.workers.dev/>) |
 
 ### M2: Vertical slice (question → answer with sources): implemented
 
@@ -209,7 +209,7 @@ flowchart LR
     EX["python -m servers.web_api.export<br/>all demos and evals in scripted mode"] --> JSON["data/*.json<br/>(no local paths)"]
     JSON --> B["type check, Vitest, Vite build"]
   end
-  B -->|wrangler| CF["Cloudflare Pages<br/>static replay and evals (public)"]
+  B -->|wrangler| CF["Cloudflare<br/>Workers static assets<br/>static replay and evals (public)"]
   subgraph LOCAL["Local (127.0.0.1)"]
     API["python -m servers.web_api<br/>serves web/dist, /api/ask"] --> AG["Agent (core)"]
   end
@@ -222,7 +222,7 @@ flowchart LR
 | `web/` | React + TypeScript + Vite. Replay (React Flow diagram, stepping, source table, `#replay/<run ID>/<step>`), eval dashboard, and a run screen only when the local API is present |
 | `servers/web_api/export.py` | Runs 3 demos and all evals in scripted mode (no API key, test calc services) and writes `index.json` and `runs/<run ID>.json` |
 | `servers/web_api/server.py` | Local-only API (Python standard library). Binds to `127.0.0.1` only and checks `Content-Type: application/json` and `Origin`. Only the fixed demo scripts |
-| `.github/workflows/web.yml` | Export, type checks, tests, build. On push to main, publishes to Cloudflare Pages when the secrets exist |
+| `.github/workflows/web.yml` | Export, type checks, tests, build. On push to main, publishes to Cloudflare (Workers static assets) when the secrets exist |
 
 - The public site has no server and no LLM, so it costs nothing and nobody else can use the API.
 - The public replay contains scripted-mode records, and the screen says so. Publishing real-Claude records will be decided when real evals are run.
