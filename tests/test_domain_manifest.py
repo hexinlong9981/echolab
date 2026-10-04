@@ -103,3 +103,9 @@ def test_schema_rejects_digits_in_answer_note() -> None:
     assert _errors(DOMAIN_SCHEMA, _with(answer_note="計算例です。")) == []
     assert _errors(DOMAIN_SCHEMA, _with(answer_note="金利 1% の例です。")) != []
     assert _errors(DOMAIN_SCHEMA, _with(answer_note="金利１％の例です。")) != []
+
+
+def test_schema_requires_progress_context_for_progress_filter() -> None:
+    assert _errors(DOMAIN_SCHEMA, _with(filter_policy="progress", user_context=["progress"])) == []
+    assert _errors(DOMAIN_SCHEMA, _with(filter_policy="progress")) != []
+    assert _errors(DOMAIN_SCHEMA, _with(filter_policy="progress", user_context=["x"])) != []

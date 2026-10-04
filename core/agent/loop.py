@@ -251,6 +251,8 @@ class _Run:
             "question",
             question=self.question,
             domain=self.agent.domain,
+            # 利用者が指定した項目（例 progress）。LLM には見せないが、トレースには残す
+            context=dict(getattr(self.gw, "context", None) or {}),
             llm=type(self.agent.llm).__name__,
             model=self.agent.llm.model,
             tools=[t.name for t in self.tools],

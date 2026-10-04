@@ -34,8 +34,14 @@
     "golden_dir": { "$ref": "#/$defs/relativePath" },
     "prompts_dir": { "$ref": "#/$defs/relativePath" },
     "filter_policy": {
-      "description": "検索結果に適用するフィルタ方針。none=フィルタなし",
-      "enum": ["none"]
+      "description": "検索結果に適用するフィルタ方針。none=フィルタなし、progress=利用者が指定した進み具合（user_context の progress）でサービスが絞り込む",
+      "enum": ["none", "progress"]
+    },
+    "user_context": {
+      "description": "利用者が指定する項目（ツールの入力の名前）。LLM には見せず、ゲートウェイが利用者の値を入力に加える。filter_policy が progress なら progress を含める",
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "uniqueItems": true
     },
     "answer_note": {
       "description": "検証に通った回答の末尾に Agent が必ず付ける注記（例：金融上の助言ではない旨）。検証の後に付けるため数字を含めない",
@@ -62,6 +68,11 @@
         }
       }
     }
+  },
+  "if": { "properties": { "filter_policy": { "const": "progress" } }, "required": ["filter_policy"] },
+  "then": {
+    "required": ["user_context"],
+    "properties": { "user_context": { "contains": { "const": "progress" } } }
   },
   "dependentRequired": {
     "data_dir": ["data_version"],

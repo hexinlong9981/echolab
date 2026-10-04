@@ -158,6 +158,7 @@ async def run_case(
         fake_backend=scripted,
         fake_unverified=case.get("fake_unverified"),
         budget=budget,
+        context=case.get("context"),
     )
     failures: list[str] = []
     try:

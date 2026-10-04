@@ -51,6 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("question", help="質問（例：攻撃力 2000 のときの期待ダメージは？）")
     p.add_argument("--domain", default="wuwa", help="ドメインパック（既定 wuwa）")
     p.add_argument(
+        "--context",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="利用者が指定する項目（例 --context progress=novel:5）。ドメインが宣言したものだけ",
+    )
+    p.add_argument(
         "--llm",
         choices=["anthropic", "scripted"],
         default="anthropic",
@@ -70,6 +77,17 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def parse_context(items: list[str]) -> dict[str, str]:
+    """``--context NAME=VALUE`` の並びを辞書にする。"""
+    context: dict[str, str] = {}
+    for item in items:
+        name, sep, value = item.partition("=")
+        if not sep or not name.strip() or not value.strip():
+            raise CliError(f"--context は NAME=VALUE の形で指定してください: {item}")
+        context[name.strip()] = value.strip()
+    return context
+
+
 async def run(args: argparse.Namespace) -> AgentResult:
     from core.gateway.gateway import load_domain
 
@@ -81,7 +99,11 @@ async def run(args: argparse.Namespace) -> AgentResult:
     with tempfile.TemporaryDirectory(prefix="echolab-") as scratch:
         budget = make_budget(args.llm, args.repo_root, Path(scratch))
         gw = await open_gateway(
-            args.repo_root, args.domain, fake_backend=args.fake_backend, budget=budget
+            args.repo_root,
+            args.domain,
+            fake_backend=args.fake_backend,
+            budget=budget,
+            context=parse_context(args.context),
         )
         try:
             agent = Agent(

@@ -49,6 +49,10 @@ class UnknownDomainError(ValueError):
     """指定したドメインパック（``domains/<domain>/domain.yaml``）が無い。"""
 
 
+class ContextError(ValueError):
+    """利用者が指定する項目（``domain.yaml`` の ``user_context``）が、ドメインの宣言と合わない。"""
+
+
 def available_domains(repo_root: Path) -> list[str]:
     """使えるドメイン（``domains/*/domain.yaml`` があるディレクトリ名）。"""
     return sorted(p.parent.name for p in (Path(repo_root) / "domains").glob("*/domain.yaml"))
@@ -74,8 +78,12 @@ class Gateway:
         routes: Mapping[str, _Route],
         backends: Mapping[str, ToolBackend],
         budget: Budget,
+        context: Mapping[str, Any] | None = None,
+        user_context: tuple[str, ...] = (),
     ) -> None:
         self._routes = dict(routes)
+        self._context = dict(context or {})
+        self._user_context = tuple(user_context)
         self._backends = dict(backends)
         self._counter = itertools.count(1)
         self._sources: dict[str, SourceValue] = {}
@@ -90,15 +98,29 @@ class Gateway:
         *,
         backends: Mapping[str, ToolBackend] | None = None,
         budget: Budget | None = None,
+        context: Mapping[str, Any] | None = None,
     ) -> Gateway:
         """ドメインのツールを使えるゲートウェイを開く。
 
         :param backends: サービス名 → 接続の差し替え（試験用）。無いサービスは
             ``config/services.yaml`` に従って :class:`McpStdioBackend` で起動する。
         :param budget: 省略時は ``config/budget.yaml`` から作る。
+        :param context: 利用者が指定する項目（例 ``{"progress": "novel:5"}``）。ドメインが
+            ``domain.yaml`` の ``user_context`` で宣言した名前だけ受け付ける。LLM には見せず、
+            ドメインのツールを呼ぶときにゲートウェイが入力に加える（LLM は値を変えられない）。
+        :raises ContextError: 宣言されていない項目を指定したとき。
         """
         repo_root = Path(repo_root)
         manifest = load_domain(repo_root, domain)
+        user_context = tuple(manifest.get("user_context") or ())
+        context = dict(context or {})
+        undeclared = sorted(set(context) - set(user_context))
+        if undeclared:
+            accepted = "、".join(user_context) or "（なし）"
+            raise ContextError(
+                f"ドメイン {domain} は利用者の指定 {', '.join(undeclared)} を受け付けません"
+                f"（受け付ける項目: {accepted}）"
+            )
         declared: dict[str, str] = {}  # wire 名 → ドメインのツール名
         services: dict[str, str] = {}  # ドメインのツール名 → サービス名
         descriptions: dict[str, str] = {}
@@ -128,6 +150,8 @@ class Gateway:
                         continue
                     if not spec.description:
                         spec = ToolSpec(spec.name, descriptions[tool], spec.input_schema)
+                    # 利用者が指定する項目は LLM に見せない（LLM が送っても入力の検査で拒む）
+                    spec = _hide_properties(spec, user_context)
                     routes[spec.name] = _Route(tool, spec, _validator(spec), backend)
             for spec in COMPARE_SPECS:
                 tool = next(t for t in COMPARE_TOOLS if to_wire_name(t) == spec.name)
@@ -138,7 +162,7 @@ class Gateway:
             for backend in started.values():
                 await backend.aclose()
             raise
-        return cls(routes, started, budget)
+        return cls(routes, started, budget, context=context, user_context=user_context)
 
     async def aclose(self) -> None:
         """サービスへの接続を閉じる。何度呼んでもよい。"""
@@ -159,6 +183,11 @@ class Gateway:
     def tool_specs(self) -> list[ToolSpec]:
         """LLM に渡すツール定義（ドメインのツールのうちサービスが公開するもの + 比較ツール）。"""
         return [r.spec for r in self._routes.values()]
+
+    @property
+    def context(self) -> Mapping[str, Any]:
+        """利用者が指定した項目（トレースに残す）。"""
+        return dict(self._context)
 
     @property
     def sources(self) -> Mapping[str, SourceValue]:
@@ -190,7 +219,7 @@ class Gateway:
             if route.backend is None:
                 envelope = self._compare(route.tool, arguments)
             else:
-                envelope = await route.backend.call_tool(wire_name, arguments)
+                envelope = await route.backend.call_tool(wire_name, self._with_context(arguments))
                 if envelope.tool != route.tool:
                     raise ToolError(
                         f"ツールの結果の名前が一致しません: {envelope.tool}（期待 {route.tool}）"
@@ -201,7 +230,22 @@ class Gateway:
 
         for s in sources:
             self._sources[s.source_id] = s
-        return CallOutcome(call_id, route.tool, arguments, sources=sources)
+        return CallOutcome(
+            call_id, route.tool, arguments, sources=sources, texts=dict(envelope.texts)
+        )
+
+    def _with_context(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+        """ドメインのツールの入力に、利用者が指定した項目を加える。
+
+        :raises ToolError: ドメインが宣言した項目を利用者が指定していないとき。
+        """
+        missing = [name for name in self._user_context if name not in self._context]
+        if missing:
+            raise ToolError(
+                f"利用者が指定する項目 {', '.join(missing)} がありません"
+                f"（CLI では --context {missing[0]}=… で指定します）。利用者に尋ねてください"
+            )
+        return {**arguments, **{k: self._context[k] for k in self._user_context}}
 
     def _compare(self, tool: str, arguments: Mapping[str, Any]) -> ToolEnvelope:
         inputs: list[SourceValue] = []
@@ -216,6 +260,20 @@ class Gateway:
         values: dict[str, Decimal] = COMPARE_TOOLS[tool](a.value, b.value)
         unverified = tuple(dict.fromkeys(a.unverified_inputs + b.unverified_inputs))
         return ToolEnvelope(tool=tool, values=values, unverified_inputs=unverified)
+
+
+def _hide_properties(spec: ToolSpec, names: tuple[str, ...]) -> ToolSpec:
+    """入力スキーマから、利用者が指定する項目を除く（LLM に渡す定義と、入力の検査に使う）。"""
+    schema = dict(spec.input_schema)
+    props = dict(schema.get("properties") or {})
+    if not names or not any(n in props for n in names):
+        return spec
+    for n in names:
+        props.pop(n, None)
+    schema["properties"] = props
+    if "required" in schema:
+        schema["required"] = [r for r in schema["required"] if r not in names]
+    return ToolSpec(spec.name, spec.description, schema)
 
 
 def _validator(spec: ToolSpec) -> Draft202012Validator:

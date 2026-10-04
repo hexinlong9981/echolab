@@ -5,6 +5,7 @@
 # 各ケース:
 #   id / title / question  : 質問（--llm anthropic では質問だけを使い、台本は無視する）
 #   fake_unverified        : 台本モードの偽の計算サービスで、結果に付ける未確認データ ID（ツール名 → ID の列）
+#   context                : 利用者が指定する項目（domain.yaml の user_context。例 {progress: "novel:5"}）
 #   turns                  : 台本モードの LLM の応答（core/agent/llm/scripted.py の形式）
 #   expect                 : 期待する結果
 #     status               : answered（検証に通った回答）/ fallback（数値を含まない定型の回答）

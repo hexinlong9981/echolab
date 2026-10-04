@@ -21,11 +21,12 @@ class CliError(Exception):
 def startup_errors() -> tuple[type[BaseException], ...]:
     """設定・起動の誤り（CLI が終了コード 2 と短い説明で終える例外）。"""
     from core.agent.llm import ScriptExhausted, ScriptMismatch
-    from core.gateway import BudgetConfigError, ServiceStartError, UnknownDomainError
+    from core.gateway import BudgetConfigError, ContextError, ServiceStartError, UnknownDomainError
 
     return (
         CliError,
         UnknownDomainError,
+        ContextError,
         ServiceStartError,
         BudgetConfigError,
         ScriptExhausted,
@@ -74,6 +75,7 @@ async def open_gateway(
     fake_backend: bool = False,
     fake_unverified: Mapping[str, Sequence[str]] | None = None,
     budget: Any | None = None,
+    context: Mapping[str, Any] | None = None,
 ) -> Any:
     """ゲートウェイを開く。
 
@@ -92,7 +94,7 @@ async def open_gateway(
         }
     if budget is None:
         budget = Budget.from_config(repo_root)
-    return await Gateway.open(repo_root, domain, backends=backends, budget=budget)
+    return await Gateway.open(repo_root, domain, backends=backends, budget=budget, context=context)
 
 
 def make_budget(llm_kind: str, repo_root: Path, scratch_dir: Path) -> Any:

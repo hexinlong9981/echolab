@@ -50,12 +50,15 @@ class ToolEnvelope:
     - ``unverified_inputs`` は計算に使った未確認データの ID（``<データファイル名>:<項目 ID>``）。
       無ければ空（ADR-0006）。
     - ``data_version`` はデータを参照しなかった場合 ``None``。
+    - ``texts`` は数値でない説明文（例：設定の短い事実）。キー → 文。LLM にはデータとして渡すが、
+      出典 ID にはならず、回答のプレースホルダでは引用できない。数値は ``values`` に入れる。
     """
 
     tool: str
     values: Mapping[str, Decimal]
     unverified_inputs: tuple[str, ...] = ()
     data_version: str | None = None
+    texts: Mapping[str, str] = field(default_factory=dict)
 
     @staticmethod
     def from_json(doc: Mapping[str, Any]) -> ToolEnvelope:
@@ -64,6 +67,7 @@ class ToolEnvelope:
             values={k: Decimal(str(v)) for k, v in doc["values"].items()},
             unverified_inputs=tuple(doc.get("unverified_inputs") or ()),
             data_version=doc.get("data_version"),
+            texts={str(k): str(v) for k, v in (doc.get("texts") or {}).items()},
         )
 
 
@@ -123,6 +127,8 @@ class CallOutcome:
     arguments: Mapping[str, Any]
     sources: tuple[SourceValue, ...] = ()
     error: str | None = None
+    #: 数値でない説明文（ToolEnvelope.texts）。引用はできない
+    texts: Mapping[str, str] = field(default_factory=dict)
 
     def for_llm(self) -> dict[str, Any]:
         """LLM の tool_result に入れる内容。
@@ -131,11 +137,14 @@ class CallOutcome:
         """
         if self.error is not None:
             return {"call_id": self.call_id, "error": self.error}
-        return {
+        doc: dict[str, Any] = {
             "call_id": self.call_id,
             "values": {s.source_id: str(s.value) for s in self.sources},
             "unverified": sorted({u for s in self.sources for u in s.unverified_inputs}),
         }
+        if self.texts:
+            doc["texts"] = dict(self.texts)
+        return doc
 
 
 class BudgetExceeded(Exception):
