@@ -6,6 +6,8 @@ import { createContext, useContext } from "react";
 import en from "./locales/en.json";
 import ja from "./locales/ja.json";
 import jaRuby from "./locales/ja.ruby.json";
+import outputsEn from "./locales/outputs.en.json";
+import outputsZh from "./locales/outputs.zh.json";
 import questionsEn from "./locales/questions.en.json";
 import questionsZh from "./locales/questions.zh.json";
 import titlesEn from "./locales/titles.en.json";
@@ -88,6 +90,13 @@ const QUESTIONS: Record<"en" | "zh", Dict> = { en: questionsEn, zh: questionsZh 
 /** 質問の訳（英中）。質問は日本語の原文をキーにする。日本語のとき・訳が無いときは null。 */
 export function questionText(lang: Lang, jaQuestion: string): string | null {
   return lang === "ja" ? null : (QUESTIONS[lang][jaQuestion] ?? null);
+}
+
+const OUTPUTS: Record<"en" | "zh", Dict> = { en: outputsEn, zh: outputsZh };
+
+/** プログラムの出力（回答・差し戻しの指摘・エラー）の参考訳。原文をキーにする。無ければ null。 */
+export function outputText(lang: Lang, jaText: string): string | null {
+  return lang === "ja" ? null : (OUTPUTS[lang][jaText] ?? null);
 }
 
 /** データの表示名（プレーンテキスト。select の選択肢など）。 */

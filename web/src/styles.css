@@ -150,3 +150,6 @@ html:lang(ja) .app:not(.no-furi.no-eng) .flow-node { line-height: 1.9; }
 }
 .question p { margin: 0; }
 .question .original { margin-top: 4px; font-size: 0.82em; color: var(--muted); }
+.translation { margin: 6px 0 0; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 6px; background: var(--bg); }
+.translation > p { margin: 0 0 4px; font-size: 0.8em; color: var(--muted); }
+.translation pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 0.92em; color: var(--text); }

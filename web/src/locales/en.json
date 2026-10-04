@@ -9,7 +9,7 @@
   "foot.generated": "Data generated {at}",
   "foot.commit": ", commit {sha}",
   "foot.legal": "An unofficial fan project for Wuthering Waves. Mortgage results are example calculations, not financial advice.",
-  "foot.content": "Questions, answers and messages inside the records are the program's actual Japanese output and are not translated.",
+  "foot.content": "Questions, answers and messages in the records are the program's actual Japanese input/output and are shown as is; translations are added for reference.",
   "list.demos": "Demos",
   "passed": "Passed",
   "failed": "Failed",
@@ -87,5 +87,7 @@
   "list.suitePrefix": "Evals: ",
   "evals.domain": " (domain {domain})",
   "q.original": "Original (Japanese)",
-  "answer.note": "The answer above is the program's actual output and stays in Japanese (it is not translated, so the numbers shown are exactly what the system rendered)."
+  "answer.note": "The answer above is the program's actual output (Japanese) and is shown as is. A reference translation follows.",
+  "out.translation": "Translation (not program output)",
+  "out.none": "No translation available — only the original program output is shown."
 }

@@ -87,5 +87,7 @@
   "list.suitePrefix": "評価：",
   "evals.domain": "（ドメイン {domain}）",
   "q.original": "原文",
-  "answer.note": ""
+  "answer.note": "",
+  "out.translation": "",
+  "out.none": ""
 }

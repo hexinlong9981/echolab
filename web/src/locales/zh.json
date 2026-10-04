@@ -9,7 +9,7 @@
   "foot.generated": "数据生成于 {at}",
   "foot.commit": "，提交 {sha}",
   "foot.legal": "《鸣潮》的非官方同人作品。房贷结果是计算示例，不构成金融建议。",
-  "foot.content": "记录中的问题、回答和消息是程序实际输出的日语，未翻译。",
+  "foot.content": "记录中的问题、回答和消息是程序实际的日语输入／输出，按原样显示，并附参考译文。",
   "list.demos": "演示",
   "passed": "通过",
   "failed": "未通过",
@@ -87,5 +87,7 @@
   "list.suitePrefix": "评估：",
   "evals.domain": "（领域 {domain}）",
   "q.original": "原文（日语）",
-  "answer.note": "上面的回答是程序的实际输出，保持日语原样（不翻译，显示的数字就是系统实际渲染的结果）。"
+  "answer.note": "上面的回答是程序的实际输出（日语），按原样显示。下面附有参考译文。",
+  "out.translation": "译文（非程序原始输出）",
+  "out.none": "没有译文——只显示程序的原始输出。"
 }

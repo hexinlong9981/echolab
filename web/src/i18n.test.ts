@@ -107,3 +107,48 @@ describe("questions", () => {
     expect(questionText("en", "未知の質問")).toBeNull();
   });
 });
+
+import { existsSync, readdirSync } from "node:fs";
+import outputsEn from "./locales/outputs.en.json";
+import outputsZh from "./locales/outputs.zh.json";
+
+describe("program outputs", () => {
+  // CI は python -m servers.web_api.export の後に npm test を実行する（web.yml）。手元でデータが無ければ飛ばす
+  const runsDir = resolve(__dirname, "../public/data/runs");
+  const texts = new Set<string>();
+  if (existsSync(runsDir)) {
+    for (const f of readdirSync(runsDir)) {
+      const run = JSON.parse(readFileSync(resolve(runsDir, f), "utf-8")) as { events: Record<string, unknown>[] };
+      for (const e of run.events) {
+        if (e.event === "answer") texts.add(e.answer as string);
+        if (e.event === "verdict") for (const p of e.problems as string[]) texts.add(p);
+        if (e.event === "tool_result") {
+          const error = (e.outcome as { error: string | null }).error;
+          if (error) texts.add(error);
+        }
+        if (e.event === "llm_error") texts.add(e.error as string);
+        if (e.event === "budget_exceeded") texts.add(e.reason as string);
+      }
+    }
+  }
+
+  it.skipIf(texts.size === 0)("書き出したデータの回答・指摘・エラーにすべて英語と中国語の訳がある", () => {
+    const en: Record<string, string> = outputsEn;
+    const zh: Record<string, string> = outputsZh;
+    for (const t of texts) {
+      expect(en[t], t).toBeTruthy();
+      expect(zh[t], t).toBeTruthy();
+    }
+  });
+
+  it("訳でも原文の数値・出典 ID・パスがそのまま入っている", () => {
+    const tokens = (s: string) => s.match(/c[0-9]+\.[a-z_]+|[0-9][0-9,]*(?:\.[0-9]+)?%?|[\w/.-]+\.png|ECHOLAB_\w+/g) ?? [];
+    for (const [ja, en] of Object.entries(outputsEn as Record<string, string>)) {
+      const zh = (outputsZh as Record<string, string>)[ja] ?? "";
+      for (const t of tokens(ja)) {
+        expect(tokens(en), `en: ${ja}`).toContain(t);
+        expect(tokens(zh), `zh: ${ja}`).toContain(t);
+      }
+    }
+  });
+});

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { FlowDiagram } from "./FlowDiagram";
 import { useI18n } from "./i18n";
 import { buildSteps } from "./replay";
+import { OutputTranslation } from "./OutputTranslation";
 import { Question } from "./Question";
 import { Tx } from "./Tx";
-import type { RunRecord } from "./types";
+import type { RunRecord, TraceRecord } from "./types";
 
 /** 1 回の実行を、図・コマ送り・出典の表で見せる。公開の回放と手元の実行で共用する。 */
 export function RunPlayer({
@@ -73,6 +74,7 @@ export function RunPlayer({
         <div className={`step ${Object.values(step.nodes).includes("bad") ? "bad" : ""}`}>
           <h3 dangerouslySetInnerHTML={{ __html: step.title }} />
           <p dangerouslySetInnerHTML={{ __html: step.detail }} />
+          <OutputTranslation texts={rawTexts(step.event)} />
           <details>
             <summary>
               <Tx k="step.json" />
@@ -115,8 +117,25 @@ export function RunPlayer({
             {answer.answer}
           </pre>
           {lang !== "ja" && <Tx k="answer.note" as="p" />}
+          <OutputTranslation texts={[answer.answer]} />
         </>
       )}
     </div>
   );
+}
+
+/** コマの補足に出す、記録の中身（プログラムの出力）の文。参考訳の対象。 */
+function rawTexts(event: TraceRecord): string[] {
+  switch (event.event) {
+    case "verdict":
+      return event.ok ? [] : event.problems;
+    case "tool_result":
+      return event.outcome.error ? [event.outcome.error] : [];
+    case "llm_error":
+      return [event.error];
+    case "budget_exceeded":
+      return [event.reason];
+    default:
+      return [];
+  }
 }
