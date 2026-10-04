@@ -15,7 +15,7 @@ from core.agent import Agent, load_answer_note, load_system_prompt
 from core.agent.runtime import REPO_ROOT, make_budget, make_llm, open_gateway
 from core.trace import read_trace, to_jsonable
 
-#: 台本モードのデモ。質問は台本の先頭の説明と同じ。
+#: 台本モードのデモ。質問は台本の先頭の説明と同じ。progress は利用者が指定する進み具合（無職転生）。
 DEMOS: tuple[dict[str, str], ...] = (
     {
         "id": "demo-compare-builds",
@@ -51,6 +51,14 @@ DEMOS: tuple[dict[str, str], ...] = (
             "会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。"
         ),
     },
+    {
+        "id": "demo-mushoku",
+        "title": "無職転生：転移事件のときの年齢（小説 3 巻まで・ネタバレ防止）",
+        "domain": "mushoku",
+        "script": "domains/mushoku/examples/teleport_age.yaml",
+        "question": "転移事件のとき、ルーデウスは何歳だった？",
+        "progress": "novel:3",
+    },
 )
 
 
@@ -63,12 +71,18 @@ async def ask(
     fake_backend: bool,
     trace_dir: Path,
     repo_root: Path = REPO_ROOT,
+    context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """質問を 1 回実行し、結果とトレースの出来事を返す（JSON にできる形）。"""
+    """質問を 1 回実行し、結果とトレースの出来事を返す（JSON にできる形）。
+
+    :param context: 利用者が指定する項目（例 ``{"progress": "novel:3"}``、user_context）。
+    """
     llm = make_llm(llm_kind, script=script)
     with tempfile.TemporaryDirectory(prefix="echolab-web-") as scratch:
         budget = make_budget(llm_kind, repo_root, Path(scratch))
-        gw = await open_gateway(repo_root, domain, fake_backend=fake_backend, budget=budget)
+        gw = await open_gateway(
+            repo_root, domain, fake_backend=fake_backend, budget=budget, context=context
+        )
         try:
             agent = Agent(
                 gateway=gw,
@@ -96,6 +110,7 @@ def run_record(trace_path: Path, *, repo_root: Path, fake_backend: bool) -> dict
             "llm": question.get("llm"),
             "fake_backend": fake_backend,
             "status": answer.get("status") if answer else None,
+            "context": question.get("context") or {},
             "events": events,
         }
     )

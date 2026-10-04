@@ -44,7 +44,7 @@ def _find(items: list[dict], name: str, progress: str) -> dict:
     for item in items:
         if _visible(item, progress) and _key(name) in {_key(n) for n in _names(item, progress)}:
             return item
-    raise ValueError(f"{name}: 見つかりません")
+    raise ValueError(f"{name}: 見つかりません（まだ読んでいない範囲か、資料にありません）")
 
 
 def _cite(fact: dict, progress: str) -> dict[str, float]:

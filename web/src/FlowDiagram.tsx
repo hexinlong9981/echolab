@@ -13,7 +13,8 @@ const LAYOUT: Record<NodeId, { x: number; y: number; label: string }> = {
   "calc-engine": { x: 600, y: 0, label: "node.calc" },
   "mortgage-calc": { x: 600, y: 80, label: "node.mortgage" },
   "vision-mcp": { x: 600, y: 160, label: "node.vision" },
-  compare: { x: 600, y: 240, label: "node.compare" },
+  "mushoku-lore": { x: 600, y: 240, label: "node.mushoku" },
+  compare: { x: 600, y: 320, label: "node.compare" },
   verifier: { x: 170, y: 250, label: "node.verifier" },
   answer: { x: 0, y: 250, label: "node.answer" },
 };
@@ -26,6 +27,7 @@ const LINKS: [NodeId, NodeId][] = [
   ["gateway", "calc-engine"],
   ["gateway", "mortgage-calc"],
   ["gateway", "vision-mcp"],
+  ["gateway", "mushoku-lore"],
   ["gateway", "compare"],
   ["agent", "verifier"],
   ["verifier", "answer"],

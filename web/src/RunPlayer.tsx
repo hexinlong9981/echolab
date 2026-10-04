@@ -48,6 +48,7 @@ export function RunPlayer({
       {question?.event === "question" && <Question text={question.question} />}
       <div className="badges">
         <Tx k="badge.domain" p={{ domain: run.domain ?? "" }} />
+        {run.context?.progress && <Tx k="badge.progress" p={{ progress: run.context.progress }} />}
         {run.llm === "ScriptedLLM" ? <Tx k="badge.scripted" /> : <span>{run.llm}</span>}
         <Tx k={run.fake_backend ? "badge.fake" : "badge.real"} />
         <Tx k="badge.status" p={{ status: run.status ?? "" }} className={run.status === "answered" ? "ok" : "bad"} />

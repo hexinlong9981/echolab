@@ -26,7 +26,13 @@ async def test_export_writes_demos_suites_and_runs(tmp_path: Path) -> None:
     index = await export(out)
     assert [d["id"] for d in index["demos"]] == [d["id"] for d in DEMOS]
     assert all(d["status"] == "answered" for d in index["demos"])
-    assert {s["id"] for s in index["suites"]} == {"faithfulness", "mortgage", "redteam"}
+    assert {s["id"] for s in index["suites"]} == {
+        "faithfulness",
+        "mortgage",
+        "redteam",
+        "mushoku",
+        "spoilers",
+    }
     assert all(s["ok"] and s["faithfulness"] == 1.0 for s in index["suites"])
     assert index["services"]["echo.read_screenshot"] == "vision-mcp"
     assert index["services"]["compare.diff"] == "core"
@@ -145,7 +151,13 @@ def test_question_list_for_translations_is_up_to_date() -> None:
     import yaml
 
     questions = [d["question"] for d in DEMOS]
-    for cases in ("faithfulness/cases.yaml", "faithfulness/mortgage.yaml", "redteam/cases.yaml"):
+    for cases in (
+        "faithfulness/cases.yaml",
+        "faithfulness/mortgage.yaml",
+        "redteam/cases.yaml",
+        "faithfulness/mushoku.yaml",
+        "redteam/spoilers.yaml",
+    ):
         doc = yaml.safe_load((REPO_ROOT / "evals" / cases).read_text(encoding="utf-8"))
         questions += [c["question"] for c in doc["cases"]]
     listed = json.loads(
@@ -154,3 +166,14 @@ def test_question_list_for_translations_is_up_to_date() -> None:
     assert sorted(set(questions)) == sorted(listed), (
         "質問を変えたら、訳（web/src/locales/questions.*.json）も直す"
     )
+
+
+def test_progress_is_passed_as_user_context() -> None:
+    params = server.parse_ask(
+        {"llm": "anthropic", "question": "q", "domain": "mushoku", "progress": "novel:5"}
+    )
+    assert params["context"] == {"progress": "novel:5"}
+    demo = server.parse_ask({"llm": "scripted", "demo": "demo-mushoku"})
+    assert demo["context"] == {"progress": "novel:3"} and demo["domain"] == "mushoku"
+    with pytest.raises(server.ApiError, match="progress は"):
+        server.parse_ask({"llm": "anthropic", "question": "q", "domain": "mushoku", "progress": 5})

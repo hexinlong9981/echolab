@@ -8,7 +8,7 @@
   "foot.main": "台本モード（API キー不要）で CI が生成した記録のリプレイです。数値は決定的なツールが計算し、LLM は書きません。",
   "foot.generated": "データ生成 {at}",
   "foot.commit": "・コミット {sha}",
-  "foot.legal": "『鳴潮』の非公式ファン作品。住宅ローンは計算例で、金融上の助言ではありません。",
+  "foot.legal": "『鳴潮』『無職転生』の非公式ファン作品。住宅ローンは計算例で、金融上の助言ではありません。無職転生の資料は未確認の下書きです。",
   "foot.content": "",
   "list.demos": "デモ",
   "passed": "合格",
@@ -89,5 +89,8 @@
   "q.original": "原文",
   "answer.note": "",
   "out.translation": "",
-  "out.none": ""
+  "out.none": "",
+  "node.mushoku": "mushoku-lore\n（無職転生）",
+  "badge.progress": "進み具合 {progress}（これより先は出さない）",
+  "live.progress": "進み具合（ネタバレ防止。これより先の情報は出しません）："
 }

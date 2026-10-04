@@ -57,14 +57,20 @@ describe("titles", () => {
   // データの表示名の ID：デモ（servers/web_api/runner.py）・評価（export.py）・ケース（evals の YAML）
   const runner = readFileSync(resolve(REPO, "servers/web_api/runner.py"), "utf-8");
   const demos = [...runner.matchAll(/"id": "(demo-[a-z-]+)"/g)].map((m) => `demo/${m[1]}`);
-  const suites = { faithfulness: "evals/faithfulness/cases.yaml", mortgage: "evals/faithfulness/mortgage.yaml", redteam: "evals/redteam/cases.yaml" };
+  const suites = {
+    faithfulness: "evals/faithfulness/cases.yaml",
+    mortgage: "evals/faithfulness/mortgage.yaml",
+    redteam: "evals/redteam/cases.yaml",
+    mushoku: "evals/faithfulness/mushoku.yaml",
+    spoilers: "evals/redteam/spoilers.yaml",
+  };
   const cases = Object.entries(suites).flatMap(([suite, path]) =>
     [...readFileSync(resolve(REPO, path), "utf-8").matchAll(/^ {2}- id: ([a-z0-9-]+)$/gm)].map((m) => `${suite}/${m[1]}`),
   );
   const keys = [...demos, ...Object.keys(suites).map((s) => `suite/${s}`), ...cases];
 
   it("ID を読み取れている", () => {
-    expect(demos.length).toBe(3);
+    expect(demos.length).toBe(4);
     expect(cases.length).toBeGreaterThanOrEqual(20);
   });
 

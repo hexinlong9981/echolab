@@ -45,6 +45,16 @@ SUITES: tuple[dict[str, str], ...] = (
         "title": "注入（プロンプトインジェクション）",
         "cases": "evals/redteam/cases.yaml",
     },
+    {
+        "id": "mushoku",
+        "title": "設定の質問（無職転生）",
+        "cases": "evals/faithfulness/mushoku.yaml",
+    },
+    {
+        "id": "spoilers",
+        "title": "ネタバレの誘導（無職転生）",
+        "cases": "evals/redteam/spoilers.yaml",
+    },
 )
 
 DEFAULT_OUT = Path("web/public/data")
@@ -72,6 +82,7 @@ async def export(out: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
                 fake_backend=True,
                 trace_dir=tmp_dir / "demos",
                 repo_root=repo_root,
+                context={"progress": demo["progress"]} if "progress" in demo else None,
             )
             _write(out / "runs" / f"{record['run_id']}.json", record)
             index["demos"].append({**demo, "run_id": record["run_id"], "status": record["status"]})

@@ -11,6 +11,7 @@ export type NodeId =
   | "calc-engine"
   | "mortgage-calc"
   | "vision-mcp"
+  | "mushoku-lore"
   | "compare"
   | "verifier"
   | "answer";
@@ -36,6 +37,7 @@ const SERVICE_NODES: Record<string, NodeId> = {
   "calc-engine": "calc-engine",
   "mortgage-calc": "mortgage-calc",
   "vision-mcp": "vision-mcp",
+  "mushoku-lore": "mushoku-lore",
   core: "compare",
 };
 

@@ -43,6 +43,8 @@ export interface RunRecord {
   llm: string | null;
   fake_backend: boolean;
   status: string | null;
+  /** 利用者が指定した項目（例 progress。無職転生のパック） */
+  context?: Record<string, string>;
   events: TraceRecord[];
 }
 

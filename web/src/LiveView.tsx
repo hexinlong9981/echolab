@@ -13,6 +13,7 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
   const [demo, setDemo] = useState(info.demos[0]?.id ?? "");
   const [question, setQuestion] = useState("");
   const [domain, setDomain] = useState(info.domains.includes("wuwa") ? "wuwa" : (info.domains[0] ?? ""));
+  const [progress, setProgress] = useState("novel:1");
   const [fake, setFake] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,13 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
 
   const submit = async () => {
     const req: AskRequest =
-      mode === "scripted" ? { llm: "scripted", demo, fake_backend: fake } : { llm: "anthropic", question, domain, fake_backend: fake };
+      mode === "scripted" ? { llm: "scripted", demo, fake_backend: fake } : {
+            llm: "anthropic",
+            question,
+            domain,
+            fake_backend: fake,
+            ...(domain === "mushoku" ? { progress } : {}),
+          };
     setBusy(true);
     setError(null);
     try {
@@ -68,6 +75,12 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
                 <option key={d}>{d}</option>
               ))}
             </select>
+            {domain === "mushoku" && (
+              <label>
+                <Tx k="live.progress" />{" "}
+                <input value={progress} onChange={(e) => setProgress(e.target.value)} maxLength={40} placeholder="novel:5 / anime:2-12" />
+              </label>
+            )}
             <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={4} placeholder={t("live.placeholder")} maxLength={2000} />
           </>
         )}

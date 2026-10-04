@@ -37,6 +37,8 @@ export interface AskRequest {
   demo?: string;
   question?: string;
   domain?: string;
+  /** 利用者が指定する進み具合（無職転生のパック。例 novel:5） */
+  progress?: string;
   fake_backend: boolean;
 }
 

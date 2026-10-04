@@ -81,6 +81,7 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
             "llm_kind": "scripted",
             "script": REPO_ROOT / demo["script"],
             "fake_backend": fake,
+            "context": {"progress": demo["progress"]} if "progress" in demo else None,
         }
     question = body.get("question")
     if not isinstance(question, str) or not question.strip():
@@ -90,12 +91,17 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
     domain = body.get("domain")
     if domain not in available_domains(REPO_ROOT):
         raise ApiError(HTTPStatus.BAD_REQUEST, f"ドメインが見つかりません: {domain}")
+    progress = body.get("progress")
+    if progress is not None and (not isinstance(progress, str) or not 0 < len(progress) <= 40):
+        raise ApiError(HTTPStatus.BAD_REQUEST, "progress は 40 文字までの文字列です（例 novel:5）")
     return {
         "question": question,
         "domain": domain,
         "llm_kind": "anthropic",
         "script": None,
         "fake_backend": fake,
+        # 進み具合は利用者が指定する（ドメインが受け付けなければ ContextError で 400）
+        "context": {"progress": progress} if progress else None,
     }
 
 
