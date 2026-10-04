@@ -19,11 +19,11 @@
 <div class="layout">
   <nav class="side"></nav>
   <main>
-    <header class="top"><span class="tags"><span>进阶</span><span>路线图</span><span>计划</span></span><button id="theme-toggle">切换明暗</button></header>
+    <header class="top"><span class="tags"><span>进阶</span><span>路线图</span><span>现状</span></span><button id="theme-toggle">切换明暗</button></header>
     <h1>今后的功能（路线图）</h1>
-    <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理今后的计划，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
+    <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理各阶段做了什么，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout warn"><strong>请注意：本页只有 M5 还是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。M3 的住宅贷款领域包可以用 <code>--domain mortgage</code> 运行，M4 的截图读取（OCR）也已可用；网页界面（Web UI）<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
+    <div class="callout"><strong>现状：M1～M5 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）和网页界面（M5）都已可用。还没做的只有<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥）。公开网站的网址要等作者完成 Cloudflare 的设置后公布。</div>
 
     <h2>阶段一览</h2>
     <table>
@@ -32,7 +32,7 @@
       <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书主要介绍的就是它）</span></td></tr>
       <tr><td>M3</td><td>第二个领域包：住宅贷款还款的计算示例（最小示例），并在 CI 中证明核心零改动</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M4</td><td>截图读取（OCR）、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge done">已完成</span></td></tr>
-      <tr><td>M5</td><td>Web UI、轨迹回放、评估看板、公开演示</td><td><span class="badge plan">计划</span></td></tr>
+      <tr><td>M5</td><td>网页界面：执行轨迹回放、评估看板（公开的是静态网站，零费用）、只在本机运行的实时界面</td><td><span class="badge done">已完成（公开网址设置后公布）</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -42,11 +42,10 @@ flowchart LR
   M2 --> M3["M3 住宅贷款领域包<br/>证明核心零改动"]
   M3 --> M4["M4 截图读取<br/>注入评估・CI 评估"]
   M4 --> M5["M5 Web UI<br/>轨迹回放・评估看板"]
-  NOW(["现在在这里"]) -.-> M4
+  NOW(["现在在这里"]) -.-> M5
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3,M4 done
-  class M5 plan
+  class M1,M2,M3,M4,M5 done
       </pre>
       <div class="caption">图 1：开发阶段时间线（实线绿色＝已完成，虚线黄色＝计划；先打通一条完整流程，再横向扩展）</div>
     </div>
@@ -62,7 +61,7 @@ flowchart LR
         <div class="arrow" data-id="a3">→</div>
         <div class="node" data-id="m4">M4<small>截图・注入</small></div>
         <div class="arrow" data-id="a4">→</div>
-        <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
+        <div class="node" data-id="m5">M5<small>Web UI</small></div>
       </div>
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "已完成"},
@@ -71,10 +70,10 @@ flowchart LR
          "text": "<b>M2：CLI 全流程。</b>计算引擎作为 MCP 服务接入；网关、出典 ID、验证器、比较工具、成本上限、执行轨迹、忠实度评估都已可用。"},
         {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "已完成"},
          "text": "<b>M3：住宅贷款领域包。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。核心代码一行没改就加了进来，CI 每次都检查这一点。<strong>只是计算示例，不是金融建议。</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "已完成 · 现在"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "已完成"},
          "text": "<b>M4：截图读取与注入评估。</b>用 OCR（Tesseract）读取声骸截图，只返回模板里声明的数值，图片里的文字传不到 Claude；新增 7 个“提示词注入”评估题（使用合成截图，不用游戏原图），在 CI 中每次运行，没有一个攻击成功。"},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "计划"},
-         "text": "<b>M5（计划）：Web UI。</b>在网页上对话、回放执行轨迹（流程图形式）、查看评估看板，并公开演示。届时本说明书第 5、7 页的动画所展示的内容，可以在界面里直接看到。"}
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "已完成 · 现在"},
+         "text": "<b>M5：网页界面。</b>用流程图逐步回放执行轨迹、查看评估看板。公开的是静态网站（不运行服务器和 LLM，零费用）；在自己电脑上还能打开“运行”界面现场提问。本说明书第 5、7 页动画展示的内容，现在可以在界面里直接看到。"}
       ]</script>
     </div>
 
@@ -101,28 +100,32 @@ flowchart LR
   --llm scripted --script domains/wuwa/examples/score_screenshot.yaml</code></pre>
     <p>尚未做的：用真实 Claude 跑注入评估（只在本地手动运行，需要 API 密钥）。</p>
 
-    <h2>M5（计划）：Web UI 与轨迹回放</h2>
-    <p>计划在 <code>web/</code> 目录用 React + TypeScript 做网页界面，用 Vite 构建成静态文件放到 Cloudflare Pages。计划的功能：</p>
+    <h2>M5（已完成）：网页界面</h2>
+    <p><code>web/</code> 目录用 React + TypeScript + Vite 做成。方针是<strong>费用最优先、完全免费</strong>（ADR-0011）：公开的只有静态网站，不运行服务器，也不调用 Claude，所以既没有费用，也不会被别人刷掉 API 费用。</p>
     <div class="cards">
-      <div class="card"><h4>对话</h4><p>在网页里提问、看带出典的答案，不必再敲命令。</p></div>
-      <div class="card"><h4>轨迹回放</h4><p>把 <code>.jsonl</code> 执行轨迹画成流程图（React Flow）逐步回放，类似本说明书第 5 页的动画。</p></div>
-      <div class="card"><h4>评估看板</h4><p>用图表展示忠实度、退回率等评估指标及其变化。</p></div>
-      <div class="card"><h4>公开演示</h4><p>公开演示时如何防止费用失控还没有决定：可以沿用现在的日／月成本上限，也可以改用预先录制的回答（构想，未决定）。</p></div>
+      <div class="card"><h4>回放</h4><p>把执行轨迹画成流程图（React Flow）逐步播放：经过哪个方框、哪一稿被退回、哪个工具被拒绝，都用颜色标出，并显示当时已有的出典表。网址 <code>#replay/&lt;执行 ID&gt;/&lt;步&gt;</code> 可以直接打开某一步。</p></div>
+      <div class="card"><h4>评估看板</h4><p>数值忠实度（鸣潮・住宅贷款）和注入评估的指标与每个用例的结果；每个用例都能跳到回放。</p></div>
+      <div class="card"><h4>运行（只在本机）</h4><p>在自己电脑上用 <code>python -m servers.web_api</code> 打开时才出现：可以运行剧本演示，有 API 密钥时还能向真实 Claude 提问（受日／月成本上限保护）。只监听 <code>127.0.0.1</code>，不对外公开。</p></div>
+      <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare Pages（免费方案）。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。<strong>公开网址设置后公布。</strong></p></div>
     </div>
+    <p>在自己电脑上试用（需要 Node.js）：</p>
+<pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
+python -m servers.web_api        # 浏览器打开 http://127.0.0.1:8765/</code></pre>
 
     <div class="diagram">
       <pre class="mermaid">
 flowchart LR
-  A["打开网页"] --> B["输入问题"]
-  B --> C["答案 + 出典表"]
-  C --> D{"想知道数字从哪来？"}
-  D -->|"点“回放轨迹”"| E["流程图逐步回放<br/>Claude → 网关 → 计算 → 验证"]
-  D -->|"点某个数字"| F["高亮对应的出典 ID<br/>与工具结果"]
-  C --> G["评估看板<br/>忠实度・退回率的变化"]
-  classDef idea fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class A,B,C,D,E,F,G idea
+  subgraph CI["GitHub Actions"]
+    EX["剧本模式运行全部演示与评估<br/>→ JSON 数据"] --> B["类型检查・测试・构建"]
+  end
+  B --> CF["Cloudflare Pages<br/>静态的回放与评估看板（公开）"]
+  subgraph PC["你的电脑（127.0.0.1）"]
+    API["python -m servers.web_api"] --> AG["EchoLab 核心<br/>（剧本或真实 Claude）"]
+  end
+  U1["任何人的浏览器"] --> CF
+  U2["你的浏览器"] --> API
       </pre>
-      <div class="caption">图 2：构想（未实现）——未来 Web UI 的使用流程示意。文档只列出“对话・轨迹回放・评估看板”三项功能，画面细节（如“点数字高亮出典”）是本说明书为便于理解而画的设想，并非已确定的设计</div>
+      <div class="caption">图 2：M5 的结构。公开网站只有静态文件；能现场提问的界面只在你的电脑上运行</div>
     </div>
 
     <h2>不会改变的东西</h2>

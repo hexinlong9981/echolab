@@ -188,6 +188,13 @@ python -m core.evals --llm anthropic --case damage-basic --out /tmp/one-case.md 
       <p>本页没有运行这条命令。评估指标的详细含义见 <a href="../../zh/07-traces-evals.html">执行轨迹与评估</a>。</p>
     </details>
 
+    <h2>6. 网页界面（可选）：在浏览器里看回放</h2>
+    <p>需要 Node.js（建议 22 以上）。不需要 API 密钥、Java 或 Tesseract：</p>
+<pre><code>python -m servers.web_api.export                 # 剧本模式运行全部演示与评估 → web/public/data/
+(cd web &amp;&amp; npm ci &amp;&amp; npm run build)              # 构建网页 → web/dist/（需要 Node.js）
+python -m servers.web_api                        # 只监听 127.0.0.1 → http://127.0.0.1:8765/</code></pre>
+    <p>浏览器打开 <code>http://127.0.0.1:8765/</code>，有「回放」「评估」「运行（本机）」三个标签页。开发时可以用 <code>(cd web &amp;&amp; npm run dev)</code>；前端的检查是 <code>(cd web &amp;&amp; npm run typecheck &amp;&amp; npm test)</code>。</p>
+
     <h2>CI 如何运行同样的检查</h2>
     <p>GitHub Actions 的工作流在 <code>.github/workflows/</code>，CI 不持有 API 密钥，LLM 全部用台本替代：</p>
     <table>

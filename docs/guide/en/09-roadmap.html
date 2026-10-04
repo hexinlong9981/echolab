@@ -19,11 +19,11 @@
 <div class="layout">
   <nav class="side"></nav>
   <main>
-    <header class="top"><span class="tags"><span>Advanced</span><span>Roadmap</span><span>Plans</span></span><button id="theme-toggle">Toggle theme</button></header>
+    <header class="top"><span class="tags"><span>Advanced</span><span>Roadmap</span><span>Status</span></span><button id="theme-toggle">Toggle theme</button></header>
     <h1>Roadmap</h1>
-    <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what is planned, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
+    <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout warn"><strong>Please note: only M5 on this page is still planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The M3 mortgage pack runs with <code>--domain mortgage</code>, and M4 screenshot reading (OCR) is available; the web UI <strong>does not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
+    <div class="callout"><strong>Status: M1–M5 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR) and the web UI (M5) are all available. The only thing not done yet is <strong>a systematic eval with real Claude</strong> (it needs an API key). The URL of the public site will be published once the author finishes the Cloudflare setup.</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -32,7 +32,7 @@
       <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide mainly describes)</span></td></tr>
       <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
-      <tr><td>M5</td><td>Web UI, trace replay, eval dashboard, public demo</td><td><span class="badge plan">Planned</span></td></tr>
+      <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (public URL to be announced after setup)</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -42,11 +42,10 @@ flowchart LR
   M2 --> M3["M3 Mortgage domain pack<br/>proves zero core changes"]
   M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
   M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
-  NOW(["You are here"]) -.-> M4
+  NOW(["You are here"]) -.-> M5
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3,M4 done
-  class M5 plan
+  class M1,M2,M3,M4,M5 done
       </pre>
       <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
     </div>
@@ -62,7 +61,7 @@ flowchart LR
         <div class="arrow" data-id="a3">→</div>
         <div class="node" data-id="m4">M4<small>Screenshots, injection</small></div>
         <div class="arrow" data-id="a4">→</div>
-        <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
+        <div class="node" data-id="m5">M5<small>Web UI</small></div>
       </div>
       <script type="application/json">[
         {"on": ["m1"], "packet": {"at": "m1", "text": "Done"},
@@ -71,10 +70,10 @@ flowchart LR
          "text": "<b>M2: End-to-end CLI.</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
         {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done"},
          "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done · now"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done"},
          "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Planned"},
-         "text": "<b>M5 (Planned): Web UI.</b>Chat in the browser, replay execution traces (as flow diagrams), view an eval dashboard, and a public demo. What the animations on pages 5 and 7 of this guide show would then be visible directly in the interface."}
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done · now"},
+         "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."}
       ]</script>
     </div>
 
@@ -101,28 +100,32 @@ flowchart LR
   --llm scripted --script domains/wuwa/examples/score_screenshot.yaml</code></pre>
     <p>Not done yet: running the injection evals with the real Claude (only run manually, locally, and needs an API key).</p>
 
-    <h2>M5 (Planned): web UI and trace replay</h2>
-    <p>The plan is a web interface in the <code>web/</code> directory using React + TypeScript, built into static files with Vite and hosted on Cloudflare Pages. Planned features:</p>
+    <h2>M5 (Done): the web UI</h2>
+    <p>The <code>web/</code> directory is built with React + TypeScript + Vite. The policy is <strong>cost first, completely free</strong> (ADR-0011): only a static site is public. No server runs and Claude is never called, so there is no cost and nobody can run up an API bill.</p>
     <div class="cards">
-      <div class="card"><h4>Chat</h4><p>Ask questions and read answers with sources in the browser, without typing commands.</p></div>
-      <div class="card"><h4>Trace replay</h4><p>Draw <code>.jsonl</code> execution traces as flow diagrams (React Flow) and replay them step by step, similar to the animation on page 5 of this guide.</p></div>
-      <div class="card"><h4>Eval dashboard</h4><p>Charts of eval metrics such as faithfulness and rejection rate, and how they change over time.</p></div>
-      <div class="card"><h4>Public demo</h4><p>How to keep costs under control in a public demo has not been decided yet: it could keep the current daily / monthly cost caps, or switch to prerecorded answers (Concept, undecided).</p></div>
+      <div class="card"><h4>Replay</h4><p>Plays an execution trace step by step as a flow diagram (React Flow). Boxes passed, rejected drafts and refused tools are shown in color, together with the source table at that moment. The URL <code>#replay/&lt;run ID&gt;/&lt;step&gt;</code> opens a specific step.</p></div>
+      <div class="card"><h4>Eval dashboard</h4><p>Metrics and per-case results for numeric faithfulness (Wuthering Waves, mortgages) and the injection evals; every case links to its replay.</p></div>
+      <div class="card"><h4>Run (local only)</h4><p>Appears only when opened through <code>python -m servers.web_api</code> on your own machine: run the scripted demos, or ask real Claude when you have an API key (protected by the daily and monthly cost caps). It listens on <code>127.0.0.1</code> only and is not public.</p></div>
+      <div class="card"><h4>Public site</h4><p>Hosted on Cloudflare Pages (free plan). CI generates the data in scripted mode, builds and publishes; the public replays are scripted-mode records, not real Claude answers. <strong>The public URL will be announced after setup.</strong></p></div>
     </div>
+    <p>To try it on your own machine (Node.js needed):</p>
+<pre><code>python -m servers.web_api.export && (cd web && npm ci && npm run build)
+python -m servers.web_api        # open http://127.0.0.1:8765/ in a browser</code></pre>
 
     <div class="diagram">
       <pre class="mermaid">
 flowchart LR
-  A["Open the web page"] --> B["Enter a question"]
-  B --> C["Answer + sources table"]
-  C --> D{"Where does a number come from?"}
-  D -->|"Click “Replay trace”"| E["Step-by-step flow replay<br/>Claude → gateway → calculation → verification"]
-  D -->|"Click a number"| F["Highlight its source ID<br/>and tool result"]
-  C --> G["Eval dashboard<br/>faithfulness, rejection rate over time"]
-  classDef idea fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class A,B,C,D,E,F,G idea
+  subgraph CI["GitHub Actions"]
+    EX["run every demo and eval in scripted mode<br/>→ JSON data"] --> B["type check, tests, build"]
+  end
+  B --> CF["Cloudflare Pages<br/>static replay and eval dashboard (public)"]
+  subgraph PC["your machine (127.0.0.1)"]
+    API["python -m servers.web_api"] --> AG["EchoLab core<br/>(scripted or real Claude)"]
+  end
+  U1["anyone's browser"] --> CF
+  U2["your browser"] --> API
       </pre>
-      <div class="caption">Figure 2: Concept (not implemented). A sketch of how the future web UI might be used. The documents list only three features (chat, trace replay, eval dashboard); screen details such as “click a number to highlight its source” are an illustration drawn for this guide, not a decided design</div>
+      <div class="caption">Figure 2: how M5 is put together. The public site is static files only; the screen where you can ask live runs only on your machine</div>
     </div>
 
     <h2>What will not change</h2>

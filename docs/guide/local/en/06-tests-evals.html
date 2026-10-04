@@ -191,6 +191,13 @@ python -m core.evals --llm anthropic --case damage-basic --out /tmp/one-case.md 
       <p>These commands were not run for this page. For what the eval metrics mean in detail, see <a href="../../en/07-traces-evals.html">Traces and evals</a>.</p>
     </details>
 
+    <h2>6. Web UI (optional): watch replays in a browser</h2>
+    <p>Needs Node.js (22 or later recommended). No API key, Java or Tesseract needed:</p>
+<pre><code>python -m servers.web_api.export                 # run every demo and eval in scripted mode → web/public/data/
+(cd web &amp;&amp; npm ci &amp;&amp; npm run build)              # build the site → web/dist/ (needs Node.js)
+python -m servers.web_api                        # listens on 127.0.0.1 only → http://127.0.0.1:8765/</code></pre>
+    <p>Open <code>http://127.0.0.1:8765/</code> in a browser; there are three tabs: Replay, Evals and Run (local). During development use <code>(cd web &amp;&amp; npm run dev)</code>; the front-end checks are <code>(cd web &amp;&amp; npm run typecheck &amp;&amp; npm test)</code>.</p>
+
     <h2>How CI runs the same checks</h2>
     <p>The GitHub Actions workflows are in <code>.github/workflows/</code>. CI has no API key, and the LLM is always replaced by scripts:</p>
     <table>
