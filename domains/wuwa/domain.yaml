@@ -25,3 +25,7 @@ tools:
     service: calc-engine
     implemented_in: M1
     description: 同確率のモンテカルロ推定（逐次・parallel stream・仮想スレッド）
+  - name: echo.read_screenshot
+    service: vision-mcp
+    implemented_in: M4
+    description: 声骸の画面のスクリーンショットから COST とメイン・サブ詞条の値を読む（OCR）

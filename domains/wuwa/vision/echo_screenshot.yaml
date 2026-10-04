@@ -1,0 +1,42 @@
+# 声骸の画面のスクリーンショットを読むテンプレート（ADR-0010）。servers/vision_mcp が読む。
+# 1 行が「ラベル + 数値（+ %）」のときだけ値にする。それ以外の行（説明文・書き込まれた指示）は捨てる。
+# 項目名の後半は echo_score の stat に対応する（crit_rate → CRIT_RATE、atk_flat → ATK_FLAT）。
+# 範囲（min・max）は読み違いを見つけるためのゆるい上限で、ゲームの値ではない。
+schema_version: 1
+tool: echo.read_screenshot
+description: >-
+  声骸の画面のスクリーンショットから、COST とメイン・サブ詞条の値を読む（OCR）。
+  結果は数値だけで、項目名は main_<ステータス>・sub_<ステータス>（例 sub_crit_rate）。割合は小数（0.08 = 8%）
+sections:
+  - {name: main, header: メイン}
+  - {name: sub, header: サブ}
+fields:
+  - {name: cost, label: COST, unit: number, min: 1, max: 4}
+  - {name: main_crit_rate, section: main, label: 会心率, unit: percent, min: 0, max: 1}
+  - {name: main_crit_dmg, section: main, label: 会心ダメージ, unit: percent, min: 0, max: 1}
+  - {name: main_atk_percent, section: main, label: 攻撃力, unit: percent, min: 0, max: 1}
+  - {name: main_atk_flat, section: main, label: 攻撃力, unit: number, min: 0, max: 1000}
+  - {name: main_hp_percent, section: main, label: HP, unit: percent, min: 0, max: 1}
+  - {name: main_hp_flat, section: main, label: HP, unit: number, min: 0, max: 10000}
+  - {name: main_def_percent, section: main, label: 防御力, unit: percent, min: 0, max: 1}
+  - {name: main_def_flat, section: main, label: 防御力, unit: number, min: 0, max: 1000}
+  - {name: main_energy_regen, section: main, label: 共鳴効率, unit: percent, min: 0, max: 1}
+  - {name: main_basic_attack_dmg_bonus, section: main, label: 通常攻撃ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: main_heavy_attack_dmg_bonus, section: main, label: 重撃ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: main_skill_dmg_bonus, section: main, label: 共鳴スキルダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: main_liberation_dmg_bonus, section: main, label: 共鳴解放ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: main_healing_bonus, section: main, label: 治療効果アップ, unit: percent, min: 0, max: 1}
+  - {name: sub_crit_rate, section: sub, label: 会心率, unit: percent, min: 0, max: 1}
+  - {name: sub_crit_dmg, section: sub, label: 会心ダメージ, unit: percent, min: 0, max: 1}
+  - {name: sub_atk_percent, section: sub, label: 攻撃力, unit: percent, min: 0, max: 1}
+  - {name: sub_atk_flat, section: sub, label: 攻撃力, unit: number, min: 0, max: 1000}
+  - {name: sub_hp_percent, section: sub, label: HP, unit: percent, min: 0, max: 1}
+  - {name: sub_hp_flat, section: sub, label: HP, unit: number, min: 0, max: 10000}
+  - {name: sub_def_percent, section: sub, label: 防御力, unit: percent, min: 0, max: 1}
+  - {name: sub_def_flat, section: sub, label: 防御力, unit: number, min: 0, max: 1000}
+  - {name: sub_energy_regen, section: sub, label: 共鳴効率, unit: percent, min: 0, max: 1}
+  - {name: sub_basic_attack_dmg_bonus, section: sub, label: 通常攻撃ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: sub_heavy_attack_dmg_bonus, section: sub, label: 重撃ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: sub_skill_dmg_bonus, section: sub, label: 共鳴スキルダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: sub_liberation_dmg_bonus, section: sub, label: 共鳴解放ダメージアップ, unit: percent, min: 0, max: 1}
+  - {name: sub_healing_bonus, section: sub, label: 治療効果アップ, unit: percent, min: 0, max: 1}

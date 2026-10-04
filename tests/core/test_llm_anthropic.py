@@ -239,7 +239,10 @@ async def _ask(tmp_path: Path, client: FakeClient, question: str = "比べて"):
     budget = Budget(tmp_path / "costs.jsonl", Decimal("1"), Decimal("10"))
     backend = FakeCalcBackend()
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": backend}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": backend, "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         agent = Agent(
             gateway=gw,
@@ -344,7 +347,10 @@ async def test_llm_error_answer_names_the_cause(tmp_path: Path, kind: str, expec
 
     budget = Budget(tmp_path / "costs.jsonl", Decimal("1"), Decimal("10"))
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": FakeCalcBackend()}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": FakeCalcBackend(), "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         agent = Agent(
             gateway=gw,

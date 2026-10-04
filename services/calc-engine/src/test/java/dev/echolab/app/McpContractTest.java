@@ -31,7 +31,15 @@ class McpContractTest {
   @Test
   void toolsMatchDomainManifestWithWireNames() {
     Set<String> declared = new TreeSet<>();
-    TestPaths.domainManifest().get("tools").forEach(t -> declared.add(t.get("name").asText()));
+    // calc-engine が受け持つツールだけ（ほかのサービス、例えば vision-mcp のツールは除く）
+    TestPaths.domainManifest()
+        .get("tools")
+        .forEach(
+            t -> {
+              if (t.get("service").asText().equals("calc-engine")) {
+                declared.add(t.get("name").asText());
+              }
+            });
     Set<String> exposed = new TreeSet<>();
     handlers.forEach(h -> exposed.add(h.domainName()));
     assertThat(exposed).isEqualTo(declared);

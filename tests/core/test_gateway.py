@@ -35,7 +35,9 @@ async def fake() -> FakeCalcBackend:
 
 @pytest.fixture
 async def gw(fake: FakeCalcBackend, budget: Budget):
-    gateway = await Gateway.open(ROOT, "wuwa", backends={"calc-engine": fake}, budget=budget)
+    gateway = await Gateway.open(
+        ROOT, "wuwa", backends={"calc-engine": fake, "vision-mcp": FakeCalcBackend()}, budget=budget
+    )
     async with gateway:
         yield gateway
 
@@ -69,6 +71,7 @@ async def test_tool_specs_are_declared_and_exposed_tools_plus_compare(gw: Gatewa
         "damage_expected",
         "echo_score",
         "gacha_probability_within",
+        "echo_read_screenshot",  # vision-mcp のツール
         "compare_diff",
         "compare_ratio",
     ]
@@ -77,7 +80,10 @@ async def test_tool_specs_are_declared_and_exposed_tools_plus_compare(gw: Gatewa
 async def test_undeclared_tool_is_hidden_and_refused(budget: Budget) -> None:
     backend = ExtraToolsBackend()
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": backend}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": backend, "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         assert "admin_reset" not in {s.name for s in gw.tool_specs()}
         out = await gw.call("admin_reset", {})
@@ -98,7 +104,10 @@ async def test_unknown_and_declared_but_unexposed_tools_are_refused(
 
 async def test_empty_backend_description_falls_back_to_domain(budget: Budget) -> None:
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": ExtraToolsBackend()}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": ExtraToolsBackend(), "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         spec = next(s for s in gw.tool_specs() if s.name == "damage_expected")
         assert spec.description == "期待ダメージと各乗区の明細"
@@ -110,7 +119,9 @@ async def test_unknown_domain_is_rejected(budget: Budget) -> None:
 
 
 async def test_aclose_closes_backends(fake: FakeCalcBackend, budget: Budget) -> None:
-    gw = await Gateway.open(ROOT, "wuwa", backends={"calc-engine": fake}, budget=budget)
+    gw = await Gateway.open(
+        ROOT, "wuwa", backends={"calc-engine": fake, "vision-mcp": FakeCalcBackend()}, budget=budget
+    )
     await gw.aclose()
     await gw.aclose()
     assert fake.closed
@@ -118,7 +129,9 @@ async def test_aclose_closes_backends(fake: FakeCalcBackend, budget: Budget) -> 
 
 
 async def test_open_uses_budget_from_config_by_default(fake: FakeCalcBackend) -> None:
-    async with await Gateway.open(ROOT, "wuwa", backends={"calc-engine": fake}) as gw:
+    async with await Gateway.open(
+        ROOT, "wuwa", backends={"calc-engine": fake, "vision-mcp": FakeCalcBackend()}
+    ) as gw:
         assert gw.budget.daily_usd == Decimal("1.00")
 
 
@@ -130,7 +143,10 @@ async def test_open_uses_budget_from_config_by_default(fake: FakeCalcBackend) ->
 async def test_schema_violation_is_error_and_backend_not_called(budget: Budget) -> None:
     backend = ExtraToolsBackend()
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": backend}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": backend, "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         for bad in ({}, {"atk": "2000"}, {"atk": -1}):
             out = await gw.call("damage_expected", bad)
@@ -181,7 +197,10 @@ async def test_schema_errors_are_explained_in_japanese(
     budget: Budget, args: dict[str, Any], expected: str
 ) -> None:
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": SchemaMessagesBackend()}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": SchemaMessagesBackend(), "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         out = await gw.call("gacha_probability_within", args)
     assert out.error == f"入力が不正です: {expected}"
@@ -201,7 +220,10 @@ class WrongNameBackend(FakeCalcBackend):
 
 async def test_mismatched_envelope_is_error(budget: Budget) -> None:
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": WrongNameBackend()}, budget=budget
+        ROOT,
+        "wuwa",
+        backends={"calc-engine": WrongNameBackend(), "vision-mcp": FakeCalcBackend()},
+        budget=budget,
     ) as gw:
         out = await gw.call("damage_expected", DMG_1)
         assert out.error is not None
@@ -330,7 +352,7 @@ async def test_compare_propagates_union_of_unverified(budget: Budget) -> None:
         }
     )
     async with await Gateway.open(
-        ROOT, "wuwa", backends={"calc-engine": fake}, budget=budget
+        ROOT, "wuwa", backends={"calc-engine": fake, "vision-mcp": FakeCalcBackend()}, budget=budget
     ) as gw:
         await gw.call("echo_score", ECHO_1)
         await gw.call("damage_expected", DMG_1)

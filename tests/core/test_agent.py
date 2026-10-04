@@ -77,7 +77,7 @@ async def run_agent(
     async with await Gateway.open(
         ROOT,
         "wuwa",
-        backends={"calc-engine": backend},
+        backends={"calc-engine": backend, "vision-mcp": FakeCalcBackend()},
         budget=budget or make_budget(tmp_path),
     ) as gw:
         agent = Agent(
