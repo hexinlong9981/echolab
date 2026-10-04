@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { DataMissingError, loadRun } from "./data";
-import { DEMOS_GROUP, groupOf } from "./listGroups";
+import { DEMOS_GROUP, groupOf, toggleGroup } from "./listGroups";
 import { RunPlayer } from "./RunPlayer";
 import { Title, Tx } from "./Tx";
 import type { DataIndex, RunRecord } from "./types";
@@ -24,7 +24,7 @@ export function ReplayView({
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   // 開いている分組は 1 つだけ（アコーディオン）。選んだ実行が変わったら、その分組を開く
-  const [open, setOpen] = useState(() => groupOf(index, current));
+  const [open, setOpen] = useState<string | null>(() => groupOf(index, current));
   useEffect(() => {
     setOpen(groupOf(index, current));
   }, [index, current]);
@@ -63,7 +63,7 @@ export function ReplayView({
     <main className="replay">
       <aside className="list">
         <section className={`group ${open === DEMOS_GROUP ? "open" : ""}`}>
-          <button className="group-head" aria-expanded={open === DEMOS_GROUP} onClick={() => setOpen(DEMOS_GROUP)}>
+          <button className="group-head" aria-expanded={open === DEMOS_GROUP} onClick={() => setOpen((o) => toggleGroup(o, DEMOS_GROUP))}>
             <span className="caret" aria-hidden="true" />
             <Tx k="list.demos" />
           </button>
@@ -81,7 +81,7 @@ export function ReplayView({
         </section>
         {index.suites.map((s) => (
           <section key={s.id} className={`group ${open === s.id ? "open" : ""}`}>
-            <button className="group-head" aria-expanded={open === s.id} onClick={() => setOpen(s.id)}>
+            <button className="group-head" aria-expanded={open === s.id} onClick={() => setOpen((o) => toggleGroup(o, s.id))}>
               <span className="caret" aria-hidden="true" />
               <span>
                 <Tx k="list.suitePrefix" />

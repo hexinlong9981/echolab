@@ -12,3 +12,8 @@ export function groupOf(index: Pick<DataIndex, "demos" | "suites">, key: string 
   }
   return DEMOS_GROUP;
 }
+
+/** 見出しを押したあとに開いている分組。開いている分組を押すと閉じ、すべて閉じた状態（null）になる。 */
+export function toggleGroup(open: string | null, clicked: string): string | null {
+  return open === clicked ? null : clicked;
+}
