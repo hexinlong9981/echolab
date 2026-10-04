@@ -42,9 +42,11 @@
 
     <h2>One question, start to finish (animation)</h2>
     <p>The animation below walks through one question using the project's bundled example, "which of two builds is stronger". Click "Next" to step through, or "Auto-play".</p>
-    <div class="flow-anim" data-cols="9">
+    <div class="flow-anim" data-cols="11">
       <div class="stage">
         <div class="node" data-id="user">You<small>ask in the terminal</small></div>
+        <div class="arrow" data-id="a0">→</div>
+        <div class="node" data-id="budget">Cost cap<small>Agent checks first</small></div>
         <div class="arrow" data-id="a1">→</div>
         <div class="node" data-id="llm">AI (Claude)<small>picks tools, drafts</small></div>
         <div class="arrow" data-id="a2">→</div>
@@ -55,14 +57,15 @@
         <div class="node" data-id="ans">Answer<small>with source table</small></div>
       </div>
       <script type="application/json">[
-        {"on": ["user"], "packet": {"at": "user", "text": "A or B: which is stronger?"}, "text": "You enter the question: which of two builds (attack, multiplier, crit and other stats are all written in the question) has the higher expected damage, and by how much."},
-        {"on": ["a1", "llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "After reading the question, the AI <strong>does not calculate anything itself</strong>. It decides to call the expected damage tool <code>damage_expected</code> twice (once for A and once for B, in parallel)."},
-        {"on": ["a2", "calc"], "done": ["user", "llm"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "The gateway first confirms the tool is on the allowlist and the arguments match the schema, then passes the call to the Java calculation service. The results are numbered as source IDs: <code>c1.total</code> = 6192.000000, <code>c2.total</code> = 7128.000000."},
-        {"on": ["llm", "a3", "ver"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "The AI's first draft says 「A より 936 高い」 (\"936 higher than A\"), and 936 is a number it worked out in its head. The verifier reports <code>数値「936」の出典がありません</code> (\"the number 936 has no source\") and rejects the draft."},
-        {"on": ["llm", "a2", "calc"], "done": ["user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "The AI now calls the compare tools <code>compare_diff</code> and <code>compare_ratio</code>: <code>c3.diff</code> = 936.000000, <code>c4.change</code> = 0.151163."},
-        {"on": ["a3", "ver"], "done": ["user", "llm", "calc", "ver"], "packet": {"at": "ver", "text": "OK"}, "text": "The second draft refers to numbers only through placeholders, such as <code>[[c3.diff|0]]</code> and <code>[[c4.change|%1]]</code>. It passes verification, and the program replaces the placeholders with the real numbers (936, 15.1%)."},
-        {"on": ["a4", "ans"], "done": ["user", "llm", "calc", "ver", "ans"], "packet": {"at": "ans", "text": "answered"}, "text": "You see the answer, the source table and the status line: <code>状態: answered</code> (status), <code>差し戻し: 1 回</code> (1 rejected draft). The whole process is also saved as an execution trace under <code>.echolab/traces/</code>."}
-      ]</script>
+      {"on": ["user"], "packet": {"at": "user", "text": "A or B: which is stronger?"}, "text": "You enter the question: which of two builds (attack, multiplier, crit and other stats are all written in the question) has the higher expected damage, and by how much."},
+      {"on": ["a0", "budget"], "done": ["user"], "packet": {"at": "budget", "text": "OK"}, "text": "Before calling the AI, the <strong>Agent</strong> checks that today's and this month's spending is under the caps (1 USD a day, 10 USD a month). It does this before every AI call; if a cap is reached, it stops without calling. The Agent does this, not the gateway."},
+      {"on": ["a1", "llm"], "done": ["budget", "user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "After reading the question, the AI <strong>does not calculate anything itself</strong>. It decides to call the expected damage tool <code>damage_expected</code> twice (once for A and once for B, in parallel)."},
+      {"on": ["a2", "calc"], "done": ["budget", "llm", "user"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "The gateway first confirms the tool is on the allowlist and the arguments match the schema, then passes the call to the Java calculation service. The results are numbered as source IDs: <code>c1.total</code> = 6192.000000, <code>c2.total</code> = 7128.000000."},
+      {"on": ["llm", "a3", "ver"], "done": ["budget", "calc", "user"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "The AI's first draft says 「A より 936 高い」 (\"936 higher than A\"), and 936 is a number it worked out in its head. The verifier reports <code>数値「936」の出典がありません</code> (\"the number 936 has no source\") and rejects the draft."},
+      {"on": ["llm", "a2", "calc"], "done": ["budget", "user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "The AI now calls the compare tools <code>compare_diff</code> and <code>compare_ratio</code>: <code>c3.diff</code> = 936.000000, <code>c4.change</code> = 0.151163."},
+      {"on": ["a3", "ver"], "done": ["budget", "calc", "llm", "user", "ver"], "packet": {"at": "ver", "text": "OK"}, "text": "The second draft refers to numbers only through placeholders, such as <code>[[c3.diff|0]]</code> and <code>[[c4.change|%1]]</code>. It passes verification, and the program replaces the placeholders with the real numbers (936, 15.1%)."},
+      {"on": ["a4", "ans"], "done": ["ans", "budget", "calc", "llm", "user", "ver"], "packet": {"at": "ans", "text": "answered"}, "text": "You see the answer, the source table and the status line: <code>状態: answered</code> (status), <code>差し戻し: 1 回</code> (1 rejected draft). The whole process is also saved as an execution trace under <code>.echolab/traces/</code>."}
+    ]</script>
     </div>
 
     <h2>A real recorded run</h2>

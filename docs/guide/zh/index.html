@@ -42,9 +42,11 @@
 
     <h2>一次提问的全过程（动画）</h2>
     <p>下面用项目自带的示例「比较两套配置哪个更强」演示一次提问。点「下一步」逐步查看，或「自动播放」。</p>
-    <div class="flow-anim" data-cols="9">
+    <div class="flow-anim" data-cols="11">
       <div class="stage">
         <div class="node" data-id="user">你<small>在终端提问</small></div>
+        <div class="arrow" data-id="a0">→</div>
+        <div class="node" data-id="budget">成本上限<small>Agent 先确认</small></div>
         <div class="arrow" data-id="a1">→</div>
         <div class="node" data-id="llm">AI（Claude）<small>选工具・写草稿</small></div>
         <div class="arrow" data-id="a2">→</div>
@@ -55,14 +57,15 @@
         <div class="node" data-id="ans">回答<small>附出典表</small></div>
       </div>
       <script type="application/json">[
-        {"on": ["user"], "packet": {"at": "user", "text": "A 和 B 哪个强？"}, "text": "你输入问题：两套配置（攻击力、倍率、暴击等参数都写在问题里）哪个期望伤害更高、高多少。"},
-        {"on": ["a1", "llm"], "done": ["user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "AI 读懂问题后<strong>不自己算</strong>，而是决定调用两次期望伤害工具 <code>damage_expected</code>（A、B 各一次，并行）。"},
-        {"on": ["a2", "calc"], "done": ["user", "llm"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "网关先确认工具在许可名单里、参数符合格式，再交给 Java 计算服务。结果被编号为出典 ID：<code>c1.total</code> = 6192.000000，<code>c2.total</code> = 7128.000000。"},
-        {"on": ["llm", "a3", "ver"], "done": ["user", "calc"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "AI 的第一版草稿写了「A より 936 高い」——936 是它自己心算的。校验器发现：<code>数値「936」の出典がありません</code>，退回重写。"},
-        {"on": ["llm", "a2", "calc"], "done": ["user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "AI 改为调用比较工具 <code>compare_diff</code> 和 <code>compare_ratio</code>：<code>c3.diff</code> = 936.000000，<code>c4.change</code> = 0.151163。"},
-        {"on": ["a3", "ver"], "done": ["user", "llm", "calc", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "第二版草稿只用占位符引用数字，如 <code>[[c3.diff|0]]</code>、<code>[[c4.change|%1]]</code>。校验通过，程序把占位符换成真实数字（936、15.1%）。"},
-        {"on": ["a4", "ans"], "done": ["user", "llm", "calc", "ver", "ans"], "packet": {"at": "ans", "text": "answered"}, "text": "你看到回答、出典表和状态行：<code>状態: answered</code>、<code>差し戻し: 1 回</code>。完整过程还保存在 <code>.echolab/traces/</code> 下的执行轨迹里。"}
-      ]</script>
+      {"on": ["user"], "packet": {"at": "user", "text": "A 和 B 哪个强？"}, "text": "你输入问题：两套配置（攻击力、倍率、暴击等参数都写在问题里）哪个期望伤害更高、高多少。"},
+      {"on": ["a0", "budget"], "done": ["user"], "packet": {"at": "budget", "text": "OK"}, "text": "调用 AI 之前，<strong>Agent</strong> 先确认今天和本月的花费没有超过上限（每日 1 USD・每月 10 USD）。每次调用 AI 前都会做，超了就不调用、直接结束。这一步由 Agent 负责，不是网关。"},
+      {"on": ["a1", "llm"], "done": ["budget", "user"], "packet": {"at": "llm", "text": "damage_expected ×2"}, "text": "AI 读懂问题后<strong>不自己算</strong>，而是决定调用两次期望伤害工具 <code>damage_expected</code>（A、B 各一次，并行）。"},
+      {"on": ["a2", "calc"], "done": ["budget", "llm", "user"], "packet": {"at": "calc", "text": "c1.total / c2.total"}, "text": "网关先确认工具在许可名单里、参数符合格式，再交给 Java 计算服务。结果被编号为出典 ID：<code>c1.total</code> = 6192.000000，<code>c2.total</code> = 7128.000000。"},
+      {"on": ["llm", "a3", "ver"], "done": ["budget", "calc", "user"], "fail": ["ver"], "packet": {"at": "ver", "text": "差し戻し"}, "text": "AI 的第一版草稿写了「A より 936 高い」——936 是它自己心算的。校验器发现：<code>数値「936」の出典がありません</code>，退回重写。"},
+      {"on": ["llm", "a2", "calc"], "done": ["budget", "user"], "packet": {"at": "calc", "text": "c3.diff / c4.change"}, "text": "AI 改为调用比较工具 <code>compare_diff</code> 和 <code>compare_ratio</code>：<code>c3.diff</code> = 936.000000，<code>c4.change</code> = 0.151163。"},
+      {"on": ["a3", "ver"], "done": ["budget", "calc", "llm", "user", "ver"], "packet": {"at": "ver", "text": "合格"}, "text": "第二版草稿只用占位符引用数字，如 <code>[[c3.diff|0]]</code>、<code>[[c4.change|%1]]</code>。校验通过，程序把占位符换成真实数字（936、15.1%）。"},
+      {"on": ["a4", "ans"], "done": ["ans", "budget", "calc", "llm", "user", "ver"], "packet": {"at": "ans", "text": "answered"}, "text": "你看到回答、出典表和状态行：<code>状態: answered</code>、<code>差し戻し: 1 回</code>。完整过程还保存在 <code>.echolab/traces/</code> 下的执行轨迹里。"}
+    ]</script>
     </div>
 
     <h2>真实运行录像</h2>
