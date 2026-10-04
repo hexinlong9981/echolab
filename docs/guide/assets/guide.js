@@ -13,14 +13,17 @@ const UI = {
   ja: {
     brand: "EchoLab 利用ガイド", theme: "ライト／ダーク", lang: "言語",
     play: "▶ 再生", replay: "もう一度", prev: "◀ 前へ", next: "次へ ▶", auto: "▶ 自動再生", pause: "一時停止",
+    menu: "目次", closeMenu: "閉じる",
   },
   en: {
     brand: "EchoLab User Guide", theme: "Light / Dark", lang: "Language",
     play: "▶ Play", replay: "Replay", prev: "◀ Back", next: "Next ▶", auto: "▶ Auto-play", pause: "Pause",
+    menu: "Menu", closeMenu: "Close",
   },
   zh: {
     brand: "EchoLab 使用说明", theme: "切换明暗", lang: "语言",
     play: "▶ 播放", replay: "重播", prev: "◀ 上一步", next: "下一步 ▶", auto: "▶ 自动播放", pause: "暂停",
+    menu: "目录", closeMenu: "关闭",
   },
 };
 
@@ -59,7 +62,14 @@ const T = UI[LANG];
 function buildNav(current) {
   const nav = document.querySelector("nav.side");
   if (nav) {
-    let html = `<a class="brand" href="index.html">${T.brand}</a>`;
+    let html =
+      `<div class="nav-bar">` +
+      `<a class="brand" href="index.html">${T.brand}</a>` +
+      `<button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-content" aria-label="${T.menu}">` +
+      `<span class="nav-toggle-icon" aria-hidden="true">☰</span> <span class="nav-toggle-text">${T.menu}</span>` +
+      `</button>` +
+      `</div>` +
+      `<div class="nav-content" id="nav-content">`;
     // 分組は折りたたむ（アコーディオン）：開くのは 1 つだけ。最初は今のページの分組を開く
     const currentGroup = (PAGES.find((p) => p.file === current) || {}).group;
     let group = null;
@@ -76,7 +86,41 @@ function buildNav(current) {
       const cls = p.file === current ? ' class="current"' : "";
       html += `<li><a href="${p.file}"${cls}>${p[LANG]}</a></li>`;
     }
-    nav.innerHTML = html + "</ul>";
+    nav.innerHTML = html + "</ul></div>";
+
+    const navToggle = nav.querySelector(".nav-toggle");
+    const closeNav = () => {
+      if (!navToggle) return;
+      navToggle.setAttribute("aria-expanded", "false");
+      nav.classList.remove("open");
+      const icon = navToggle.querySelector(".nav-toggle-icon");
+      const txt = navToggle.querySelector(".nav-toggle-text");
+      if (icon) icon.textContent = "☰";
+      if (txt) txt.textContent = T.menu;
+    };
+    if (navToggle) {
+      navToggle.addEventListener("click", () => {
+        const expanded = navToggle.getAttribute("aria-expanded") === "true";
+        const next = !expanded;
+        navToggle.setAttribute("aria-expanded", String(next));
+        nav.classList.toggle("open", next);
+        const icon = navToggle.querySelector(".nav-toggle-icon");
+        const txt = navToggle.querySelector(".nav-toggle-text");
+        if (icon) icon.textContent = next ? "✕" : "☰";
+        if (txt) txt.textContent = next ? T.closeMenu : T.menu;
+      });
+      nav.querySelectorAll(".nav-content a").forEach((a) => {
+        a.addEventListener("click", () => {
+          if (window.innerWidth <= 860) closeNav();
+        });
+      });
+      document.addEventListener("click", (e) => {
+        if (window.innerWidth <= 860 && nav.classList.contains("open") && !nav.contains(e.target)) {
+          closeNav();
+        }
+      });
+    }
+
     const buttons = nav.querySelectorAll("button.nav-group");
     const setOpen = (btn, open) => {
       btn.setAttribute("aria-expanded", String(open));

@@ -58,7 +58,17 @@ function buildNav(current) {
   const nav = document.querySelector("nav.side");
   if (nav) {
     const back = { ja: "← <ruby class=\"furi\">利<rp>(</rp><rt>り</rt><rp>)</rp></ruby><ruby class=\"furi\">用<rp>(</rp><rt>よう</rt><rp>)</rp></ruby><ruby class=\"furi eng\">ガイド<rp>(</rp><rt lang=\"en\">guide</rt><rp>)</rp></ruby>へ", en: "← User guide", zh: "← 使用说明" }[LANG];
-    let html = `<a class="brand" href="index.html">${T.brand}</a><a class="back-guide" href="../../${LANG}/index.html">${back}</a>`;
+    const menuLabel = { ja: "<ruby class=\"furi\">目<rp>(</rp><rt>もく</rt><rp>)</rp></ruby><ruby class=\"furi\">次<rp>(</rp><rt>じ</rt><rp>)</rp></ruby>", en: "Menu", zh: "目录" }[LANG];
+    const closeLabel = { ja: "<ruby class=\"furi\">閉<rp>(</rp><rt>と</rt><rp>)</rp></ruby>じる", en: "Close", zh: "关闭" }[LANG];
+    let html =
+      `<div class="nav-bar">` +
+      `<a class="brand" href="index.html">${T.brand}</a>` +
+      `<button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-content" aria-label="${menuLabel}">` +
+      `<span class="nav-toggle-icon" aria-hidden="true">☰</span> <span class="nav-toggle-text">${menuLabel}</span>` +
+      `</button>` +
+      `</div>` +
+      `<div class="nav-content" id="nav-content">` +
+      `<a class="back-guide" href="../../${LANG}/index.html">${back}</a>`;
     // 分組は折りたたむ（アコーディオン）：開くのは 1 つだけ。最初は今のページの分組を開く
     const currentGroup = (PAGES.find((p) => p.file === current) || {}).group;
     let group = null;
@@ -75,7 +85,41 @@ function buildNav(current) {
       const cls = p.file === current ? ' class="current"' : "";
       html += `<li><a href="${p.file}"${cls}>${p[LANG]}</a></li>`;
     }
-    nav.innerHTML = html + "</ul>";
+    nav.innerHTML = html + "</ul></div>";
+
+    const navToggle = nav.querySelector(".nav-toggle");
+    const closeNav = () => {
+      if (!navToggle) return;
+      navToggle.setAttribute("aria-expanded", "false");
+      nav.classList.remove("open");
+      const icon = navToggle.querySelector(".nav-toggle-icon");
+      const txt = navToggle.querySelector(".nav-toggle-text");
+      if (icon) icon.textContent = "☰";
+      if (txt) txt.textContent = menuLabel;
+    };
+    if (navToggle) {
+      navToggle.addEventListener("click", () => {
+        const expanded = navToggle.getAttribute("aria-expanded") === "true";
+        const next = !expanded;
+        navToggle.setAttribute("aria-expanded", String(next));
+        nav.classList.toggle("open", next);
+        const icon = navToggle.querySelector(".nav-toggle-icon");
+        const txt = navToggle.querySelector(".nav-toggle-text");
+        if (icon) icon.textContent = next ? "✕" : "☰";
+        if (txt) txt.textContent = next ? closeLabel : menuLabel;
+      });
+      nav.querySelectorAll(".nav-content a").forEach((a) => {
+        a.addEventListener("click", () => {
+          if (window.innerWidth <= 860) closeNav();
+        });
+      });
+      document.addEventListener("click", (e) => {
+        if (window.innerWidth <= 860 && nav.classList.contains("open") && !nav.contains(e.target)) {
+          closeNav();
+        }
+      });
+    }
+
     const buttons = nav.querySelectorAll("button.nav-group");
     const setOpen = (btn, open) => {
       btn.setAttribute("aria-expanded", String(open));

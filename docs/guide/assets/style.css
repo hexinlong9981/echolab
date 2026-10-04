@@ -30,6 +30,9 @@ nav.side {
   background: var(--surface); border-right: 1px solid var(--border); padding: 20px 16px;
   font-size: 14px;
 }
+nav.side .nav-bar { display: block; }
+nav.side .nav-toggle { display: none; }
+nav.side .nav-content { display: block; }
 nav.side .brand { display: block; font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; margin-bottom: 8px; }
 nav.side h3 { font-size: 12px; color: var(--muted); letter-spacing: .05em; margin: 18px 0 6px; }
 nav.side ul { list-style: none; margin: 0; padding: 0; }
@@ -72,8 +75,35 @@ th { background: var(--code-bg); }
 details { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 12px 0; }
 summary { cursor: pointer; font-weight: 600; }
 @media (max-width: 860px) {
-  .layout { grid-template-columns: 1fr; }
-  nav.side { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  nav.side {
+    position: sticky; top: 0; z-index: 100; height: auto;
+    border-right: none; border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    background: var(--surface);
+  }
+  nav.side .nav-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  nav.side .brand { margin-bottom: 0; font-size: 16px; }
+  nav.side .nav-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); background: var(--nav-group-bg); color: var(--text);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+  }
+  nav.side .nav-toggle:hover { background: var(--nav-group-hover); }
+  nav.side .nav-toggle[aria-expanded="true"] {
+    background: var(--nav-group-open); border-color: var(--accent); color: var(--accent);
+  }
+  nav.side:not(.open) .nav-content { display: none; }
+  nav.side.open .nav-content {
+    display: block;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+    padding-top: 10px;
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+  }
   main { padding: 20px 16px 48px; }
   h1 { font-size: 24px; }
 }
