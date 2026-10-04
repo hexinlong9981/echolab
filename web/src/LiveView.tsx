@@ -399,7 +399,7 @@ export function LiveView({
         </button>
       </div>
       {error && <p className="error">{error}</p>}
-      {run && <RunPlayer run={run} services={services} />}
+      {run && <RunPlayer run={run} services={services} followLatest={busy} />}
     </main>
   );
 }

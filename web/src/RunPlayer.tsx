@@ -11,22 +11,30 @@ import type { RunRecord, TraceRecord } from "./types";
 export function RunPlayer({
   run,
   services,
-  initialStep = 0,
+  initialStep,
+  followLatest = false,
 }: {
   run: RunRecord;
   services: Record<string, string>;
   /** 最初に見せるコマ（0 から。URL の #replay/<実行 ID>/<コマ> で指定できる） */
   initialStep?: number;
+  /** 新しいステップが追加されたとき最新のステップを追従するか */
+  followLatest?: boolean;
 }) {
   const { h, lang } = useI18n();
   const steps = useMemo(() => buildSteps(run.events, services, h), [run, services, h]);
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(() => (initialStep !== undefined ? initialStep : Math.max(0, steps.length - 1)));
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    setI(Math.min(initialStep, Math.max(0, steps.length - 1)));
-    setPlaying(false);
-  }, [run, initialStep, steps.length]);
+    if (followLatest || initialStep === undefined) {
+      setI(Math.max(0, steps.length - 1));
+      setPlaying(false);
+    } else {
+      setI(Math.min(initialStep, Math.max(0, steps.length - 1)));
+      setPlaying(false);
+    }
+  }, [run.run_id, initialStep, steps.length, followLatest]);
 
   useEffect(() => {
     if (!playing) return;
