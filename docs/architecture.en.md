@@ -148,7 +148,7 @@ The component split and the boundary contracts are in ADR-0008.
 | `core/gateway/budget.py` | Cost ledger (`.echolab/costs.jsonl`) and daily/monthly caps (default 1 USD / 10 USD, UTC boundaries). Charges for a model not in the pricing table are estimated at the highest rate in the table |
 | `core/compare/` | Compare tools `compare.diff` (difference) and `compare.ratio` (ratio and % increase). Inputs are source IDs only. Same precision policy as calc-engine (16 significant digits, 6 decimal places, ROUND_HALF_EVEN) |
 | `core/verifier/` | Answer template verification (`verify.py`) and the renderer that replaces placeholders with numbers (`render.py`) |
-| `core/agent/` | Agent loop (`loop.py`), CLI (`python -m core.agent`), LLM abstraction (`llm/`: Claude and scripted LLM), core system prompt (`prompts/core.md`) |
+| `core/agent/` | Agent loop (`loop.py`), CLI (`python -m core.agent`), LLM abstraction (`llm/`: Claude, Gemini, and scripted LLM), core system prompt (`prompts/core.md`) |
 | `core/trace/` | Execution trace. Records a single question to `.echolab/traces/<run ID>.jsonl` |
 | `core/evals/`, `evals/` | Numeric-faithfulness evals (`python -m core.evals`). Cases are in `evals/faithfulness/cases.yaml` |
 | `services/calc-engine` (`dev.echolab.app`) | Spring Boot + Spring AI MCP server (synchronous, stdio). Only calls the public API of `calc` and contains no formulas. Adds `unverified_inputs` to results (ADR-0006) |
@@ -162,7 +162,7 @@ The agent loop works as follows.
    After more than 2 send-backs, the run finishes with a fixed answer that contains no numbers.
 4. At most 6 tool-calling round trips per question. On an LLM refusal (`refusal`) or truncated output (`max_tokens`), the run finishes without executing the pending tool calls.
 
-The LLM is Claude (`claude-opus-5-5`), behind an abstraction layer (`core/agent/llm/`). Tests, CI and demos use an LLM that responds according to a script
+The LLM is Claude (`claude-opus-5-5`) or Gemini on Google Cloud Vertex AI (default `gemini-2.5-flash`, ADR-0014), behind an abstraction layer (`core/agent/llm/`). Tests, CI and demos use an LLM that responds according to a script
 (`ScriptedLLM`), reproducing the same loop without an API key.
 
 **Numeric faithfulness** is "the share of answers returned to the user that contain no unsourced numbers at all".
@@ -170,7 +170,7 @@ For answers that passed verification, the template is checked again by the verif
 The send-back rate (sent-back drafts / drafts) and cost are aggregated as well.
 
 - Scripted-mode evals (8 cases) run from pytest in CI on every run, and the aggregated results are compared with `evals/reports/scripted-baseline.md`.
-- Evals with the real LLM (`--llm anthropic`) are run manually on a local machine, and only the aggregated reports are committed to `evals/reports/`. Raw records (`evals/reports/raw/`) are not committed.
+- Evals with the real LLM (`--llm anthropic` or `--llm gemini`) are run manually on a local machine, and only the aggregated reports are committed to `evals/reports/`. Raw records (`evals/reports/raw/`) are not committed.
 - CI holds no API key.
 
 Strings from outside (tool results, user input) are treated as data, not as instructions.
@@ -247,9 +247,9 @@ The policy is ADR-0012. The highlight is **spoiler protection**, which has the s
 - The user sets the progress with CLI `--context progress=novel:5` (or `anime:2-12`). The service filters only by the declared medium's note and never returns items without a note or hidden items (hidden items give the same error as nonexistent ones).
 - Aliases that reveal an identity are used only from the volume/episode of the reveal. Fact tags are limited to what the sentence itself reveals, checked by tests as data rules.
 
-### M7: Public demo server: implemented
+### M7: Public demo server: live
 
-The policy is ADR-0013. The M5 public site only replays records made with the test calc services, so a server was added that shows **the real calc services running on demand**. The zero-cost policy is unchanged.
+The policy is ADR-0013. The M5 public site only replays records made with the test calc services, so a server was added that shows **the real calc services running on demand**. Deployed on Google Cloud Run (`https://echolab-demo-bqiljh7kma-uc.a.run.app`). The zero-cost policy is unchanged.
 
 | Location | Role |
 |---|---|

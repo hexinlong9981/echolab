@@ -148,7 +148,7 @@ M1〜M7 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 | `core/gateway/budget.py` | 费用台账（`.echolab/costs.jsonl`）与每日・每月上限（默认 1 USD・10 USD，按 UTC 划分）。对价格表中没有的模型的计费，按表中最高价格估算 |
 | `core/compare/` | 比较工具 `compare.diff`（差）・`compare.ratio`（比与增长率）。输入只能是出处 ID。精度方针与 calc-engine 相同（16 位有效数字・6 位小数・ROUND_HALF_EVEN） |
 | `core/verifier/` | 回答模板的验证（`verify.py`）与将占位符替换为数值的渲染器（`render.py`） |
-| `core/agent/` | Agent 的往返（`loop.py`）・CLI（`python -m core.agent`）・LLM 抽象（`llm/`：Claude 与脚本 LLM）・核心系统提示词（`prompts/core.md`） |
+| `core/agent/` | Agent 的往返（`loop.py`）・CLI（`python -m core.agent`）・LLM 抽象（`llm/`：Claude、Gemini 与脚本 LLM）・核心系统提示词（`prompts/core.md`） |
 | `core/trace/` | 执行追踪。将单次提问记录到 `.echolab/traces/<执行 ID>.jsonl` |
 | `core/evals/`・`evals/` | 数值忠实度评估（`python -m core.evals`）。用例位于 `evals/faithfulness/cases.yaml` |
 | `services/calc-engine`（`dev.echolab.app`） | Spring Boot + Spring AI 的 MCP 服务器（同步・stdio）。只调用 `calc` 的公开 API，不包含计算公式。在结果中附加 `unverified_inputs`（ADR-0006） |
@@ -162,7 +162,7 @@ Agent 的往返流程如下。
    退回超过 2 次后，以不含数值的固定回答结束。
 4. 每次提问调用工具的往返最多 6 次。遇到 LLM 拒绝（`refusal`）或输出被截断（`max_tokens`）时，不执行中途的工具调用直接结束。
 
-LLM 为 Claude（`claude-opus-5-5`），中间隔着一层抽象（`core/agent/llm/`）。测试・CI・演示中使用按脚本应答的 LLM
+LLM 为 Claude（`claude-opus-5-5`）或 Google Cloud Vertex AI 上的 Gemini（默认 `gemini-2.5-flash`，ADR-0014），中间隔着一层抽象（`core/agent/llm/`）。测试・CI・演示中使用按脚本应答的 LLM
 （`ScriptedLLM`），无需 API 密钥即可重现相同的往返。
 
 **数值忠实度**是指“返回给用户的回答中，不含任何无出处数值的回答所占的比例”。
@@ -170,7 +170,7 @@ LLM 为 Claude（`claude-opus-5-5`），中间隔着一层抽象（`core/agent/l
 同时汇总退回率（被退回的草稿 / 草稿）与费用。
 
 - 脚本模式的评估（8 个用例）在 CI 中每次通过 pytest 执行，并将汇总结果与 `evals/reports/scripted-baseline.md` 对照。
-- 使用真实 LLM 的评估（`--llm anthropic`）在本地手动执行，只将汇总后的报告提交到 `evals/reports/`。原始记录（`evals/reports/raw/`）不提交。
+- 使用真实 LLM 的评估（`--llm anthropic` 或 `--llm gemini`）在本地手动执行，只将汇总后的报告提交到 `evals/reports/`。原始记录（`evals/reports/raw/`）不提交。
 - CI 不持有 API 密钥。
 
 来自外部的字符串（工具结果・用户输入）一律作为数据而非指令处理。
@@ -247,9 +247,9 @@ flowchart LR
 - 进度由用户用 CLI 的 `--context progress=novel:5`（或 `anime:2-12`）指定。服务只按声明媒体的标注过滤，不返回没有标注或看不到的条目（看不到的与不存在的返回同样的错误）。
 - 会暴露身份的别名只在揭晓的卷・集之后使用。事实的标签只限于该句本身能看出的内容，作为资料规则由测试检查。
 
-### M7：公开的演示服务器：已实现
+### M7：公开的演示服务器：已上线
 
-方针见 ADR-0013。M5 的公开网站只回放用测试计算服务生成的记录，所以加了一台能展示**真实计算服务现场运行**的服务器。零费用的方针不变。
+方针见 ADR-0013。M5 的公开网站只回放用测试计算服务生成的记录，所以加了一台能展示**真实计算服务现场运行**的服务器。已在 Google Cloud Run 上线公开（`https://echolab-demo-bqiljh7kma-uc.a.run.app`）。零费用的方针不变。
 
 | 位置 | 作用 |
 |---|---|

@@ -43,7 +43,7 @@ LLM はもっともらしい数値を作ってしまいます。業務で AI を
 ```mermaid
 flowchart LR
   Q["質問（CLI）"] --> A["Agent<br/>core/agent<br/>LLM を呼ぶ前にコスト上限を確認"]
-  A <--> L["LLM（Claude）<br/>回答はプレースホルダのテンプレート"]
+  A <--> L["LLM（Claude・Gemini）<br/>回答はプレースホルダのテンプレート"]
   A --> G["ゲートウェイ<br/>許可リスト・スキーマ・採番"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鳴潮のパック"]
   G -->|MCP stdio| O["vision-mcp（Python）<br/>スクリーンショットの OCR"]
@@ -114,13 +114,17 @@ JDK 21 が必要です（`java` が PATH に無ければ `JAVA_HOME/bin/java` �
 .venv/bin/python -m core.agent "（質問）" --llm scripted --script core/agent/examples/compare_builds.yaml
 ```
 
-### 3. 実物の LLM（Claude）を使う
+### 3. 実物の LLM（Claude・Gemini）を使う
 
-既定の `--llm anthropic` は Claude API（`claude-opus-5-5`）を呼びます。
+既定の `--llm anthropic` は Claude API（`claude-opus-5-5`）を呼びます。Google Cloud Vertex AI 上の Gemini を使う場合は `--llm gemini`（既定 `gemini-2.5-flash`、ADR-0014）を指定します（ADC 認証に対応）。
 
 ```bash
+# Claude（要 ANTHROPIC_API_KEY）
 export ANTHROPIC_API_KEY=...
 .venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？"
+
+# Gemini（要 gcloud 認証・ADC）
+.venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？" --llm gemini
 ```
 
 - コストの上限は**日次 1 USD・月次 10 USD**（`config/budget.yaml`、UTC で区切る）。LLM を呼ぶ前に毎回確かめ、上限に達していれば呼ばずに終了します。
@@ -211,6 +215,7 @@ c2.percent_of_ideal  73.690476  echo.score            -
 .venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # 無職転生のパック
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # ネタバレの誘導の評価（無職転生）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 住宅ローンのパック
+.venv/bin/python -m core.evals --llm gemini --out evals/reports/gemini-baseline.md   # Vertex AI Gemini での実機評価
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名前>.md   # 実物の LLM（手元で手動実行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -245,7 +250,7 @@ docs/          アーキテクチャと ADR
 
 実装済みの部分だけを置いています。今後の構成は実装するときに作り、計画は
 [docs/architecture.md のロードマップ](docs/architecture.md#ロードマップと今後の構成)にだけ書きます（ADR-0007）。
-M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md)、M4 のスクリーンショットの読み取りと注入の評価は [ADR-0010](docs/adr/0010-スクリーンショットの読み取りと注入の評価.md) 、M5 の Web UI と公開の方針は [ADR-0011](docs/adr/0011-Web-UIと公開の方針.md) 、M6 の無職転生のパックとネタバレ防止は [ADR-0012](docs/adr/0012-無職転生のパックとネタバレ防止.md)、M7 の公開のデモサーバは [ADR-0013](docs/adr/0013-公開のデモサーバ.md) にあります。
+M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 の住宅ローンのパックと「コアの差分ゼロ」の検査は [ADR-0009](docs/adr/0009-住宅ローンのパックとコアの差分ゼロ.md)、M4 のスクリーンショットの読み取りと注入の評価は [ADR-0010](docs/adr/0010-スクリーンショットの読み取りと注入の評価.md) 、M5 の Web UI と公開の方針は [ADR-0011](docs/adr/0011-Web-UIと公開の方針.md) 、M6 の無職転生のパックとネタバレ防止は [ADR-0012](docs/adr/0012-無職転生のパックとネタバレ防止.md)、M7 の公開のデモサーバは [ADR-0013](docs/adr/0013-公開のデモサーバ.md)、Vertex AI の Gemini 適応層は [ADR-0014](docs/adr/0014-Vertex-AIのGemini適応層.md) にあります。
 詳しくは [docs/architecture.md](docs/architecture.md) と [docs/adr/](docs/adr/) を参照してください。
 
 ## ロードマップ
@@ -258,7 +263,7 @@ M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 
 | M4 | スクリーンショットの読み取り（OCR）・注入の評価セット（台本モードで CI に追加、実物の LLM では手元で実行） | ✅ 完了 |
 | M5 | Web UI・トレースのリプレイ・評価のダッシュボード・デモの公開（静的・費用ゼロ） | ✅ 完了（[公開中](https://echolab-web.echolab-web.workers.dev/)） |
 | M6 | ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程） | ✅ 完了（資料は作者が確認済み） |
-| M7 | 公開のデモサーバ（Google Cloud Run の無料枠）：決まったデモを実物の計算サービス・台本の LLM で実行（費用ゼロ） | ✅ 実装済み（公開は Google Cloud の設定後） |
+| M7 | 公開のデモサーバ（Google Cloud Run の無料枠）：決まったデモを実物の計算サービス・台本の LLM で実行（費用ゼロ） | ✅ 公開中（[デモサーバ](https://echolab-demo-bqiljh7kma-uc.a.run.app)） |
 
 順序の理由は ADR-0007（機能を横に広げる前に、端から端までを先に通す）を参照してください。
 

@@ -45,7 +45,7 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 ```mermaid
 flowchart LR
   Q["提问（CLI）"] --> A["Agent<br/>core/agent<br/>调用 LLM 前确认成本上限"]
-  A <--> L["LLM（Claude）<br/>回答为占位符模板"]
+  A <--> L["LLM（Claude / Gemini）<br/>回答为占位符模板"]
   A --> G["网关<br/>许可列表・Schema・编号"]
   G -->|MCP stdio| J["calc-engine（Java 21）<br/>鸣潮领域包"]
   G -->|MCP stdio| O["vision-mcp（Python）<br/>截图 OCR"]
@@ -116,13 +116,17 @@ c4.change  0.151163     compare.ratio    -
 .venv/bin/python -m core.agent "（質問）" --llm scripted --script core/agent/examples/compare_builds.yaml
 ```
 
-### 3. 使用真实的 LLM（Claude）
+### 3. 使用真实的 LLM（Claude / Gemini）
 
-默认的 `--llm anthropic` 会调用 Claude API（`claude-opus-5-5`）。
+默认的 `--llm anthropic` 会调用 Claude API（`claude-opus-5-5`）。若使用 Google Cloud Vertex AI 上的 Gemini，指定 `--llm gemini`（默认 `gemini-2.5-flash`，ADR-0014；支持 ADC 凭据）。
 
 ```bash
+# Claude（需 ANTHROPIC_API_KEY）
 export ANTHROPIC_API_KEY=...
 .venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？"
+
+# Gemini（需 gcloud 登录认证・ADC）
+.venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敌の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？" --llm gemini
 ```
 
 - 成本上限为**每日 1 USD、每月 10 USD**（`config/budget.yaml`，按 UTC 划分）。每次调用 LLM 前都会检查，若已达上限则不调用直接结束。
@@ -213,6 +217,7 @@ c2.percent_of_ideal  73.690476  echo.score            -
 .venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # 无职转生领域包
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # 诱导剧透的评估（无职转生）
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # 房贷领域包
+.venv/bin/python -m core.evals --llm gemini --out evals/reports/gemini-baseline.md   # Vertex AI Gemini 实机评估
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<名称>.md   # 真实 LLM（在本地手动运行）
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -247,7 +252,7 @@ docs/          架构与 ADR
 
 仓库中只放已实现的部分。今后的目录在实现时再创建，计划只写在
 [docs/architecture.zh-CN.md 的路线图一节](docs/architecture.zh-CN.md#路线图与今后的结构)中（ADR-0007）。
-M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009，M4 的截图读取与注入评估见 ADR-0010，M5 的网页界面与公开方针见 ADR-0011，M6 的无职转生领域包与防剧透见 ADR-0012，M7 的公开演示服务器见 ADR-0013。
+M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检查见 ADR-0009，M4 的截图读取与注入评估见 ADR-0010，M5 的网页界面与公开方针见 ADR-0011，M6 的无职转生领域包与防剧透见 ADR-0012，M7 的公开演示服务器见 ADR-0013，Vertex AI 的 Gemini 适配层见 ADR-0014。
 详情请参阅 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md) 与 [docs/adr/zh-CN/](docs/adr/zh-CN/) 中的 ADR。
 
 ## 路线图
@@ -260,7 +265,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 完成（[已公开](https://echolab-web.echolab-web.workers.dev/)） |
 | M6 | 领域包③：无职转生设定考证（防剧透的检索・时间线・行程） | ✅ 完成（资料已由作者核对） |
-| M7 | 公开的演示服务器（Google Cloud Run 免费额度）：用真实计算服务・剧本 LLM 运行固定演示（零费用） | ✅ 已实现（设置 Google Cloud 后公开） |
+| M7 | 公开的演示服务器（Google Cloud Run 免费额度）：用真实计算服务・剧本 LLM 运行固定演示（零费用） | ✅ 已上线（[演示服务器](https://echolab-demo-bqiljh7kma-uc.a.run.app)） |
 
 该顺序的理由见 ADR-0007（在横向扩展功能之前，先打通端到端）。
 

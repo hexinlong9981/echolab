@@ -45,7 +45,7 @@ A replay of execution traces and an eval dashboard are available on the web (M5;
 ```mermaid
 flowchart LR
   Q["Question (CLI)"] --> A["Agent<br/>core/agent<br/>checks cost caps before each LLM call"]
-  A <--> L["LLM (Claude)<br/>answer is a placeholder template"]
+  A <--> L["LLM (Claude / Gemini)<br/>answer is a placeholder template"]
   A --> G["Gateway<br/>allowlist, schema, ID assignment"]
   G -->|MCP stdio| J["calc-engine (Java 21)<br/>Wuthering Waves pack"]
   G -->|MCP stdio| O["vision-mcp (Python)<br/>screenshot OCR"]
@@ -116,13 +116,17 @@ JDK 21 is required (if `java` is not on `PATH`, `JAVA_HOME/bin/java` is used).
 .venv/bin/python -m core.agent "（質問）" --llm scripted --script core/agent/examples/compare_builds.yaml
 ```
 
-### 3. Use the real LLM (Claude)
+### 3. Use the real LLM (Claude / Gemini)
 
-The default `--llm anthropic` calls the Claude API (`claude-opus-5-5`).
+The default `--llm anthropic` calls the Claude API (`claude-opus-5-5`). To use Gemini on Google Cloud Vertex AI, specify `--llm gemini` (default `gemini-2.5-flash`, ADR-0014; supports ADC authentication).
 
 ```bash
+# Claude (requires ANTHROPIC_API_KEY)
 export ANTHROPIC_API_KEY=...
 .venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？"
+
+# Gemini (requires gcloud authentication / ADC)
+.venv/bin/python -m core.agent "攻撃力 2000、スキル倍率 2.5、ダメージバフ 0.3、会心率 0.6、会心ダメージ 2.2、防御定数 1600、敵の防御 1000、防御無視 0、敵の耐性 0.1、耐性ダウン 0 のときの期待ダメージは？" --llm gemini
 ```
 
 - Spend is capped at **1 USD per day and 10 USD per month** (`config/budget.yaml`, UTC boundaries). The cap is checked before every LLM call; if it has been reached, the run ends without calling the LLM.
@@ -213,6 +217,7 @@ Locally, the same screens gain a "Run" tab where you can ask with scripted demos
 .venv/bin/python -m core.evals --cases evals/faithfulness/mushoku.yaml    # the Mushoku Tensei pack
 .venv/bin/python -m core.evals --cases evals/redteam/spoilers.yaml        # spoiler-leak evals (Mushoku Tensei)
 .venv/bin/python -m core.evals --cases evals/faithfulness/mortgage.yaml   # the mortgage pack
+.venv/bin/python -m core.evals --llm gemini --out evals/reports/gemini-baseline.md   # real LLM eval on Vertex AI Gemini
 .venv/bin/python -m core.evals --llm anthropic --out evals/reports/<name>.md   # real LLM (run manually, locally)
 .venv/bin/ruff check . && .venv/bin/pytest -m "not e2e"
 ```
@@ -247,7 +252,7 @@ docs/          Architecture and ADRs
 
 Only implemented parts are in the repository. Future directories are created when they are implemented, and the plan is written
 only in the [roadmap section of docs/architecture.en.md](docs/architecture.en.md#roadmap-and-future-structure) (ADR-0007).
-The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010; the M5 web UI and public demo policy in ADR-0011; the M6 Mushoku Tensei pack and spoiler protection in ADR-0012; the M7 public demo server in ADR-0013.
+The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010; the M5 web UI and public demo policy in ADR-0011; the M6 Mushoku Tensei pack and spoiler protection in ADR-0012; the M7 public demo server in ADR-0013; the Vertex AI Gemini adapter in ADR-0014.
 For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs in [docs/adr/en/](docs/adr/en/).
 
 ## Roadmap
@@ -260,7 +265,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |
 | M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | ✅ Done (data checked by the author) |
-| M7 | Public demo server (Google Cloud Run free tier): fixed demos with the real calc services and the scripted LLM (zero cost) | ✅ Implemented (goes public after Google Cloud is set up) |
+| M7 | Public demo server (Google Cloud Run free tier): fixed demos with the real calc services and the scripted LLM (zero cost) | ✅ Live ([demo server](https://echolab-demo-bqiljh7kma-uc.a.run.app)) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 

@@ -146,7 +146,7 @@ M1〜M7 が実装済みです。リポジトリには実装済みの部分のデ
 | `core/gateway/budget.py` | コストの台帳（`.echolab/costs.jsonl`）と日次・月次の上限（既定 1 USD・10 USD、UTC で区切る）。料金表に無いモデルの課金は、表の最高料金で見積もる |
 | `core/compare/` | 比較ツール `compare.diff`（差）・`compare.ratio`（比と増加率）。入力は出典 ID だけ。精度の方針は calc-engine と同じ（有効桁 16・小数 6 桁・ROUND_HALF_EVEN） |
 | `core/verifier/` | 回答テンプレートの検証（`verify.py`）と、プレースホルダを数値に置き換えるレンダラ（`render.py`） |
-| `core/agent/` | Agent の往復（`loop.py`）・CLI（`python -m core.agent`）・LLM の抽象（`llm/`：Claude と台本の LLM）・コアのシステムプロンプト（`prompts/core.md`） |
+| `core/agent/` | Agent の往復（`loop.py`）・CLI（`python -m core.agent`）・LLM の抽象（`llm/`：Claude・Gemini と台本の LLM）・コアのシステムプロンプト（`prompts/core.md`） |
 | `core/trace/` | 実行トレース。1 回の質問を `.echolab/traces/<実行 ID>.jsonl` に記録する |
 | `core/evals/`・`evals/` | 数値の忠実度の評価（`python -m core.evals`）。ケースは `evals/faithfulness/cases.yaml` |
 | `services/calc-engine`（`dev.echolab.app`） | Spring Boot + Spring AI の MCP サーバ（同期・stdio）。`calc` の公開 API を呼ぶだけで、計算式は持たない。結果に `unverified_inputs` を付ける（ADR-0006） |
@@ -160,7 +160,7 @@ Agent の往復は次のとおりです。
    差し戻しが 2 回を超えたら、数値を含まない定型の回答で終える。
 4. ツールを呼ぶ往復は 1 回の質問あたり 6 回まで。LLM の拒否（`refusal`）・出力の打ち切り（`max_tokens`）では、途中のツール呼び出しを実行せずに終える。
 
-LLM は Claude（`claude-opus-5-5`）で、抽象層（`core/agent/llm/`）を挟んでいます。テスト・CI・デモでは台本どおりに応答する LLM
+LLM は Claude（`claude-opus-5-5`）または Google Cloud Vertex AI の Gemini（既定 `gemini-2.5-flash`、ADR-0014）で、抽象層（`core/agent/llm/`）を挟んでいます。テスト・CI・デモでは台本どおりに応答する LLM
 （`ScriptedLLM`）を使い、API キーなしで同じ往復を再現します。
 
 **数値の忠実度**は「利用者に返した回答のうち、出典の無い数値を 1 つも含まないものの割合」です。
@@ -168,7 +168,7 @@ LLM は Claude（`claude-opus-5-5`）で、抽象層（`core/agent/llm/`）を�
 あわせて差し戻し率（差し戻した下書き / 下書き）と費用を集計します。
 
 - 台本モードの評価（8 ケース）は pytest から CI で毎回実行し、集計結果を `evals/reports/scripted-baseline.md` と照合します。
-- 実物の LLM による評価（`--llm anthropic`）は手元で手動で実行し、集計したレポートだけを `evals/reports/` にコミットします。生の記録（`evals/reports/raw/`）はコミットしません。
+- 実物の LLM による評価（`--llm anthropic` または `--llm gemini`）は手元で手動で実行し、集計したレポートだけを `evals/reports/` にコミットします。生の記録（`evals/reports/raw/`）はコミットしません。
 - CI は API キーを持ちません。
 
 外部から来た文字列（ツール結果・利用者入力）は、指示ではなくデータとして扱います。
@@ -245,9 +245,9 @@ flowchart LR
 - 進み具合は CLI の `--context progress=novel:5`（または `anime:2-12`）で利用者が指定します。サービスは申告した媒体の注記だけで絞り込み、注記の無い項目・見えない項目は返しません（見えない項目は存在しない項目と同じ誤り）。
 - 正体が分かる別名は、明かされる巻・話から先でだけ使います。事実のタグはその文だけで分かることに限り、資料の規則として試験で確かめます。
 
-### M7：公開のデモサーバ：実装済み
+### M7：公開のデモサーバ：公開中
 
-方針は ADR-0013 です。M5 の公開サイトは試験用の計算サービスで作った記録のリプレイだけなので、**実物の計算サービスがその場で動く**ことを見せるサーバを加えました。費用ゼロの方針は変えません。
+方針は ADR-0013 です。M5 の公開サイトは試験用の計算サービスで作った記録のリプレイだけなので、**実物の計算サービスがその場で動く**ことを見せるサーバを加えました。Google Cloud Run 上で公開済み（`https://echolab-demo-bqiljh7kma-uc.a.run.app`）です。費用ゼロの方針は変えません。
 
 | 場所 | 役割 |
 |---|---|
