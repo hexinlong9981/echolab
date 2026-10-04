@@ -38,6 +38,8 @@ export type TraceEvent =
 export type TraceRecord = TraceEvent & { ts: string; run_id: string };
 
 export interface RunRecord {
+  /** 公開のデータでのキー（runs/<キー>.json）。手元の API の結果には無い */
+  key?: string;
   run_id: string;
   domain: string | null;
   llm: string | null;
@@ -54,6 +56,8 @@ export interface Demo {
   domain: string;
   script: string;
   question: string;
+  /** runs/<キー>.json のキー（デモの ID）。公開のたびに変わらない */
+  key: string;
   run_id: string;
   status: string;
 }
@@ -69,6 +73,8 @@ export interface CaseSummary {
   tool_errors: number;
   cited: string[];
   failures: string[];
+  /** runs/<キー>.json のキー（<評価>-<ケース>）。記録が無いケースは null */
+  key: string | null;
   run_id: string | null;
 }
 
@@ -96,7 +102,7 @@ export interface DataIndex {
 
 export interface LocalInfo {
   domains: string[];
-  demos: Omit<Demo, "run_id" | "status">[];
+  demos: Omit<Demo, "key" | "run_id" | "status">[];
   has_api_key: boolean;
   ocr: boolean;
   caps_usd: { daily: string; monthly: string };

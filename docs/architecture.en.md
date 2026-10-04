@@ -223,8 +223,8 @@ flowchart LR
 
 | Location | Role |
 |---|---|
-| `web/` | React + TypeScript + Vite. Replay (React Flow diagram, stepping, source table, `#replay/<run ID>/<step>`), eval dashboard, and a run screen only when the local API is present |
-| `servers/web_api/export.py` | Runs 3 demos and all evals in scripted mode (no API key, test calc services) and writes `index.json` and `runs/<run ID>.json` |
+| `web/` | React + TypeScript + Vite. Replay (React Flow diagram, stepping, source table, `#replay/<key>/<step>` (the key is a demo ID or "suite ID-case ID"; it does not change between deployments, e.g. demo-compare-builds)), eval dashboard, and a run screen only when the local API is present |
+| `servers/web_api/export.py` | Runs 3 demos and all evals in scripted mode (no API key, test calc services) and writes `index.json` and `runs/<key>.json` |
 | `servers/web_api/server.py` | Local-only API (Python standard library). Binds to `127.0.0.1` only and checks `Content-Type: application/json` and `Origin`. Only the fixed demo scripts |
 | `.github/workflows/web.yml` | Export, type checks, tests, build. On push to main, publishes to Cloudflare (Workers static assets) when the secrets exist |
 

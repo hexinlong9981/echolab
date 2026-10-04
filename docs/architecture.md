@@ -221,8 +221,8 @@ flowchart LR
 
 | 場所 | 役割 |
 |---|---|
-| `web/` | React + TypeScript + Vite。リプレイ（React Flow の図・コマ送り・出典の表、`#replay/<実行 ID>/<コマ>`）、評価のダッシュボード、手元の API があるときだけの実行画面 |
-| `servers/web_api/export.py` | 台本モード（API キー不要・試験用の計算サービス）でデモ 3 件と全評価を実行し、`index.json` と `runs/<実行 ID>.json` に書き出す |
+| `web/` | React + TypeScript + Vite。リプレイ（React Flow の図・コマ送り・出典の表、`#replay/<キー>/<コマ>`（キーはデモの ID か「評価の ID-ケースの ID」。公開し直しても変わらない。例 demo-compare-builds））、評価のダッシュボード、手元の API があるときだけの実行画面 |
+| `servers/web_api/export.py` | 台本モード（API キー不要・試験用の計算サービス）でデモ 3 件と全評価を実行し、`index.json` と `runs/<キー>.json` に書き出す |
 | `servers/web_api/server.py` | 手元だけの API（Python の標準ライブラリ）。`127.0.0.1` だけにつなぎ、`Content-Type: application/json` と `Origin` を確かめる。台本は決まったデモのものだけ |
 | `.github/workflows/web.yml` | 書き出し・型検査・試験・ビルド。main への push で、Secrets があれば Cloudflare（Workers の静的アセット） に公開 |
 

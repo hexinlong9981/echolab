@@ -6,6 +6,8 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    // 画面の切り替えは URL のハッシュ（#replay/…）なので、index.html への差し戻し（SPA）は要らない。
+    // 無いファイル（古い一覧から読んだ記録など）は 404 にして、HTML を JSON として読まないようにする
+    "not_found_handling": "none"
   }
 }

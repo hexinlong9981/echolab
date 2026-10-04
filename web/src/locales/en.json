@@ -95,5 +95,7 @@
   "live.progress": "Progress (spoiler protection; nothing beyond it is shown):",
   "node.budget": "Cost cap\ndaily, monthly",
   "s.budgetCheck": "Check the cost cap (passed)",
-  "s.budgetCheck.d": "Before every LLM call, the Agent checks that today's and this month's spending is under the caps (Budget.check; done by the Agent, not the gateway). A passing check is not recorded in the trace, so this step is added by the replay"
+  "s.budgetCheck.d": "Before every LLM call, the Agent checks that today's and this month's spending is under the caps (Budget.check; done by the Agent, not the gateway). A passing check is not recorded in the trace, so this step is added by the replay",
+  "data.missing": "This record was not found. The data may have been updated, or the link may be outdated.",
+  "data.toFirst": "Open the first demo"
 }

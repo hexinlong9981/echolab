@@ -109,7 +109,7 @@ flowchart LR
     <h2>M5（已完成）：网页界面</h2>
     <p><code>web/</code> 目录用 React + TypeScript + Vite 做成。方针是<strong>费用最优先、完全免费</strong>（ADR-0011）：公开的只有静态网站，不运行服务器，也不调用 Claude，所以既没有费用，也不会被别人刷掉 API 费用。</p>
     <div class="cards">
-      <div class="card"><h4>回放</h4><p>把执行轨迹画成流程图（React Flow）逐步播放：经过哪个方框、哪一稿被退回、哪个工具被拒绝，都用颜色标出，并显示当时已有的出典表。网址 <code>#replay/&lt;执行 ID&gt;/&lt;步&gt;</code> 可以直接打开某一步。</p></div>
+      <div class="card"><h4>回放</h4><p>把执行轨迹画成流程图（React Flow）逐步播放：经过哪个方框、哪一稿被退回、哪个工具被拒绝，都用颜色标出，并显示当时已有的出典表。网址 <code>#replay/&lt;键&gt;/&lt;步&gt;</code>（键是演示的 ID 或「评估 ID-用例 ID」，重新发布也不变，例如 demo-compare-builds） 可以直接打开某一步。</p></div>
       <div class="card"><h4>评估看板</h4><p>数值忠实度（鸣潮・住宅贷款）和注入评估的指标与每个用例的结果；每个用例都能跳到回放。</p></div>
       <div class="card"><h4>运行（只在本机）</h4><p>在自己电脑上用 <code>python -m servers.web_api</code> 打开时才出现：可以运行剧本演示，有 API 密钥时还能向真实 Claude 提问（受日／月成本上限保护）。只监听 <code>127.0.0.1</code>，不对外公开。</p></div>
       <div class="card"><h4>公开网站</h4><p>托管在 Cloudflare（Workers 的静态资源，原 Pages）（免费方案）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>。CI 用剧本模式生成数据、构建并发布；公开的回放是剧本模式的记录，不是真实 Claude 的回答。推送到 main 后自动重新发布。</p></div>

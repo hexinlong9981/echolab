@@ -87,8 +87,8 @@ export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId:
                     {!c.passed && <span lang="ja">{`${lang === "ja" ? "：" : ": "}${c.failures.join("；")}`}</span>}
                   </td>
                   <td>
-                    {c.run_id && (
-                      <button onClick={() => onOpen(c.run_id as string)}>
+                    {c.key && (
+                      <button onClick={() => onOpen(c.key as string)}>
                         <Tx k="btn.replay" />
                       </button>
                     )}

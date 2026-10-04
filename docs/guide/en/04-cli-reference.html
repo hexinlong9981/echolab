@@ -265,7 +265,7 @@ python -m servers.web_api                        # listens on 127.0.0.1 only →
     <table>
       <thead><tr><th>Tab</th><th>Contents</th></tr></thead>
       <tbody>
-        <tr><td>Replay</td><td>Plays an execution trace step by step as a flow diagram: boxes passed, rejections and refusals are colored, with the source table at that moment. The URL <code>#replay/&lt;run ID&gt;/&lt;step&gt;</code> opens a specific step</td></tr>
+        <tr><td>Replay</td><td>Plays an execution trace step by step as a flow diagram: boxes passed, rejections and refusals are colored, with the source table at that moment. The URL <code>#replay/&lt;key&gt;/&lt;step&gt;</code> (the key is a demo ID or "suite ID-case ID"; it does not change between deployments, e.g. demo-compare-builds) opens a specific step</td></tr>
         <tr><td>Evals</td><td>Metrics and per-case results for faithfulness (Wuthering Waves, mortgages) and the injection evals, with links to the replays</td></tr>
         <tr><td>Run (local)</td><td>Only when opened through <code>python -m servers.web_api</code>: run scripted demos or (with an API key) ask real Claude, within the cost caps</td></tr>
       </tbody>

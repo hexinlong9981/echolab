@@ -37,15 +37,20 @@ async def test_export_writes_demos_suites_and_runs(tmp_path: Path) -> None:
     assert index["services"]["echo.read_screenshot"] == "vision-mcp"
     assert index["services"]["compare.diff"] == "core"
 
-    run_ids = {d["run_id"] for d in index["demos"]} | {
-        c["run_id"] for s in index["suites"] for c in s["cases"] if c["run_id"]
+    # 実行のファイル名は公開のたびに変わらないキー（デモの ID か <評価>-<ケース>）
+    keys = {d["key"] for d in index["demos"]} | {
+        c["key"] for s in index["suites"] for c in s["cases"] if c["key"]
     }
-    assert run_ids == {p.stem for p in (out / "runs").glob("*.json")}
+    assert keys == {p.stem for p in (out / "runs").glob("*.json")}
+    assert {d["key"] for d in index["demos"]} == {d["id"] for d in DEMOS}
+    assert all(
+        c["key"] == f"{s['id']}-{c['id']}" for s in index["suites"] for c in s["cases"] if c["key"]
+    )
     for path in [out / "index.json", *(out / "runs").glob("*.json")]:
         text = path.read_text(encoding="utf-8")
         # 手元のパスを公開しない
         assert str(REPO_ROOT) not in text and "/tmp/" not in text, path.name
-    first = json.loads((out / "runs" / f"{index['demos'][0]['run_id']}.json").read_text("utf-8"))
+    first = json.loads((out / "runs" / f"{index['demos'][0]['key']}.json").read_text("utf-8"))
     assert first["events"][0]["event"] == "question"
     assert first["events"][-1]["event"] == "answer"
 

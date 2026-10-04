@@ -1,24 +1,43 @@
 // 静的なデータ（data/*.json、CI が書き出す）と、手元の API（/api/*、ある場合だけ）を読む。
 import type { DataIndex, LocalInfo, RunRecord } from "./types";
 
-export async function loadIndex(): Promise<DataIndex> {
-  const res = await fetch("data/index.json");
-  if (!res.ok) throw new Error(`data/index.json を読めません（${res.status}）`);
-  return (await res.json()) as DataIndex;
+/** 公開のデータに無いファイル（公開し直して変わった・消えたもの）。 */
+export class DataMissingError extends Error {
+  constructor(public readonly path: string) {
+    super(`データが見つかりません: ${path}`);
+  }
+}
+
+/** JSON を読む。404 や HTML（JSON でない応答）は DataMissingError にする。 */
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, init);
+  const type = res.headers.get("content-type") ?? "";
+  if (res.status === 404 || (res.ok && !type.includes("json"))) throw new DataMissingError(path);
+  if (!res.ok) throw new Error(`${path}（${res.status}）`);
+  return (await res.json()) as T;
+}
+
+export function loadIndex(): Promise<DataIndex> {
+  // 公開し直したら新しい一覧を読むよう、毎回サーバに確かめる
+  return fetchJson<DataIndex>("data/index.json", { cache: "no-cache" });
 }
 
 const runs = new Map<string, Promise<RunRecord>>();
 
-export function loadRun(runId: string): Promise<RunRecord> {
-  let p = runs.get(runId);
+/** 記録を読む（runs/<キー>.json）。失敗したものは覚えておかず、次に読み直す。 */
+export function loadRun(key: string): Promise<RunRecord> {
+  let p = runs.get(key);
   if (!p) {
-    p = fetch(`data/runs/${encodeURIComponent(runId)}.json`).then(async (res) => {
-      if (!res.ok) throw new Error(`実行 ${runId} を読めません（${res.status}）`);
-      return (await res.json()) as RunRecord;
-    });
-    runs.set(runId, p);
+    p = fetchJson<RunRecord>(`data/runs/${encodeURIComponent(key)}.json`);
+    runs.set(key, p);
+    p.catch(() => runs.delete(key));
   }
   return p;
+}
+
+/** 読んだ記録を忘れる（一覧を読み直したとき）。 */
+export function forgetRuns(): void {
+  runs.clear();
 }
 
 /** 手元の API があれば情報を返す。公開のサイト（静的）では null。 */

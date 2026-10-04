@@ -95,5 +95,7 @@
   "live.progress": "进度（防剧透；不显示之后的信息）：",
   "node.budget": "成本上限\n每日・每月",
   "s.budgetCheck": "确认成本上限（通过）",
-  "s.budgetCheck.d": "Agent 每次调用 LLM 之前，都会检查今天和本月的花费是否已达上限（Budget.check；由 Agent 执行，不是网关）。通过时执行轨迹里不留记录，所以这一步是回放补上的"
+  "s.budgetCheck.d": "Agent 每次调用 LLM 之前，都会检查今天和本月的花费是否已达上限（Budget.check；由 Agent 执行，不是网关）。通过时执行轨迹里不留记录，所以这一步是回放补上的",
+  "data.missing": "找不到这条记录。数据可能已经更新，或者链接已经过时。",
+  "data.toFirst": "打开第一个演示"
 }

@@ -5,7 +5,9 @@
 台本モード（API キー不要）で、デモ 3 件と評価のケースをすべて実行し、次を書き出す。
 
 - ``index.json``：デモの一覧と、評価ごとの指標・ケースの結果（どのトレースかも含む）
-- ``runs/<実行 ID>.json``：1 回の質問の結果と実行トレースの出来事
+- ``runs/<キー>.json``：1 回の質問の結果と実行トレースの出来事。キーはデモの ID（``demo-…``）か
+  ``<評価の ID>-<ケースの ID>``。実行 ID と違って公開のたびに変わらないので、公開中の画面が
+  古い一覧から読んでも見つかり、``#replay/<キー>/<コマ>`` のリンクも変わらない
 
 計算サービスは試験用の偽物（Python の参照実装・OCR の記録）を使う。Java も Tesseract も要らず、
 何度実行しても同じ内容になる。手元の絶対パスは書き出さない。CI が生成し、web/ のビルドに含める。
@@ -84,8 +86,11 @@ async def export(out: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
                 repo_root=repo_root,
                 context={"progress": demo["progress"]} if "progress" in demo else None,
             )
-            _write(out / "runs" / f"{record['run_id']}.json", record)
-            index["demos"].append({**demo, "run_id": record["run_id"], "status": record["status"]})
+            key = demo["id"]
+            _write(out / "runs" / f"{key}.json", {**record, "key": key})
+            index["demos"].append(
+                {**demo, "key": key, "run_id": record["run_id"], "status": record["status"]}
+            )
 
         for suite in SUITES:
             raw = tmp_dir / suite["id"]
@@ -97,10 +102,11 @@ async def export(out: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
             )
             cases = []
             for r in report.results:
+                key = f"{suite['id']}-{r.case_id}" if r.run_id else None
                 if r.run_id:
                     trace = raw / "traces" / f"{r.run_id}.jsonl"
                     record = run_record(trace, repo_root=repo_root, fake_backend=True)
-                    _write(out / "runs" / f"{r.run_id}.json", record)
+                    _write(out / "runs" / f"{key}.json", {**record, "key": key})
                 cases.append(
                     {
                         "id": r.case_id,
@@ -113,6 +119,7 @@ async def export(out: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
                         "tool_errors": r.tool_errors,
                         "cited": r.cited,
                         "failures": r.failures,
+                        "key": key,
                         "run_id": r.run_id,
                     }
                 )

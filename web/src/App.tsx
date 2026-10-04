@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadIndex, loadLocalInfo } from "./data";
+import { forgetRuns, loadIndex, loadLocalInfo } from "./data";
 import { EvalsView } from "./EvalsView";
 import { detectLang, LANGS, type Lang, LangContext, loadRubyPrefs, makeI18n, store } from "./i18n";
 import { LiveView } from "./LiveView";
@@ -42,6 +42,14 @@ export function App() {
     document.documentElement.lang = LANGS.find((l) => l.code === lang)?.html ?? "ja";
     document.title = i18n.t("doc.title");
   }, [lang, i18n]);
+
+  /** 公開し直されたデータに合わせて一覧を読み直す（記録が見つからなかったとき）。 */
+  const refreshIndex = async () => {
+    forgetRuns();
+    const fresh = await loadIndex();
+    setIndex(fresh);
+    return fresh;
+  };
 
   const go = (hash: string) => {
     window.location.hash = hash;
@@ -105,7 +113,13 @@ export function App() {
         {error && <p className="error">{error}</p>}
         {!index && !error && <Tx k="loading" as="p" />}
         {index && route.tab === "replay" && (
-          <ReplayView index={index} runId={route.runId} step={route.step} onSelect={(id) => go(`replay/${id}`)} />
+          <ReplayView
+            index={index}
+            runId={route.runId}
+            step={route.step}
+            onSelect={(id) => go(`replay/${id}`)}
+            onStale={refreshIndex}
+          />
         )}
         {index && route.tab === "evals" && <EvalsView index={index} onOpen={(id) => go(`replay/${id}`)} />}
         {index && route.tab === "live" && local && <LiveView info={local} services={index.services} />}

@@ -223,8 +223,8 @@ flowchart LR
 
 | 位置 | 作用 |
 |---|---|
-| `web/` | React + TypeScript + Vite。回放（React Flow 流程图・逐步・出处表、`#replay/<执行 ID>/<步>`）、评估看板、仅在有本机 API 时出现的运行界面 |
-| `servers/web_api/export.py` | 用剧本模式（无需 API 密钥、测试用计算服务）运行 3 个演示与全部评估，写出 `index.json` 和 `runs/<执行 ID>.json` |
+| `web/` | React + TypeScript + Vite。回放（React Flow 流程图・逐步・出处表、`#replay/<键>/<步>`（键是演示的 ID 或「评估 ID-用例 ID」，重新发布也不变，例如 demo-compare-builds））、评估看板、仅在有本机 API 时出现的运行界面 |
+| `servers/web_api/export.py` | 用剧本模式（无需 API 密钥、测试用计算服务）运行 3 个演示与全部评估，写出 `index.json` 和 `runs/<键>.json` |
 | `servers/web_api/server.py` | 只在本机的 API（Python 标准库）。只监听 `127.0.0.1`，检查 `Content-Type: application/json` 与 `Origin`。只能用固定的演示剧本 |
 | `.github/workflows/web.yml` | 导出・类型检查・测试・构建。推送到 main 时，有 Secrets 就发布到 Cloudflare（Workers 静态资源） |
 
