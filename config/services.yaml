@@ -14,3 +14,7 @@ services:
     # 住宅ローンのパックの計算（Python、ADR-0009）
     transport: stdio
     command: ["python", "-m", "domains.mortgage.calc"]
+  vision-mcp:
+    # スクリーンショットの OCR（Tesseract）。テンプレートは domains/*/vision（ADR-0010）
+    transport: stdio
+    command: ["python", "-m", "servers.vision_mcp"]

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "vision reader template",
+  "description": "スクリーンショットの読み取りのテンプレート（domains/*/vision/*.yaml、ADR-0010）。宣言した数値の項目だけを読む",
+  "type": "object",
+  "required": ["schema_version", "tool", "description", "fields"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "tool": { "type": "string", "pattern": "^[a-z_]+(\\.[a-z_]+)+$" },
+    "description": { "type": "string", "minLength": 1 },
+    "sections": {
+      "description": "見出しの行で区間を分ける。見出しの行のあとに続く行がその区間",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "header"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "header": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "label", "unit"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "結果のフィールド名（出典 ID の後半になる）。lines_read・lines_ignored は予約",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "not": { "enum": ["lines_read", "lines_ignored"] }
+          },
+          "label": { "type": "string", "minLength": 1 },
+          "unit": { "enum": ["percent", "number"] },
+          "section": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "min": { "type": "number" },
+          "max": { "type": "number" }
+        }
+      }
+    }
+  }
+}

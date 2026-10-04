@@ -2,3 +2,5 @@
 pytest>=8,<9
 pytest-asyncio>=0.24,<2
 ruff>=0.6
+# 合成のスクリーンショットを作る（evals/redteam/make_screenshots.py）
+pillow>=10,<13

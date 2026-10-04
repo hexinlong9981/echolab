@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from decimal import ROUND_HALF_EVEN, Decimal
+from pathlib import Path
 from typing import Any
 
 from core.contracts import ToolEnvelope, ToolError, ToolSpec, to_wire_name
@@ -19,12 +20,39 @@ def _rounded(fn: Callable[[dict], Mapping[str, float]]) -> Callable[[dict], Mapp
     return lambda i: {k: Decimal(repr(v)) for k, v in fn(i).items()}
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _vision_calculators() -> dict[str, Callable[[dict], Mapping[str, object]]]:
+    """スクリーンショットの読み取り（vision-mcp）の代わり。
+
+    Tesseract を動かさず、画像の隣の ``<名前>.ocr.txt``（OCR の結果を記録したもの）を読んで、
+    本物のサーバと同じテンプレートで項目を取り出す。パスの検査も本物と同じ。
+    """
+    from servers.vision_mcp.reader import extract, load_templates, resolve_image, template_dirs
+
+    def make(template: Any) -> Callable[[dict], Mapping[str, object]]:
+        def calc(i: dict) -> Mapping[str, object]:
+            image = resolve_image(i["image"], cwd=REPO_ROOT)
+            recorded = image.with_suffix(".ocr.txt")
+            if not recorded.is_file():
+                raise ValueError(f"OCR の記録がありません: {recorded.name}")
+            lines = recorded.read_text(encoding="utf-8").splitlines()
+            return extract(template, [line for line in lines if line.strip()])
+
+        return calc
+
+    return {t.tool: make(t) for t in load_templates(template_dirs(REPO_ROOT)).values()}
+
+
 _CALCULATORS: dict[str, Callable[[dict], Mapping[str, object]]] = {
     "damage.expected": ref.damage_expected,
     "echo.score": ref.echo_score,
     "gacha.probability_within": lambda i: {"probability": ref.gacha_probability_within(i)},
     # 住宅ローンのパック（mortgage-calc の代わり）
     **{tool: _rounded(fn) for tool, fn in mortgage_reference.TOOLS.items()},
+    # スクリーンショットの読み取り（domains/*/vision のテンプレートごと）
+    **_vision_calculators(),
 }
 
 _OPEN_SCHEMA: Mapping[str, Any] = {"type": "object"}
