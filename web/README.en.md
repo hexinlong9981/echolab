@@ -63,32 +63,34 @@ To publish from your machine (no API token needed after `npx wrangler login`):
 Requests to static assets are free on the Workers free plan. Builds run on GitHub Actions, so Cloudflare's builds are not used.
 Revoke the token in Cloudflare when it is no longer needed.
 
-## Public demo server (Hugging Face Spaces, ADR-0013)
+## Public demo server (Google Cloud Run, ADR-0013)
 
-"Run on the server" below a demo's replay runs that demo on the public demo server with the **real calc services** (the Java calc-engine, OCR, Mushoku Tensei, mortgage) and the **scripted LLM**.
-Real Claude is not used, so it costs nothing. The server is `python -m servers.web_api --public` (`servers/web_api/public.py`); the image is `deploy/hf/Dockerfile`.
+"Run on the server" under a demo replay runs that demo on the public demo server with the **real calc services** (Java calc-engine, OCR, Mushoku Tensei, mortgage) and the **scripted LLM**.
+Real Claude is not used and the server runs within Cloud Run's free tier, so it costs nothing (watched by a 1 USD budget alert).
+The server is `python -m servers.web_api --public` (`servers/web_api/public.py`); the image is `deploy/cloudrun/Dockerfile`.
 
 Try it locally:
 
 ```bash
-docker build -f deploy/hf/Dockerfile -t echolab-public .
-docker run --rm -p 7860:7860 echolab-public            # → http://127.0.0.1:7860/api/health
+docker build -f deploy/cloudrun/Dockerfile -t echolab-demo .
+docker run --rm -p 8080:8080 echolab-demo              # → http://127.0.0.1:8080/api/health
 ```
 
-Publishing (first time only):
+Publishing (once):
 
-1. Create an account at <https://huggingface.co/join> (free, no credit card).
-2. Create a Space at <https://huggingface.co/new-space>: name `echolab`, SDK **Docker** (Blank), hardware **CPU basic (free)**, visibility **Public** (the page calls it without logging in).
-3. Create a write token: <https://huggingface.co/settings/tokens> → "Create new token" → "Fine-grained" → under "Repositories permissions" pick this Space with **Write** (copy the value; it is shown only once).
-4. Register it **in your own terminal** (e.g. WSL in Windows Terminal; Claude Code's `!` cannot read input):
+1. Start using Google Cloud at <https://console.cloud.google.com/> (the credit card is for identity checks; nothing is charged within the free tier, and new accounts also get a 90-day free-trial credit).
+2. Prepare a project linked to a billing account. This repository uses the default project "My First Project" (project ID `project-74011f80-dd2b-4a8c-b01`).
+3. In **your own terminal** (Claude Code's `!` cannot do browser logins or read input), run the two commands below. The first prints a URL: open it in a browser, sign in to Google and paste the code back into the terminal. If the command is not found, run `source ~/.bashrc` first.
    ```bash
-   gh secret set HF_TOKEN -R hexinlong9981/echolab                                   # paste the token, press Enter
-   gh variable set HF_SPACE -R hexinlong9981/echolab --body "<user>/echolab"
-   gh variable set LIVE_API_URL -R hexinlong9981/echolab --body "https://<user>-echolab.hf.space"
+   gcloud auth login --no-launch-browser
+   gcloud config set project project-74011f80-dd2b-4a8c-b01
    ```
-5. Run "Actions" → "hf-space" → "Run workflow" (the first image build takes a few minutes), then run "web" so the page shows "Run on the server".
+4. Tell Claude you are logged in. Claude runs `deploy/cloudrun/setup.sh project-74011f80-dd2b-4a8c-b01`, which enables APIs and creates Artifact Registry, service accounts, keyless Workload Identity Federation, the budget alert (150 JPY for a yen billing account, counted before trial credits), the first deployment, and the GitHub variables (`GCP_*`, `LIVE_API_URL`).
+5. After that, every push to main deploys through `.github/workflows/cloudrun.yml`, and the "web" workflow uses `LIVE_API_URL` to show the button.
 
-The free CPU sleeps when unused and starts on the next call (the page shows "waking the server up").
+After the free trial: when the credit runs out or expires (2027-01-03 for this account), the project's resources stop unless you "upgrade" to a paid account, so the demo server stops too. The Cloud Run free tier continues after the upgrade and usage within it still costs 0. Google never upgrades automatically; you do it yourself in the console.
+
+When idle the service scales to zero and starts on the next call (the page shows "waiting for the server to start").
 
 ## Layout
 

@@ -38,7 +38,7 @@ LLM はもっともらしい数値を作ってしまいます。業務で AI を
 声骸の画面のスクリーンショットを OCR で読んで採点でき、注入（プロンプトインジェクション）の評価を CI で毎回実行します（M4）。
 実行トレースのリプレイと評価のダッシュボードを Web で見られます（M5、公開は静的なファイルだけで費用ゼロ）。
 無職転生のパックは、利用者が指定した進み具合より先の情報を検索の層で出さない「ネタバレ防止」を行います（M6）。
-公開のデモサーバ（Hugging Face Spaces）で、決まったデモを実物の計算サービスと台本の LLM でその場で実行できます（M7、費用ゼロ）。
+公開のデモサーバ（Google Cloud Run の無料枠）で、決まったデモを実物の計算サービスと台本の LLM でその場で実行できます（M7、費用ゼロ）。
 
 ```mermaid
 flowchart LR
@@ -237,7 +237,7 @@ domains/mortgage/  ドメインパック：住宅ローンの返済の計算例�
 services/      calc-engine（Java 21。計算ライブラリと MCP サーバ）
 servers/       vision_mcp（スクリーンショットの OCR。Python の MCP サーバ）・web_api（Web UI のデータの書き出しと手元の API）
 web/           Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面
-deploy/hf/     公開のデモサーバの Docker の像（Hugging Face Spaces、ADR-0013）
+deploy/cloudrun/  公開のデモサーバの Docker の像と Cloud Run への配置（ADR-0013）
 evals/         評価ケース（faithfulness/）と集計済みのレポート（reports/）
 tests/         リポジトリ横断のテスト（スキーマ検査・参照実装・core の単体テスト・端から端までの試験）
 docs/          アーキテクチャと ADR
@@ -258,7 +258,7 @@ M2 の部品と契約は [ADR-0008](docs/adr/0008-M2の構成と契約.md)、M3 
 | M4 | スクリーンショットの読み取り（OCR）・注入の評価セット（台本モードで CI に追加、実物の LLM では手元で実行） | ✅ 完了 |
 | M5 | Web UI・トレースのリプレイ・評価のダッシュボード・デモの公開（静的・費用ゼロ） | ✅ 完了（[公開中](https://echolab-web.echolab-web.workers.dev/)） |
 | M6 | ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程） | ✅ 完了（資料は作者が確認済み） |
-| M7 | 公開のデモサーバ（Hugging Face Spaces）：決まったデモを実物の計算サービス・台本の LLM で実行（費用ゼロ） | ✅ 実装済み（公開は Hugging Face の設定後） |
+| M7 | 公開のデモサーバ（Google Cloud Run の無料枠）：決まったデモを実物の計算サービス・台本の LLM で実行（費用ゼロ） | ✅ 実装済み（公開は Google Cloud の設定後） |
 
 順序の理由は ADR-0007（機能を横に広げる前に、端から端までを先に通す）を参照してください。
 

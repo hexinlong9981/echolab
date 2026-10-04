@@ -1,4 +1,4 @@
-# deploy/hf/Dockerfile のビルド文脈（リポジトリ直下）から除くもの
+# deploy/cloudrun/Dockerfile のビルド文脈（リポジトリ直下）から除くもの
 **/__pycache__
 **/*.pyc
 .venv/

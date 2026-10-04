@@ -1,5 +1,5 @@
-// 公開のデモサーバ（Hugging Face Spaces、ADR-0013）を呼ぶ。台本の LLM・実物の計算サービス。
-// サーバの URL はビルドのときの環境変数 VITE_LIVE_API（例 https://<user>-echolab.hf.space）。
+// 公開のデモサーバ（Google Cloud Run、ADR-0013）を呼ぶ。台本の LLM・実物の計算サービス。
+// サーバの URL はビルドのときの環境変数 VITE_LIVE_API（例 https://echolab-demo-xxxxx.a.run.app）。
 // 設定が無ければ、画面に「サーバで実行」のボタンを出さない。
 import type { RunRecord } from "./types";
 

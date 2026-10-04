@@ -105,7 +105,7 @@ M1〜M7 が実装済みです。リポジトリには実装済みの部分のデ
 | `domains/mortgage` | 住宅ローンの返済の計算例：計算と Python の MCP サーバ（`calc/`）・ゴールデンケース・プロンプト（ADR-0009） |
 | `servers/vision_mcp` | スクリーンショットの OCR（Tesseract）。テンプレートで宣言した数値だけを返す（ADR-0010） |
 | `servers/web_api` | Web UI のデータの書き出しと、手元だけの API（ADR-0011） |
-| `deploy/hf` | 公開のデモサーバの Docker の像（Hugging Face Spaces）。`servers/web_api/public.py` を動かす（ADR-0013） |
+| `deploy/cloudrun` | 公開のデモサーバの Docker の像と Cloud Run への配置。`servers/web_api/public.py` を動かす（ADR-0013） |
 | `web/` | Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面（ADR-0011） |
 | `evals/` | 評価ケース（`faithfulness/`・`redteam/`）と集計済みのレポート（`reports/`） |
 | `tests/` | スキーマ検査・Python 参照実装による照合・`core` の単体テスト（`tests/core/`）・パック・OCR・注入・Web の試験・端から端までの試験（`tests/e2e/`） |
@@ -130,7 +130,7 @@ M1〜M7 が実装済みです。リポジトリには実装済みの部分のデ
 | M4 | スクリーンショット読み取り（OCR）・注入の評価セット（台本モードを CI に追加） | 完了 |
 | M5 | Web UI・トレースのリプレイ・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 完了（<https://echolab-web.echolab-web.workers.dev/>） |
 | M6 | ドメインパック③：無職転生の設定考証（ネタバレ防止の検索・時系列・旅程） | 完了（資料は作者が確認済み） |
-| M7 | 公開のデモサーバ（Hugging Face Spaces・台本の LLM・実物の計算サービス、費用ゼロ） | 実装済み（公開は Hugging Face の設定後） |
+| M7 | 公開のデモサーバ（Google Cloud Run の無料枠・台本の LLM・実物の計算サービス、費用ゼロ） | 実装済み（公開は Google Cloud の設定後） |
 
 ### M2：縦の切片（質問 → 出典付きの回答）：実装済み
 
@@ -252,8 +252,8 @@ flowchart LR
 | 場所 | 役割 |
 |---|---|
 | `servers/web_api/public.py` | `python -m servers.web_api --public`。決まったデモだけを実物の計算サービス（calc-engine の jar・OCR・無職転生・住宅ローン）と台本の LLM で実行する。実物の Claude は常に拒む。同時 1 件・待ち 3 件、接続元ごとに 1 分 6 回・1 日 60 回、1 件 120 秒まで。許可した `Origin` にだけ CORS（事前確認を含む） |
-| `deploy/hf/` | Hugging Face Spaces（Docker・無料の CPU）用の Dockerfile と Space の README |
-| `.github/workflows/hf-space.yml` | Secret `HF_TOKEN`・Variable `HF_SPACE` があれば Space に送る |
+| `deploy/cloudrun/` | Dockerfile、最初の準備（`setup.sh`：API・Artifact Registry と古い像の自動削除・サービスアカウント・鍵なしの Workload Identity 連携・1 USD の予算アラート）、デプロイ（`deploy.sh`：最小 0・最大 1 インスタンス、処理中だけ CPU、1 vCPU・1 GiB・120 秒） |
+| `.github/workflows/cloudrun.yml` | リポジトリ変数 `GCP_*` があれば、Workload Identity 連携で Cloud Run に出す |
 | `web/` | デモのリプレイの下に「サーバで実際に実行」（ビルドのときの `VITE_LIVE_API` があるときだけ） |
 
 - 無料の CPU は使われないと休止し、次の呼び出しで起動します（画面は起動を待つ旨を表示）。手元の Docker では起動に約 7 秒、デモ 1 件に 2.5〜10 秒。

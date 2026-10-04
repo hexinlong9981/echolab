@@ -39,7 +39,7 @@ The design separates a domain-agnostic core from "domain packs". The second pack
 A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs three packs: Wuthering Waves, Mushoku Tensei and mortgages (M6, M3).
 Screenshots of the echo screen can be read with OCR and scored, and prompt-injection evals run in CI every time (M4).
 The Mushoku Tensei pack never returns information beyond the progress the user set, enforced in the retrieval layer (spoiler protection, M6).
-A public demo server (Hugging Face Spaces) runs the fixed demos live with the real calc services and the scripted LLM (M7, zero cost).
+A public demo server (Google Cloud Run free tier) runs the fixed demos live with the real calc services and the scripted LLM (M7, zero cost).
 A replay of execution traces and an eval dashboard are available on the web (M5; the public site is static files only, at zero cost).
 
 ```mermaid
@@ -239,7 +239,7 @@ domains/mortgage/  Domain pack: example mortgage repayment calculations (domain.
 services/      calc-engine (Java 21: calculation library and MCP server)
 servers/       vision_mcp (screenshot OCR, a Python MCP server), web_api (data export and local API for the web UI)
 web/           Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen
-deploy/hf/     Docker image of the public demo server (Hugging Face Spaces, ADR-0013)
+deploy/cloudrun/  Docker image of the public demo server and its Cloud Run deployment (ADR-0013)
 evals/         Eval cases (faithfulness/) and aggregated reports (reports/)
 tests/         Cross-repo tests (schema checks, reference implementation, core unit tests, end-to-end tests)
 docs/          Architecture and ADRs
@@ -260,7 +260,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |
 | M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | ✅ Done (data checked by the author) |
-| M7 | Public demo server (Hugging Face Spaces): fixed demos with the real calc services and the scripted LLM (zero cost) | ✅ Implemented (published after Hugging Face is set up) |
+| M7 | Public demo server (Google Cloud Run free tier): fixed demos with the real calc services and the scripted LLM (zero cost) | ✅ Implemented (goes public after Google Cloud is set up) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 

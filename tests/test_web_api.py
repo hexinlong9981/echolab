@@ -362,3 +362,37 @@ def test_public_run_hides_local_paths() -> None:
 def test_local_server_refuses_host_without_public() -> None:
     with pytest.raises(SystemExit):
         server.main(["--host", "0.0.0.0"])
+
+
+def test_public_client_ip_uses_the_last_forwarded_hop() -> None:
+    """Cloud Run の前段は X-Forwarded-For の末尾に本当の接続元を付ける。先頭は偽装できる。"""
+    from servers.web_api.public import client_ip
+
+    assert client_ip("1.2.3.4, 203.0.113.9", "10.0.0.1") == "203.0.113.9"
+    assert client_ip("203.0.113.9", "10.0.0.1") == "203.0.113.9"
+    assert client_ip("", "10.0.0.1") == "10.0.0.1"  # 前段が無い（手元の試験）
+
+
+def test_public_port_comes_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--public で --port を省くと、Cloud Run が渡す PORT で待ち受ける。"""
+    from servers.web_api import server as server_mod
+
+    seen: dict[str, object] = {}
+
+    class Dummy:
+        def serve_forever(self) -> None:
+            raise KeyboardInterrupt
+
+        def server_close(self) -> None:
+            pass
+
+    def fake_make_public_server(host: str, port: int) -> Dummy:
+        seen.update(host=host, port=port)
+        return Dummy()
+
+    import servers.web_api.public as public_mod
+
+    monkeypatch.setattr(public_mod, "make_public_server", fake_make_public_server)
+    monkeypatch.setenv("PORT", "9123")
+    assert server_mod.main(["--public"]) == 0
+    assert seen == {"host": "0.0.0.0", "port": 9123}

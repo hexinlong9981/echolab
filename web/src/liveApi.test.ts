@@ -6,7 +6,7 @@ const json = (status: number, body: unknown) =>
 
 describe("liveApiBase", () => {
   it("URL の末尾の / を除き、設定が無ければ null", () => {
-    expect(liveApiBase("https://user-echolab.hf.space/")).toBe("https://user-echolab.hf.space");
+    expect(liveApiBase("https://echolab-demo-abc123-uc.a.run.app/")).toBe("https://echolab-demo-abc123-uc.a.run.app");
     expect(liveApiBase("")).toBeNull();
     expect(liveApiBase(undefined)).toBeNull();
     expect(liveApiBase("javascript:alert(1)")).toBeNull();

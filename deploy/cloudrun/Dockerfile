@@ -1,9 +1,9 @@
-# 公開のデモサーバ（ADR-0013）。Hugging Face Spaces（Docker・無料の CPU）で動かす。
+# 公開のデモサーバ（ADR-0013）。Google Cloud Run（無料枠の範囲）で動かす。
 # 台本の LLM だけを使い、計算サービスは実物（calc-engine の jar・OCR・住宅ローン・無職転生）。
-# ビルドの文脈はリポジトリ直下（CI は deploy/hf/Dockerfile をリポジトリ直下に置いて Space に送る）。
+# ビルドの文脈はリポジトリ直下。イメージは小さく保つ（Artifact Registry の無料枠は 0.5 GB）。
 #
-#   docker build -f deploy/hf/Dockerfile -t echolab-public .
-#   docker run --rm -p 7860:7860 echolab-public
+#   docker build -f deploy/cloudrun/Dockerfile -t echolab-demo .
+#   docker run --rm -p 8080:8080 echolab-demo        # Cloud Run と同じく PORT=8080
 
 # --- calc-engine の jar を作る ---------------------------------------------------
 FROM eclipse-temurin:21-jdk AS jar
@@ -22,7 +22,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=eclipse-temurin:21-jre /opt/java/openjdk /opt/java/openjdk
 
-# Hugging Face Spaces の推奨どおり、UID 1000 の一般ユーザで動かす
+# root ではない一般ユーザで動かす
 RUN useradd -m -u 1000 user
 WORKDIR /app
 COPY requirements.txt ./
@@ -35,5 +35,7 @@ COPY --chown=user evals/redteam/screenshots/ evals/redteam/screenshots/
 COPY --chown=user --from=jar /src/services/calc-engine/build/libs/calc-engine-mcp.jar \
      services/calc-engine/build/libs/calc-engine-mcp.jar
 USER user
-EXPOSE 7860
-CMD ["python", "-m", "servers.web_api", "--public", "--host", "0.0.0.0", "--port", "7860"]
+# Cloud Run は待ち受けるポートを環境変数 PORT で渡す（既定 8080）。--port を省くとそれを使う
+ENV PORT=8080
+EXPOSE 8080
+CMD ["python", "-m", "servers.web_api", "--public", "--host", "0.0.0.0"]

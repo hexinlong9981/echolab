@@ -225,7 +225,12 @@ def make_server(port: int) -> ThreadingHTTPServer:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="手元だけで動く Web UI の API（127.0.0.1）")
-    p.add_argument("--port", type=int, default=None, help="既定 8765（--public では 7860）")
+    p.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="既定 8765（--public では環境変数 PORT、無ければ 8080。Cloud Run は PORT を渡す）",
+    )
     p.add_argument(
         "--public",
         action="store_true",
@@ -236,7 +241,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.public:
         from servers.web_api.public import make_public_server
 
-        host, port = args.host or "0.0.0.0", args.port or 7860
+        host = args.host or "0.0.0.0"
+        port = args.port or int(os.environ.get("PORT") or 8080)
         server = make_public_server(host, port)
         print(f"公開のデモサーバ：http://{host}:{port}/（台本の LLM のみ）", file=sys.stderr)
     else:

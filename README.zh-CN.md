@@ -39,7 +39,7 @@ LLM 会编造看似合理的数值。在业务中使用 AI 时，最常被追问
 从提问到附带出处的回答，可以在 CLI 中端到端跑通（M2）。同一个核心可以运行鸣潮・无职转生・房贷三个领域包（M6・M3）。
 可以用 OCR 读取声骸界面的截图并评分，提示词注入的评估在 CI 中每次运行（M4）。
 无职转生领域包在检索层不返回超出用户指定进度的信息（防剧透，M6）。
-公开的演示服务器（Hugging Face Spaces）可以用真实计算服务和剧本 LLM 现场运行固定的演示（M7，零费用）。
+公开的演示服务器（Google Cloud Run 免费额度）可以用真实计算服务和剧本 LLM 现场运行固定的演示（M7，零费用）。
 可以在网页上回放执行轨迹、查看评估看板（M5；公开网站只有静态文件，零费用）。
 
 ```mermaid
@@ -239,7 +239,7 @@ domains/mortgage/  领域包：房贷还款计算示例（domain.yaml・计算�
 services/      calc-engine（Java 21。计算库与 MCP 服务器）
 servers/       vision_mcp（截图 OCR。Python 的 MCP 服务器）・web_api（网页界面的数据导出与本机 API）
 web/           网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面
-deploy/hf/     公开演示服务器的 Docker 镜像（Hugging Face Spaces，ADR-0013）
+deploy/cloudrun/  公开演示服务器的 Docker 镜像与 Cloud Run 部署（ADR-0013）
 evals/         评估用例（faithfulness/）与汇总报告（reports/）
 tests/         跨仓库的测试（Schema 检查・参考实现・core 单元测试・端到端测试）
 docs/          架构与 ADR
@@ -260,7 +260,7 @@ M2 的组件与契约见 ADR-0008，M3 的房贷领域包与"核心零改动"检
 | M4 | 截图读取（OCR）・注入评估集（以脚本模式加入 CI，真实 LLM 在本地运行） | ✅ 完成 |
 | M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | ✅ 完成（[已公开](https://echolab-web.echolab-web.workers.dev/)） |
 | M6 | 领域包③：无职转生设定考证（防剧透的检索・时间线・行程） | ✅ 完成（资料已由作者核对） |
-| M7 | 公开的演示服务器（Hugging Face Spaces）：用真实计算服务・剧本 LLM 运行固定演示（零费用） | ✅ 已实现（设置 Hugging Face 后公开） |
+| M7 | 公开的演示服务器（Google Cloud Run 免费额度）：用真实计算服务・剧本 LLM 运行固定演示（零费用） | ✅ 已实现（设置 Google Cloud 后公开） |
 
 该顺序的理由见 ADR-0007（在横向扩展功能之前，先打通端到端）。
 

@@ -1,8 +1,9 @@
 """公開のデモサーバ（M7・ADR-0013）。決まったデモを、実物の計算サービスで実行して返す。
 
-    python -m servers.web_api --public [--host 0.0.0.0] [--port 7860]
+    python -m servers.web_api --public [--host 0.0.0.0] [--port 8080]
 
-Hugging Face Spaces（Docker・無料の CPU）で動かす前提。費用をゼロに保つため、次のように制限する。
+Google Cloud Run（無料枠の範囲）で動かす前提。ポートは環境変数 PORT（Cloud Run が渡す）。
+費用をゼロに保つため、次のように制限する（Cloud Run の側でも同時実行 1・インスタンス最大 1）。
 
 - LLM は台本だけ（``llm: scripted``）。実物の Claude（``anthropic``）は常に拒む。
   API キーは置かない。
@@ -69,6 +70,12 @@ def allowed_origins() -> frozenset[str]:
     if configured:
         return frozenset(o.strip().rstrip("/") for o in configured.split(",") if o.strip())
     return frozenset(DEFAULT_ORIGINS)
+
+
+def client_ip(forwarded: str, peer: str) -> str:
+    """接続元の IP。前段のプロキシが付けた ``X-Forwarded-For`` の末尾、無ければ直接の相手。"""
+    parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+    return parts[-1] if parts else peer
 
 
 class RateLimiter:
@@ -225,10 +232,10 @@ def make_handler(
             sys.stderr.write(f"[web_api public] {format % args}\n")
 
         def client_key(self) -> str:
-            # Hugging Face の前段のプロキシが付ける X-Forwarded-For の先頭を接続元とみなす
-            forwarded = self.headers.get("X-Forwarded-For", "")
-            first = forwarded.split(",")[0].strip()
-            return first or self.client_address[0]
+            # Cloud Run の前段（Google Front End）は、X-Forwarded-For の末尾に本当の接続元を
+            # 付け足す。先頭の側は利用者が自由に書けるので、末尾を使う（偽の値で回数の上限を
+            # すり抜けられないように）
+            return client_ip(self.headers.get("X-Forwarded-For", ""), self.client_address[0])
 
         def origin_ok(self) -> str | None:
             origin = (self.headers.get("Origin") or "").rstrip("/")

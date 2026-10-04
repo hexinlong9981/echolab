@@ -63,32 +63,34 @@ CI（`.github/workflows/web.yml`）每次推送到 main 都会构建，有下面
 在 Workers 免费方案中，静态资源的请求是免费的。构建在 GitHub Actions 中完成，不使用 Cloudflare 的构建。
 不再需要令牌时，请在 Cloudflare 后台作废。
 
-## 公开的演示服务器（Hugging Face Spaces，ADR-0013）
+## 公开的演示服务器（Google Cloud Run，ADR-0013）
 
-演示回放下方的「在服务器上实际运行」，会在公开的演示服务器上用**真实计算服务**（Java 的 calc-engine・OCR・无职转生・房贷）和**剧本 LLM** 运行该演示。
-不使用真实 Claude，所以没有费用。服务器是 `python -m servers.web_api --public`（`servers/web_api/public.py`），镜像是 `deploy/hf/Dockerfile`。
+演示回放下方的「在服务器上实际运行」，会在公开的演示服务器上用**真实计算服务**（Java 的 calc-engine・OCR・无职转生・房贷）和**剧本 LLM** 运行这个演示。
+不使用真实 Claude，而且运行在 Cloud Run 的免费额度内，所以没有费用（用 1 USD 预算告警监控）。
+服务器是 `python -m servers.web_api --public`（`servers/web_api/public.py`），镜像是 `deploy/cloudrun/Dockerfile`。
 
 在本机试用：
 
 ```bash
-docker build -f deploy/hf/Dockerfile -t echolab-public .
-docker run --rm -p 7860:7860 echolab-public            # → http://127.0.0.1:7860/api/health
+docker build -f deploy/cloudrun/Dockerfile -t echolab-demo .
+docker run --rm -p 8080:8080 echolab-demo              # → http://127.0.0.1:8080/api/health
 ```
 
-发布步骤（只需第一次）：
+公开的步骤（只做一次）：
 
-1. 在 <https://huggingface.co/join> 注册账号（免费，不需要信用卡）。
-2. 在 <https://huggingface.co/new-space> 创建 Space：名称 `echolab`，SDK 选 **Docker**（Blank），硬件选 **CPU basic（免费）**，可见性选 **Public**（网页不登录就要能调用）。
-3. 创建写入用令牌：<https://huggingface.co/settings/tokens> →「Create new token」→「Fine-grained」→ 在「Repositories permissions」中选这个 Space 并设为 **Write**（记下只显示一次的值）。
-4. **在你自己的终端**（如 Windows Terminal 的 WSL；Claude Code 的 `!` 不能接收输入）中登记：
+1. 在 <https://console.cloud.google.com/> 开始使用 Google Cloud。需要登记信用卡，只用于身份验证，在免费额度内不会扣费。新账号还会送 90 天的试用额度。
+2. 准备项目并关联结算账号。本仓库用的是默认项目「My First Project」（项目 ID `project-74011f80-dd2b-4a8c-b01`）。
+3. 在**你自己的终端**里（Claude Code 的 `!` 不能在浏览器里登录，也不能输入）运行下面两条。第一条会显示一个网址：在浏览器里打开、登录 Google 账号、把显示的验证码贴回终端。如果提示找不到命令，先运行 `source ~/.bashrc`。
    ```bash
-   gh secret set HF_TOKEN -R hexinlong9981/echolab                                   # 粘贴令牌后回车
-   gh variable set HF_SPACE -R hexinlong9981/echolab --body "<用户名>/echolab"
-   gh variable set LIVE_API_URL -R hexinlong9981/echolab --body "https://<用户名>-echolab.hf.space"
+   gcloud auth login --no-launch-browser
+   gcloud config set project project-74011f80-dd2b-4a8c-b01
    ```
-5. 在 GitHub 的「Actions」→「hf-space」→「Run workflow」发送到 Space（第一次构建镜像需要几分钟），接着运行「web」，网页上就会出现「在服务器上实际运行」。
+4. 告诉 Claude 已登录。Claude 会运行 `deploy/cloudrun/setup.sh project-74011f80-dd2b-4a8c-b01`，完成：启用 API、建立 Artifact Registry（自动删除旧镜像）、服务账号、无密钥的 Workload Identity 联合、预算告警（结算账号是日元时为 150 JPY，不扣除试用额度来计算）、第一次部署、登记 GitHub 变量（`GCP_*`・`LIVE_API_URL`）。
+5. 之后每次推送到 main，`.github/workflows/cloudrun.yml` 会自动部署；「web」工作流用 `LIVE_API_URL` 在网页上显示按钮。
 
-免费 CPU 闲置会休眠，下次调用时启动（网页显示"正在唤醒服务器"）。
+试用期结束后：试用额度用完或到期（这个账号是 2027-01-03）时，如果不「升级」为付费账号，项目里的资源会被停止，演示服务器也会停。Cloud Run 的免费额度（Free Tier）在升级为付费账号后仍然有效，在额度内仍是 0 元；Google 不会自动升级，升级要自己在控制台操作。
+
+没人使用时实例数会降到 0，下次调用时再启动（网页会显示"正在等待服务器启动"）。
 
 ## 结构
 

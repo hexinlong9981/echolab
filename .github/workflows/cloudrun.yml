@@ -1,0 +1,61 @@
+name: cloudrun
+
+# 公開のデモサーバ（ADR-0013）を Google Cloud Run に出す。台本の LLM・実物の計算サービス、無料枠の範囲。
+# 鍵ファイルは使わず、Workload Identity 連携でデプロイ用のサービスアカウントになる（deploy/cloudrun/setup.sh が作る）。
+# 要るもの（リポジトリ変数。秘密の値は無い）：GCP_PROJECT_ID・GCP_REGION・GCP_WIF_PROVIDER・GCP_SERVICE_ACCOUNT。
+# どれかが無ければデプロイを飛ばす。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "config/**"
+      - "domains/**"
+      - "servers/**"
+      - "services/calc-engine/**"
+      - "evals/redteam/screenshots/**"
+      - "requirements.txt"
+      - "deploy/cloudrun/**"
+      - ".dockerignore"
+      - ".github/workflows/cloudrun.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity 連携の OIDC トークン
+
+concurrency:
+  group: cloudrun
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+      SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - name: Skip when Google Cloud is not configured
+        if: env.PROJECT_ID == '' || env.REGION == '' || env.WIF_PROVIDER == '' || env.SERVICE_ACCOUNT == ''
+        run: echo "::notice::GCP_PROJECT_ID / GCP_REGION / GCP_WIF_PROVIDER / GCP_SERVICE_ACCOUNT が未設定のため、デプロイを飛ばしました（deploy/cloudrun/setup.sh）"
+      - uses: actions/checkout@v4
+        if: env.PROJECT_ID != '' && env.REGION != '' && env.WIF_PROVIDER != '' && env.SERVICE_ACCOUNT != ''
+      - uses: google-github-actions/auth@v2
+        if: env.PROJECT_ID != '' && env.REGION != '' && env.WIF_PROVIDER != '' && env.SERVICE_ACCOUNT != ''
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: env.PROJECT_ID != '' && env.REGION != '' && env.WIF_PROVIDER != '' && env.SERVICE_ACCOUNT != ''
+      - name: Build, push and deploy
+        if: env.PROJECT_ID != '' && env.REGION != '' && env.WIF_PROVIDER != '' && env.SERVICE_ACCOUNT != ''
+        run: deploy/cloudrun/deploy.sh "${GITHUB_SHA::7}"
+      - name: Health check
+        if: env.PROJECT_ID != '' && env.REGION != '' && env.WIF_PROVIDER != '' && env.SERVICE_ACCOUNT != ''
+        run: |
+          URL="$(gcloud run services describe echolab-demo --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"
+          curl -fsS --retry 5 --retry-delay 10 "$URL/api/health"

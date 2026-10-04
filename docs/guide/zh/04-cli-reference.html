@@ -266,8 +266,8 @@ python -m servers.web_api                        # 只监听 127.0.0.1 → http:
     </table>
     <p>选项：<code>--port</code>（默认 <code>8765</code>）。这个服务只在本机使用，不要对外公开。公开的回放网站是 CI 生成的静态文件（Cloudflare（Workers 的静态资源，原 Pages）：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>）。详见仓库的 <code>web/README.zh-CN.md</code>。</p>
     <h3>--public（公开的演示服务器，M7）</h3>
-<pre><code>python -m servers.web_api --public [--host 0.0.0.0] [--port 7860]</code></pre>
-    <p>作为公开的演示服务器运行（ADR-0013）：只能运行固定的演示，用<strong>真实计算服务</strong>和<strong>剧本 LLM</strong>；始终拒绝真实 Claude。同时 1 个、每个来源每分钟 6 次・每天 60 次，只对允许的网站（公开的回放网站）返回 CORS。提供 <code>GET /api/health</code> 和 <code>POST /api/ask {"demo": "&lt;演示 ID&gt;"}</code>。平时由 Hugging Face Spaces 上的 Docker 镜像（<code>deploy/hf/Dockerfile</code>）运行，网页回放下方的「在服务器上实际运行」会调用它。</p>
+<pre><code>python -m servers.web_api --public [--host 0.0.0.0] [--port 8080]</code></pre>
+    <p>作为公开的演示服务器运行（ADR-0013）：只能运行固定的演示，用<strong>真实计算服务</strong>和<strong>剧本 LLM</strong>；始终拒绝真实 Claude。同时 1 个、每个来源每分钟 6 次・每天 60 次，只对允许的网站（公开的回放网站）返回 CORS。提供 <code>GET /api/health</code> 和 <code>POST /api/ask {"demo": "&lt;演示 ID&gt;"}</code>。端口不指定时用环境变量 <code>PORT</code>，没有就用 8080。平时由 Google Cloud Run 上的 Docker 镜像（<code>deploy/cloudrun/Dockerfile</code>）运行，网页回放下方的「在服务器上实际运行」会调用它。</p>
 
     <h2>环境变量</h2>
     <table>

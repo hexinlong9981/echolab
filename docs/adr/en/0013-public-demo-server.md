@@ -49,3 +49,21 @@ The core does not change (the public mode lives only in `servers/web_api/public.
 - The free CPU sleeps when unused and starts on the next call (the UI shows "waking the server up"). In local Docker: about 7 s to start, 2.5–10 s per demo (including JVM start-up).
 - To publish, the user creates a Hugging Face account, a Space and a write token, and registers `HF_TOKEN`, `HF_SPACE` and `LIVE_API_URL` (`web/README.en.md`).
 - Tests: `tests/test_web_api.py` (refusing non-scripted runs, CORS and preflight, rate and queue limits, no paths in responses), `web/src/liveApi.test.ts`.
+
+## Addendum (2026-10-04): hosting moves to Google Cloud Run
+
+Since around July 2026, creating a new Docker (or Gradio) Space on Hugging Face requires a paid plan (only Static Spaces stay free).
+So the server moves to **Google Cloud Run**. The user accepted registering a credit card (identity check only; nothing is charged within the free tier).
+
+| Item | Decision |
+|---|---|
+| Hosting | Google Cloud Run (`us-central1`). Free tier per month: 180,000 vCPU-seconds, 360,000 GiB-seconds, 2 million requests, 1 GB of outbound transfer from North America |
+| Cost controls | Min 0 / max 1 instance, CPU only while handling requests, 1 vCPU, 1 GiB, 120 s per request. Up to 4 concurrent requests are accepted (the server still runs one at a time, with the same rate limits) |
+| Image storage | Artifact Registry (0.5 GB free). The image is about 170 MB compressed; a cleanup policy keeps only the latest one |
+| Deployment | `.github/workflows/cloudrun.yml` with keyless Workload Identity Federation (only from `main` of `hexinlong9981/echolab`). One-time setup: `deploy/cloudrun/setup.sh` |
+| Monitoring | A 1 USD budget alert (150 JPY for a yen billing account; counted before trial credits; email at 50%, 90%, 100%) |
+
+- Measured locally under a 1 GiB limit: ready in about 6 s, 2.5–17 s per run (demos that start Java are slower), peak memory about 310 MiB.
+- Against the free tier: a Java demo uses about 15 vCPU-seconds, so it stays free below roughly 10,000 runs a month. The per-client limit (60 a day) and the one-instance cap keep it well below that.
+- The client IP is taken from the last entry of `X-Forwarded-For` (added by Cloud Run's front end); earlier entries can be forged by the client.
+- Rejected (checked on 2026-10-04): Hugging Face Spaces (Docker now paid), Render free (512 MB is not enough), Koyeb (no free tier for new users), Fly.io and Railway (no free tier, card required), Oracle Cloud Always Free (card required, idle VMs may be reclaimed), Cloudflare Containers (paid plan only).

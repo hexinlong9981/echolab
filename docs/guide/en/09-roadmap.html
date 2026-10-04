@@ -23,7 +23,7 @@
     <h1>Roadmap</h1>
     <p class="lead">EchoLab is developed in milestones (M1–M7). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout"><strong>Status: M1–M7 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) and the public demo server (M7, public once Hugging Face is set up) are all implemented. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key). The Mushoku Tensei data has been checked by the author against the original works. The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
+    <div class="callout"><strong>Status: M1–M7 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) and the public demo server (M7, public once Google Cloud is set up) are all implemented. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key). The Mushoku Tensei data has been checked by the author against the original works. The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -34,7 +34,7 @@
       <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (live)</span></td></tr>
       <tr><td>M6</td><td>A third domain pack: <i>Mushoku Tensei</i> lore — spoiler-filtered lookups, timeline calculations, routes on a home-made map</td><td><span class="badge done">Done (data checked by the author)</span></td></tr>
-<tr><td>M7</td><td>Public demo server (Hugging Face Spaces, zero cost): runs the fixed demos live with the real calc services and the scripted LLM</td><td><span class="badge done">Implemented (published after Hugging Face is set up)</span></td></tr>
+<tr><td>M7</td><td>Public demo server (Google Cloud Run free tier, zero cost): runs the fixed demos live with the real calc services and the scripted LLM</td><td><span class="badge done">Implemented (published after Google Cloud is set up)</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -78,7 +78,7 @@ flowchart LR
       {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done"}, "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
       {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done"}, "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."},
       {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "Done"}, "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. Claude drafted the data and the author checked every item against the original works."},
-      {"on": ["m7", "a6"], "done": ["m1", "m2", "m3", "m4", "m5", "m6"], "packet": {"at": "m7", "text": "Implemented · now"}, "text": "<b>M7: Public demo server.</b> Below a demo's replay on the web there is a “Run on the server” button. A free Hugging Face Spaces server runs the demo live with the real Java calc service, OCR, Mushoku Tensei and mortgage services. The AI is still scripted and real Claude is not used, so it costs nothing; free questions are not possible."}
+      {"on": ["m7", "a6"], "done": ["m1", "m2", "m3", "m4", "m5", "m6"], "packet": {"at": "m7", "text": "Implemented · now"}, "text": "<b>M7: Public demo server.</b> Below a demo's replay on the web there is a “Run on the server” button. A server within Google Cloud Run's free tier runs the demo live with the real Java calc service, OCR, Mushoku Tensei and mortgage services. The AI is still scripted and real Claude is not used, so it costs nothing; free questions are not possible."}
     ]</script>
     </div>
 
@@ -172,10 +172,10 @@ flowchart LR
     <ul>
       <li>Open the replay of a <strong>demo</strong> on the web and press "Run on the server" below it. The server calculates with the real Java calc-engine, OCR (Tesseract), Mushoku Tensei and mortgage services, and the result appears in the same flow diagram, labeled as a record just run on the server.</li>
       <li>The AI is still <strong>scripted</strong>: no real Claude and no API key on the server, so no cost. That also means no free questions; only the fixed demos run.</li>
-      <li>The server runs on Hugging Face Spaces' free CPU. It sleeps when unused, so the first click may take about a minute to wake it.</li>
+      <li>The server runs within Google Cloud Run's free tier and scales to zero instances when unused, so the first click waits a few seconds to start it.</li>
       <li>To keep it available: one run at a time, 6 runs per minute and 60 per day per client.</li>
     </ul>
-    <div class="callout warn"><strong>Note</strong>The server goes public after the author sets up the Hugging Face account; until then the button does not appear on the web.</div>
+    <div class="callout warn"><strong>Note</strong>The server goes public after the author sets up the Google Cloud project; until then the button does not appear on the web.</div>
 
 <h2>What will not change</h2>
     <p>New domains, screenshot input and the web interface would all go through the same core flow. So for you, the following guarantees stay in place:</p>
