@@ -148,7 +148,7 @@ cd ../..</code></pre>
         {"out": "\"error\": \"gacha_probability_within: rules と banner のどちらか一方だけを指定してください\"", "cls": "hl"}
       ]</script>
     </div>
-    <p class="lead" style="font-size:14px">（<code>my-toolerr.yaml</code> 是复现用的台本，内容取自评估用例 <code>tool-error-recovery</code>。）</p>
+    <p class="lead" style="font-size:14px">（<code>my-toolerr.yaml</code> 是复现用的台本，内容取自评估用例 <a href="https://echolab-web.echolab-web.workers.dev/?lang=zh#replay/faithfulness-tool-error-recovery"><code>tool-error-recovery</code></a>。）</p>
     <p>参数不满足工具的输入规格（JSON Schema）时，网关在调用工具之前就把错误交回 AI，信息是日语并带字段路径，例如 <code>入力が不正です: pulls: 20000 は最大値 10000 より大きい値です</code>、<code>入力が不正です: (全体): 必須の項目がありません: pulls</code>。</p>
     <p><strong>怎么看出来</strong>：出典 ID 是 <code>c2.probability</code> 而不是 <code>c1…</code>——第 1 次调用（<code>c1</code>）失败了。<strong>你需要做什么</strong>：通常什么都不用做。如果用真实 Claude 时反复出现工具错误、最终没有得到回答，请在问题里把计算所需的条件写全（例如抽卡规则的基础概率、软保底、硬保底等，或明确说用示例卡池）。</p>
 
@@ -169,7 +169,7 @@ cd ../..</code></pre>
         {"out": "\"template\": \"確率は約 73% です（[[c1.probability|%1]]）。\"", "cls": "hl"}
       ]</script>
     </div>
-    <p class="lead" style="font-size:14px">（<code>my-fallback.yaml</code> 是复现用的台本，内容取自评估用例 <code>never-corrected</code>。）</p>
+    <p class="lead" style="font-size:14px">（<code>my-fallback.yaml</code> 是复现用的台本，内容取自评估用例 <a href="https://echolab-web.echolab-web.workers.dev/?lang=zh#replay/mortgage-never-corrected"><code>never-corrected</code></a>。）</p>
     <p><strong>原因</strong>：AI 的三版草稿都直接写了数字（<code>73.4%</code>、<code>0.734</code>、<code>73%</code>），而不是用占位符引用工具结果。校验器每次都给出类似这样的意见（轨迹的 <code>verdict</code> 事件的 <code>problems</code>）：</p>
     <pre><code>数値「73.4%」の出典がありません。ツールの結果は [[出典ID]] で引用し、差や比は比較ツールで計算してください（質問にある数値の引用は可）。</code></pre>
     <p>退回 3 次后，EchoLab 宁可不给数字，也不给可能错误的数字。<strong>解决</strong>：按提示把条件写得更具体后重新提问；问题里写过的数字，回答可以原样引用。</p>

@@ -244,7 +244,7 @@ stateDiagram-v2
         {"out": "0"}
       ]</script>
     </div>
-    <p>The report in English: the title is "Eval report: numeric faithfulness", followed by the date (UTC), the LLM mode and the case file (1 case). Under <strong>指標</strong> (metrics): faithfulness (share of answers with no unsourced numbers) 1.000; rejection rate (rejected drafts / drafts) 1.000 (3 / 3); passed cases 1 / 1; total cost (USD) 0.000000. Under <strong>ケースごとの結果</strong> (per-case results), the <code>never-corrected</code> row reads "if rejections do not fix the draft, fall back to an answer without numbers", with status fallback and the verdict 合格 (passed).</p>
+    <p>The report in English: the title is "Eval report: numeric faithfulness", followed by the date (UTC), the LLM mode and the case file (1 case). Under <strong>指標</strong> (metrics): faithfulness (share of answers with no unsourced numbers) 1.000; rejection rate (rejected drafts / drafts) 1.000 (3 / 3); passed cases 1 / 1; total cost (USD) 0.000000. Under <strong>ケースごとの結果</strong> (per-case results), the <a href="https://echolab-web.echolab-web.workers.dev/?lang=en#replay/mortgage-never-corrected"><code>never-corrected</code></a> row reads "if rejections do not fix the draft, fall back to an answer without numbers", with status fallback and the verdict 合格 (passed).</p>
     <p>Exit codes: 0 when every case passes, 1 when any case fails, and 2 for usage errors such as a misspelled <code>--case</code> ID:</p>
     <div class="term" data-title="bash — misspelled case ID">
       <script type="application/json">[

@@ -197,3 +197,7 @@ nav.side ul[hidden] { display: none; }
   :root:not([data-theme="light"]) { --nav-group-bg: #262a30; --nav-group-hover: #2e333a; --nav-group-open: #323843; --nav-group-text: #c3cad3; }
 }
 :root[data-theme="dark"] { --nav-group-bg: #262a30; --nav-group-hover: #2e333a; --nav-group-open: #323843; --nav-group-text: #c3cad3; }
+
+/* 評価ケースの説明（ケースごとに内容・用意・結果・評価を縦に並べる） */
+table.case-notes th { text-align: left; }
+table.case-notes td:first-child { width: 5.5em; white-space: nowrap; color: var(--muted, #656d76); font-weight: 600; vertical-align: top; }
