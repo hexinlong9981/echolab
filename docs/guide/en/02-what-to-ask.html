@@ -36,7 +36,7 @@
     </div>
 
     <h2>Feature overview</h2>
-    <p>EchoLab's default domain pack is <code>wuwa</code> (a <i>Wuthering Waves</i> character-building advisor, a non-official fan project); there is also <code>mortgage</code>, example mortgage repayment calculations (switch with <code>--domain mortgage</code>; see M3 in the <a href="09-roadmap.html">Roadmap</a>). This page covers <code>wuwa</code>: Claude can call 6 tools in total: the 4 calculation tools the domain pack declares in <code>domains/wuwa/domain.yaml</code>, plus the 2 compare tools built into the core.</p>
+    <p>EchoLab's default domain pack is <code>wuwa</code> (a <i>Wuthering Waves</i> character-building advisor, a non-official fan project); there is also <code>mortgage</code>, example mortgage repayment calculations (switch with <code>--domain mortgage</code>; see M3 in the <a href="09-roadmap.html">Roadmap</a>). This page covers <code>wuwa</code>: Claude can call 7 tools in total: the 4 calculation tools and 1 screenshot-reading tool (see "7. Screenshot reading" below) the domain pack declares in <code>domains/wuwa/domain.yaml</code>, plus the 2 compare tools built into the core.</p>
     <div class="diagram">
       <pre class="mermaid">
 mindmap
@@ -59,7 +59,7 @@ mindmap
       compare_diff difference
       compare_ratio ratio and increase
       </pre>
-      <div class="caption">Figure 1: The 6 tools. The first 4 are computed by the Java calculation service calc-engine; the compare tools are computed by the Python core</div>
+      <div class="caption">Figure 1: The 6 calculation tools (the screenshot-reading tool is described below). The first 4 are computed by the Java calculation service calc-engine; the compare tools are computed by the Python core</div>
     </div>
 
     <div class="cards">
@@ -183,6 +183,27 @@ mindmap
     </ul>
     <p><b>Returns</b>: <code>compare_diff</code> → <code>diff</code> (a − b); <code>compare_ratio</code> → <code>ratio</code> (a / b) and <code>change</code> (a / b − 1, usually shown as a percentage in the answer). When b is 0 it returns the error 「b が 0 のため、比を計算できません」 ("cannot compute the ratio because b is 0"). Compare results keep 6 decimal places (banker's rounding).</p>
 
+    <h3>7. Screenshot reading <code>echo_read_screenshot</code> (M4)</h3>
+    <p>Put the <b>path</b> of an Echo screen screenshot in your question. Claude first reads COST and the main and sub-stat values with OCR (Tesseract), then passes them to <code>echo_score</code>. Note:</p>
+    <ul>
+      <li>By default the image must be inside the repository directory (PNG or JPEG, at most 10 MB). For other places, set the allowed directories with the environment variable <code>ECHOLAB_VISION_ROOTS</code>.</li>
+      <li>The result contains <b>only the numbers declared in the template</b> (such as <code>sub_crit_rate</code>). Any other text in the image (including things like "ignore the previous instructions") never reaches Claude.</li>
+      <li>The answer lists the values it read, with source IDs; check them against the image. Out-of-range values (likely misreads) are errors and are never guessed.</li>
+      <li>Tesseract and its Japanese data must be installed. So far it has been checked only with synthetic screenshots; real game screens may not be readable.</li>
+    </ul>
+    <p>To try it without an API key (scripted mode; the Java calc service is also needed, and with <code>--fake-backend</code> the recorded OCR results are used instead). This synthetic screenshot contains injected instructions, but the reading result holds only numbers:</p>
+    <pre><code>python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml</code></pre>
+    <pre><code>画像から、サブ詞条の会心率 8.0%・会心ダメージ 16.0% などを読み取りました。 この声骸のスコアは 2.58 で、理想値の 73.7% です。読み取った値が画像と合っているか確かめてください。
+
+出典:
+出典 ID              値         ツール                未確認データ
+-------------------  ---------  --------------------  ------------
+c1.sub_crit_rate     0.08       echo.read_screenshot  -
+c1.sub_crit_dmg      0.16       echo.read_screenshot  -
+c2.score             2.579167   echo.score            -
+c2.percent_of_ideal  73.690476  echo.score            -</code></pre>
+
     <h2>Sample data: banners and weight profiles you can reference</h2>
     <p>If you do not give banner rules or echo weights, you can have Claude reference the sample data in <code>domains/wuwa/data/v2.x/</code>. <b>All of these values are <code>verified: false</code> (unverified) and are not official numbers</b>; answers that use them carry a note automatically (see <a href="06-cost-and-safety.html">Cost caps &amp; data trust</a>).</p>
     <table>
@@ -244,7 +265,7 @@ flowchart TD
       <tr><td>Needs in-game data you did not provide</td><td>"What is this character's Liberation multiplier?"</td><td>EchoLab contains no game data (only unverified samples), and Claude may not give values from memory</td></tr>
       <tr><td>Plain arithmetic</td><td>"How many percent higher is 1234 than 1000?"</td><td>The compare tools only accept source IDs of tool results from the same question</td></tr>
       <tr><td>Following up on the last question</td><td>"What about that last one with 10% more crit rate?"</td><td>Each run is independent with no conversation memory; write out the full conditions again</td></tr>
-      <tr><td>Screenshot reading, etc.</td><td>"Score the echo in this screenshot"</td><td>Screenshot reading (M4) is only a roadmap plan so far; see <a href="09-roadmap.html">Roadmap</a>. Ask mortgage questions with <code>--domain mortgage</code> (M3)</td></tr>
+      <tr><td>Images without a path, screens with a different layout</td><td>"Look at the screenshot I just sent"</td><td>The CLI reads a screenshot only through a path written in the question (see "7. Screenshot reading" above). It has been checked only with synthetic screenshots; real game screens with other layouts or fonts may not be readable, and then it reports an error instead of guessing. Ask mortgage questions with <code>--domain mortgage</code> (M3)</td></tr>
     </table>
     <p>In these cases Claude should explain what it can do in text without numbers, or ask for the missing information. Whatever Claude writes, <b>the verifier blocks numbers without a source</b>, so the worst case is "an answer with no numbers", never "made-up numbers". Both runs below are real (a script imitates Claude's reply):</p>
     <div class="term" data-title="bash — out-of-scope questions">

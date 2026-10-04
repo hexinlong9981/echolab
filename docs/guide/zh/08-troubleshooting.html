@@ -190,6 +190,19 @@ cd ../..</code></pre>
       </tbody>
     </table>
 
+    <h2>⑧ 截图读取（OCR）的错误</h2>
+    <p>截图读取工具 <code>echo_read_screenshot</code>（M4）出错时，不会让程序停下，而是作为工具错误交给 Claude（与 ⑤ 相同）。Claude 会在回答里转述，原文可以在执行轨迹的 <code>tool_result</code> 里看到。读取有问题时，系统不会猜测数值。</p>
+    <table>
+      <thead><tr><th>错误（轨迹中的原文）</th><th>原因</th><th>解决</th></tr></thead>
+      <tbody>
+        <tr><td><code>OCR の実行ファイル tesseract が見つかりません。Tesseract と日本語のデータを入れてください…</code></td><td>没有安装 Tesseract，或 <code>PATH</code> 里找不到</td><td><code>sudo dnf install tesseract tesseract-langpack-jpn</code>（Ubuntu：<code>sudo apt-get install tesseract-ocr tesseract-ocr-jpn</code>）；装在别处时用 <code>ECHOLAB_TESSERACT</code> 指定</td></tr>
+        <tr><td><code>このパスの画像は読めません（読める場所: …。環境変数 ECHOLAB_VISION_ROOTS で変えられます）</code></td><td>图片不在允许的目录里（默认只有仓库目录）</td><td>把图片移到仓库里，或设置 <code>ECHOLAB_VISION_ROOTS=/path/to/pictures</code>（多个目录用 <code>:</code> 分隔）</td></tr>
+        <tr><td><code>PNG か JPEG の画像を指定してください</code> / <code>画像が見つかりません: …</code></td><td>不是 PNG・JPEG，或路径写错</td><td>确认扩展名和路径（相对路径以仓库根目录为基准）</td></tr>
+        <tr><td><code>sub_crit_dmg の値 500.0% が範囲の外です（読み違いの疑い）。画像を確かめてください</code></td><td>读到的值超出模板规定的范围，可能是 OCR 误读</td><td>换一张更清晰的截图，或直接在问题里用文字写出数值</td></tr>
+        <tr><td><code>テンプレートに合う項目を 1 つも読めませんでした。対象の画面か確かめてください</code></td><td>不是声骸画面，或布局・字体不同，一行也对不上模板</td><td>确认是声骸画面；读不出时用文字写出数值（目前只用合成截图验证过）</td></tr>
+      </tbody>
+    </table>
+
     <h2>FAQ</h2>
     <details><summary>为什么它不回答工具范围以外的问题（比如角色强度排行）？</summary>
       <p>EchoLab 的设计原则是「数字只来自工具」。现在的工具只有：期望伤害（<code>damage.expected</code>）、声骸评分（<code>echo.score</code>）、抽卡概率（<code>gacha.probability_within</code>、<code>gacha.simulate</code>）和比较（<code>compare.diff</code>、<code>compare.ratio</code>）。没有工具能算出的数字，回答里就不能出现——出现了会被校验器退回，最终以 <code>fallback</code> 结束。网关也只允许 <code>domain.yaml</code> 中声明过的工具被调用。详见 <a href="02-what-to-ask.html">能问什么：功能一览</a>。</p>

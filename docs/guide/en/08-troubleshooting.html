@@ -194,6 +194,19 @@ cd ../..</code></pre>
       </tbody>
     </table>
 
+    <h2>⑧ Screenshot reading (OCR) errors</h2>
+    <p>When the screenshot-reading tool <code>echo_read_screenshot</code> (M4) fails, the program does not stop; the error goes to Claude as a tool error (as in ⑤). Claude relays it in the answer, and the original message is in the <code>tool_result</code> of the execution trace. When reading has a problem, the system never guesses values.</p>
+    <table>
+      <thead><tr><th>Error (original text in the trace)</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>OCR の実行ファイル tesseract が見つかりません。Tesseract と日本語のデータを入れてください…</code><br>("the OCR executable tesseract was not found; install Tesseract and its Japanese data")</td><td>Tesseract is not installed, or not on <code>PATH</code></td><td><code>sudo dnf install tesseract tesseract-langpack-jpn</code> (Ubuntu: <code>sudo apt-get install tesseract-ocr tesseract-ocr-jpn</code>); if it is installed elsewhere, set <code>ECHOLAB_TESSERACT</code></td></tr>
+        <tr><td><code>このパスの画像は読めません（読める場所: …。環境変数 ECHOLAB_VISION_ROOTS で変えられます）</code><br>("images at this path cannot be read")</td><td>The image is outside the allowed directories (by default only the repository directory)</td><td>Move the image into the repository, or set <code>ECHOLAB_VISION_ROOTS=/path/to/pictures</code> (separate several directories with <code>:</code>)</td></tr>
+        <tr><td><code>PNG か JPEG の画像を指定してください</code> / <code>画像が見つかりません: …</code><br>("give a PNG or JPEG image" / "image not found")</td><td>Not a PNG or JPEG, or a wrong path</td><td>Check the extension and the path (relative paths are from the repository root)</td></tr>
+        <tr><td><code>sub_crit_dmg の値 500.0% が範囲の外です（読み違いの疑い）。画像を確かめてください</code><br>("the value is out of range; likely a misread")</td><td>A value read is outside the range set in the template, probably an OCR misread</td><td>Use a clearer screenshot, or write the values as text in the question</td></tr>
+        <tr><td><code>テンプレートに合う項目を 1 つも読めませんでした。対象の画面か確かめてください</code><br>("no field matching the template could be read")</td><td>Not an Echo screen, or a different layout or font, so no line matches the template</td><td>Make sure it is an Echo screen; if it still cannot be read, write the values as text (so far only synthetic screenshots have been checked)</td></tr>
+      </tbody>
+    </table>
+
     <h2>FAQ</h2>
     <details><summary>Why doesn't it answer questions outside the tools' scope (such as character tier lists)?</summary>
       <p>EchoLab's design principle is that numbers only come from tools. The current tools are: expected damage (<code>damage.expected</code>), Echo score (<code>echo.score</code>), gacha probability (<code>gacha.probability_within</code>, <code>gacha.simulate</code>) and comparison (<code>compare.diff</code>, <code>compare.ratio</code>). A number that no tool can calculate cannot appear in an answer; if it does, the verifier rejects the draft and the run ends with <code>fallback</code>. The gateway also only allows calls to tools declared in <code>domain.yaml</code>. See <a href="02-what-to-ask.html">What you can ask</a>.</p>

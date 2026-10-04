@@ -23,7 +23,7 @@
     <h1>今后的功能（路线图）</h1>
     <p class="lead">EchoLab 按阶段（M1～M5）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理今后的计划，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout warn"><strong>请注意：本页 M4～M5 的内容全部是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。M3 的住宅贷款领域包已经可以用 <code>--domain mortgage</code> 运行；网页界面（Web UI）、截图识别都<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
+    <div class="callout warn"><strong>请注意：本页只有 M5 还是计划，还没有实现</strong>现在能用的只有命令行（CLI）：<code>python -m core.agent "问题"</code> 和评估命令 <code>python -m core.evals</code>。M3 的住宅贷款领域包可以用 <code>--domain mortgage</code> 运行，M4 的截图读取（OCR）也已可用；网页界面（Web UI）<strong>还不存在</strong>。文档中也没有公布具体日期，计划的细节可能会变化。</div>
 
     <h2>阶段一览</h2>
     <table>
@@ -31,7 +31,7 @@
       <tr><td>M1</td><td>计算引擎 calc-engine（Java）、黄金测试用例、CI</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M2</td><td>CLI 打通全流程：提问 → 网关（白名单・格式・成本上限）→ calc-engine → 验证器・比较工具 → 带出典的答案；忠实度评估、执行轨迹</td><td><span class="badge done">已完成（本说明书主要介绍的就是它）</span></td></tr>
       <tr><td>M3</td><td>第二个领域包：住宅贷款还款的计算示例（最小示例），并在 CI 中证明核心零改动</td><td><span class="badge done">已完成</span></td></tr>
-      <tr><td>M4</td><td>截图读取、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge plan">计划</span></td></tr>
+      <tr><td>M4</td><td>截图读取（OCR）、提示词注入的评估题、评估流程放进 CI</td><td><span class="badge done">已完成</span></td></tr>
       <tr><td>M5</td><td>Web UI、轨迹回放、评估看板、公开演示</td><td><span class="badge plan">计划</span></td></tr>
     </table>
 
@@ -42,11 +42,11 @@ flowchart LR
   M2 --> M3["M3 住宅贷款领域包<br/>证明核心零改动"]
   M3 --> M4["M4 截图读取<br/>注入评估・CI 评估"]
   M4 --> M5["M5 Web UI<br/>轨迹回放・评估看板"]
-  NOW(["现在在这里"]) -.-> M3
+  NOW(["现在在这里"]) -.-> M4
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3 done
-  class M4,M5 plan
+  class M1,M2,M3,M4 done
+  class M5 plan
       </pre>
       <div class="caption">图 1：开发阶段时间线（实线绿色＝已完成，虚线黄色＝计划；先打通一条完整流程，再横向扩展）</div>
     </div>
@@ -60,7 +60,7 @@ flowchart LR
         <div class="arrow" data-id="a2">→</div>
         <div class="node" data-id="m3">M3<small>住宅贷款</small></div>
         <div class="arrow" data-id="a3">→</div>
-        <div class="node plan" data-id="m4">M4<small>截图・注入</small></div>
+        <div class="node" data-id="m4">M4<small>截图・注入</small></div>
         <div class="arrow" data-id="a4">→</div>
         <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
       </div>
@@ -69,11 +69,11 @@ flowchart LR
          "text": "<b>M1：计算引擎。</b>用 Java 21 写的确定性计算库（期待伤害、声骸评分、抽卡概率），每个工具都有手算或公式推导的黄金测试用例来核对。"},
         {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "已完成"},
          "text": "<b>M2：CLI 全流程。</b>计算引擎作为 MCP 服务接入；网关、出典 ID、验证器、比较工具、成本上限、执行轨迹、忠实度评估都已可用。"},
-        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "已完成 · 现在"},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "已完成"},
          "text": "<b>M3：住宅贷款领域包。</b>新增第二个领域包，计算等额本息与等额本金的比较、提前还款的效果。核心代码一行没改就加了进来，CI 每次都检查这一点。<strong>只是计算示例，不是金融建议。</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "计划"},
-         "text": "<b>M4（计划）：截图读取与注入评估。</b>把游戏截图读成结构化数据（带格式校验）；新增“提示词注入”评估题（使用合成截图，不用游戏原图），并把评估放进 CI。"},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3"], "packet": {"at": "m5", "text": "计划"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "已完成 · 现在"},
+         "text": "<b>M4：截图读取与注入评估。</b>用 OCR（Tesseract）读取声骸截图，只返回模板里声明的数值，图片里的文字传不到 Claude；新增 7 个“提示词注入”评估题（使用合成截图，不用游戏原图），在 CI 中每次运行，没有一个攻击成功。"},
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "计划"},
          "text": "<b>M5（计划）：Web UI。</b>在网页上对话、回放执行轨迹（流程图形式）、查看评估看板，并公开演示。届时本说明书第 5、7 页的动画所展示的内容，可以在界面里直接看到。"}
       ]</script>
     </div>
@@ -89,14 +89,17 @@ flowchart LR
     <pre><code>python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
   --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml</code></pre>
 
-    <h2>M4（计划）：截图读取与注入评估</h2>
+    <h2>M4（已完成）：截图读取与注入评估</h2>
     <table>
-      <tr><th>计划的部分</th><th>作用</th></tr>
-      <tr><td><code>servers/vision_mcp/</code></td><td>把截图转换成结构化 JSON（带格式校验，Python）。例如从声骸的截图读出属性，省去手动输入</td></tr>
-      <tr><td><code>evals/redteam/</code></td><td>提示词注入的评估题：图片或文字里藏着“忽略之前的指示”之类的内容时，EchoLab 不能照做。使用合成的截图，不使用游戏图片</td></tr>
-      <tr><td>CI 中的评估</td><td>把评估流程加入 CI（README：台本模式在 CI 中运行；真实 Claude 仍在本地手动运行）</td></tr>
+      <tr><th>部分</th><th>作用</th></tr>
+      <tr><td><code>servers/vision_mcp/</code></td><td>用 OCR（Tesseract）读取截图的 MCP 服务器（Python，与领域无关）。读什么由领域包的模板（<code>domains/wuwa/vision/echo_screenshot.yaml</code>）决定，<strong>只返回模板里声明的数值字段</strong>（如 <code>sub_crit_rate</code>）。图片里的其他文字一律丢弃，传不到 Claude。超出范围的值（疑似误读）报错，不会被猜测补全</td></tr>
+      <tr><td>图片路径的限制</td><td>只能读 <code>ECHOLAB_VISION_ROOTS</code>（默认是仓库目录）里的 PNG・JPEG，不超过 10 MB。<code>/etc/passwd</code> 之类的路径会被拒绝</td></tr>
+      <tr><td><code>evals/redteam/</code></td><td>7 个提示词注入的评估题：用剧本模拟“Claude 被骗了”的情况（照着图片写数字、调用未声明的工具、读允许范围外的文件……），确认读取・网关・验证器仍然拦得住。使用合成的截图，不使用游戏图片。在 CI 中每次运行：7/7 通过，没有一个攻击成功</td></tr>
     </table>
-    <p>EchoLab 现在已经把外部传来的文字（工具结果、用户输入）当作<strong>数据</strong>而不是指令处理；M4 会用专门的评估题来衡量这一点。</p>
+    <p>使用前需要安装 Tesseract 和日语数据（例：<code>sudo dnf install tesseract tesseract-langpack-jpn</code>，或 <code>sudo apt-get install tesseract-ocr tesseract-ocr-jpn</code>）。截图的路径直接写在问题里。不需要 API 密钥的试用方法（还需要 Java 计算服务；加 <code>--fake-backend</code> 则改用记录好的 OCR 结果）：</p>
+    <pre><code>python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml</code></pre>
+    <p>尚未做的：用真实 Claude 跑注入评估（只在本地手动运行，需要 API 密钥）。</p>
 
     <h2>M5（计划）：Web UI 与轨迹回放</h2>
     <p>计划在 <code>web/</code> 目录用 React + TypeScript 做网页界面，用 Vite 构建成静态文件放到 Cloudflare Pages。计划的功能：</p>

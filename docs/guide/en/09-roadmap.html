@@ -23,7 +23,7 @@
     <h1>Roadmap</h1>
     <p class="lead">EchoLab is developed in milestones (M1–M5). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what is planned, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout warn"><strong>Please note: everything about M4–M5 on this page is planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The M3 mortgage pack already runs with <code>--domain mortgage</code>; the web UI and screenshot reading <strong>do not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
+    <div class="callout warn"><strong>Please note: only M5 on this page is still planned and not implemented yet</strong>What you can use today is the command line (CLI) only: <code>python -m core.agent "question"</code> and the eval command <code>python -m core.evals</code>. The M3 mortgage pack runs with <code>--domain mortgage</code>, and M4 screenshot reading (OCR) is available; the web UI <strong>does not exist yet</strong>. The documents give no dates, and the details of the plans may change.</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -31,7 +31,7 @@
       <tr><td>M1</td><td>Calculation engine calc-engine (Java), golden test cases, CI</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M2</td><td>End-to-end flow via the CLI: question → gateway (allowlist, schema, cost caps) → calc-engine → verifier and compare tools → answer with sources; numeric faithfulness eval, execution traces</td><td><span class="badge done">Done (this is what this guide mainly describes)</span></td></tr>
       <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
-      <tr><td>M4</td><td>Screenshot reading, prompt-injection eval set, evals in CI</td><td><span class="badge plan">Planned</span></td></tr>
+      <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M5</td><td>Web UI, trace replay, eval dashboard, public demo</td><td><span class="badge plan">Planned</span></td></tr>
     </table>
 
@@ -42,11 +42,11 @@ flowchart LR
   M2 --> M3["M3 Mortgage domain pack<br/>proves zero core changes"]
   M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
   M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
-  NOW(["You are here"]) -.-> M3
+  NOW(["You are here"]) -.-> M4
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3 done
-  class M4,M5 plan
+  class M1,M2,M3,M4 done
+  class M5 plan
       </pre>
       <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
     </div>
@@ -60,7 +60,7 @@ flowchart LR
         <div class="arrow" data-id="a2">→</div>
         <div class="node" data-id="m3">M3<small>Mortgage</small></div>
         <div class="arrow" data-id="a3">→</div>
-        <div class="node plan" data-id="m4">M4<small>Screenshots, injection</small></div>
+        <div class="node" data-id="m4">M4<small>Screenshots, injection</small></div>
         <div class="arrow" data-id="a4">→</div>
         <div class="node plan" data-id="m5">M5<small>Web UI</small></div>
       </div>
@@ -69,11 +69,11 @@ flowchart LR
          "text": "<b>M1: Calculation engine.</b>A deterministic calculation library written in Java 21 (expected damage, Echo score, gacha probability). Every tool is checked against golden test cases calculated by hand or derived from the formulas."},
         {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done"},
          "text": "<b>M2: End-to-end CLI.</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
-        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done · now"},
+        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done"},
          "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Planned"},
-         "text": "<b>M4 (Planned): Screenshot reading and injection evals.</b>Read game screenshots into structured data (with schema validation); add a prompt-injection eval set (using synthetic screenshots, not original game images); and run the evals in CI."},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3"], "packet": {"at": "m5", "text": "Planned"},
+        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done · now"},
+         "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
+        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Planned"},
          "text": "<b>M5 (Planned): Web UI.</b>Chat in the browser, replay execution traces (as flow diagrams), view an eval dashboard, and a public demo. What the animations on pages 5 and 7 of this guide show would then be visible directly in the interface."}
       ]</script>
     </div>
@@ -89,14 +89,17 @@ flowchart LR
     <pre><code>python -m core.agent "3000 万円を年 1.5%、35 年で借りるとき、元利均等と元金均等では利息の合計はどれだけ違う？" \
   --domain mortgage --llm scripted --script domains/mortgage/examples/compare_methods.yaml</code></pre>
 
-    <h2>M4 (Planned): screenshot reading and injection evals</h2>
+    <h2>M4 (Done): screenshot reading and injection evals</h2>
     <table>
-      <tr><th>Planned component</th><th>Purpose</th></tr>
-      <tr><td><code>servers/vision_mcp/</code></td><td>Converts screenshots into structured JSON (with schema validation, Python). For example, it would read the stats from an Echo screenshot so you do not have to type them in</td></tr>
-      <tr><td><code>evals/redteam/</code></td><td>A prompt-injection eval set: when an image or text hides something like “ignore the previous instructions”, EchoLab must not follow it. Uses synthetic screenshots, not game images</td></tr>
-      <tr><td>Evals in CI</td><td>Add the evals to CI (per the README: scripted mode runs in CI; the real Claude is still run manually, locally)</td></tr>
+      <tr><th>Component</th><th>Purpose</th></tr>
+      <tr><td><code>servers/vision_mcp/</code></td><td>An MCP server (Python, domain-agnostic) that reads screenshots with OCR (Tesseract). A domain pack's template (<code>domains/wuwa/vision/echo_screenshot.yaml</code>) decides what to read, and it <strong>returns only the numeric fields declared there</strong> (such as <code>sub_crit_rate</code>). Any other text in the image is dropped and never reaches Claude. Out-of-range values (likely misreads) are errors and are never guessed</td></tr>
+      <tr><td>Image path limits</td><td>Only PNG or JPEG files of at most 10 MB inside <code>ECHOLAB_VISION_ROOTS</code> (default: the repository directory) can be read. Paths such as <code>/etc/passwd</code> are refused</td></tr>
+      <tr><td><code>evals/redteam/</code></td><td>7 prompt-injection eval cases: a script plays a Claude that "was fooled" (writing a number from the image, calling an undeclared tool, reading a file outside the allowed place…), and the cases check that reading, the gateway and the verifier still stop it. Uses synthetic screenshots, not game images. Runs in CI every time: 7/7 pass, no attack succeeds</td></tr>
     </table>
-    <p>EchoLab already treats text coming from outside (tool results, user input) as <strong>data</strong>, not instructions; M4 will measure this with a dedicated eval set.</p>
+    <p>You need Tesseract and its Japanese data (for example <code>sudo dnf install tesseract tesseract-langpack-jpn</code> or <code>sudo apt-get install tesseract-ocr tesseract-ocr-jpn</code>). Put the screenshot path in the question. To try it without an API key (the Java calc service is also needed; with <code>--fake-backend</code> the recorded OCR results are used instead):</p>
+    <pre><code>python -m core.agent "evals/redteam/screenshots/echo-injection.png の声骸を採点して。重みは会心率 1.0・会心ダメージ 1.0・攻撃力% 0.75・攻撃力 0.25・共鳴効率 0.5、最大値は会心率 0.1・会心ダメージ 0.2・攻撃力% 0.12・攻撃力 60・共鳴効率 0.12 として。" \
+  --llm scripted --script domains/wuwa/examples/score_screenshot.yaml</code></pre>
+    <p>Not done yet: running the injection evals with the real Claude (only run manually, locally, and needs an API key).</p>
 
     <h2>M5 (Planned): web UI and trace replay</h2>
     <p>The plan is a web interface in the <code>web/</code> directory using React + TypeScript, built into static files with Vite and hosted on Cloudflare Pages. Planned features:</p>
