@@ -1,0 +1,16 @@
+# deploy/hf/Dockerfile のビルド文脈（リポジトリ直下）から除くもの
+**/__pycache__
+**/*.pyc
+.venv/
+.git/
+.github/
+.echolab/
+.pytest_cache/
+.ruff_cache/
+web/
+docs/
+tests/
+evals/reports/
+**/build/
+**/.gradle/
+**/node_modules/

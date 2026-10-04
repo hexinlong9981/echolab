@@ -193,3 +193,172 @@ def test_domains_are_shown_in_the_preferred_order() -> None:
         "zzz",
     ]
     assert server.info()["domains"][:3] == ["wuwa", "mushoku", "mortgage"]
+
+
+# ---------------------------------------------------------------------------
+# 公開のデモサーバ（servers/web_api/public.py、ADR-0013）
+# ---------------------------------------------------------------------------
+
+from servers.web_api import public  # noqa: E402
+
+SITE = "https://echolab-web.echolab-web.workers.dev"
+
+
+@pytest.mark.parametrize(
+    ("body", "code"),
+    [
+        ({"llm": "anthropic", "question": "q", "domain": "wuwa"}, "llm_not_allowed"),
+        ({"demo": "demo-mortgage", "fake_backend": True}, "fake_not_allowed"),
+        ({"demo": "../../etc/passwd"}, "unknown_demo"),
+        ({}, "unknown_demo"),
+    ],
+)
+def test_public_mode_only_runs_known_demos_with_scripted_llm(body: dict, code: str) -> None:
+    with pytest.raises(public.PublicError) as e:
+        public.parse_public_ask(body)
+    assert e.value.code == code
+
+
+def test_public_mode_uses_real_services() -> None:
+    params = public.parse_public_ask({"demo": "demo-mortgage"})
+    assert params["llm_kind"] == "scripted" and params["fake_backend"] is False
+
+
+def test_rate_limiter_per_minute_and_per_day() -> None:
+    now = [0.0]
+    limiter = public.RateLimiter(per_minute=2, per_day=3, clock=lambda: now[0])
+    limiter.check("a")
+    limiter.check("a")
+    with pytest.raises(public.PublicError) as e:
+        limiter.check("a")
+    assert e.value.status == 429 and e.value.retry_after == 60
+    limiter.check("b")  # 接続元ごとに数える
+    now[0] = 61.0
+    limiter.check("a")
+    now[0] = 130.0
+    with pytest.raises(public.PublicError, match="1 日"):
+        limiter.check("a")
+    now[0] = 86400 + 10.0
+    limiter.check("a")  # 1 日たてば戻る
+
+
+def test_runner_rejects_when_the_queue_is_full() -> None:
+    gate = threading.Event()
+    started = threading.Event()
+
+    def slow(_: dict) -> dict:
+        started.set()
+        gate.wait(5)
+        return {"ok": True}
+
+    runner = public.Runner(slow, queue_max=0)
+    t = threading.Thread(target=runner, args=({},))
+    t.start()
+    started.wait(5)
+    with pytest.raises(public.PublicError) as e:
+        runner({})
+    assert e.value.code == "busy"
+    gate.set()
+    t.join(5)
+
+
+@pytest.fixture
+def public_url() -> Iterator[str]:
+    calls: list[dict] = []
+
+    def fake_run(params: dict) -> dict:
+        calls.append(params)
+        return {"run_id": "r", "status": "answered", "events": [], "live": {"elapsed_ms": 1}}
+
+    httpd = public.make_public_server(
+        "127.0.0.1",
+        0,
+        limiter=public.RateLimiter(per_minute=2, per_day=10),
+        runner=public.Runner(fake_run),
+        origins=frozenset({SITE}),
+    )
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{httpd.server_address[1]}"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def _request(url: str, method: str, headers: dict[str, str], body: object = None):
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return res.status, dict(res.headers), res.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read()
+
+
+def test_public_health_and_cors(public_url: str) -> None:
+    status, headers, body = _request(f"{public_url}/api/health", "GET", {"Origin": SITE})
+    doc = json.loads(body)
+    assert status == 200 and doc["mode"] == "public" and doc["llm"] == "scripted"
+    assert headers["Access-Control-Allow-Origin"] == SITE
+
+    # CORS の事前確認（application/json の POST の前にブラウザが送る）
+    status, headers, _ = _request(
+        f"{public_url}/api/ask",
+        "OPTIONS",
+        {
+            "Origin": SITE,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert status == 204
+    assert headers["Access-Control-Allow-Origin"] == SITE
+    assert "POST" in headers["Access-Control-Allow-Methods"]
+    assert "Content-Type" in headers["Access-Control-Allow-Headers"]
+
+    status, headers, _ = _request(
+        f"{public_url}/api/ask", "OPTIONS", {"Origin": "https://evil.example"}
+    )
+    assert status == 403 and "Access-Control-Allow-Origin" not in headers
+
+
+def test_public_ask_origin_llm_and_rate_limit(public_url: str) -> None:
+    json_headers = {"Content-Type": "application/json", "Origin": SITE}
+    status, headers, body = _request(
+        f"{public_url}/api/ask", "POST", json_headers, {"demo": "demo-mortgage"}
+    )
+    assert status == 200 and json.loads(body)["status"] == "answered"
+    assert headers["Access-Control-Allow-Origin"] == SITE
+
+    status, _, body = _request(
+        f"{public_url}/api/ask",
+        "POST",
+        json_headers,
+        {"llm": "anthropic", "question": "q", "domain": "wuwa"},
+    )
+    assert status == 403 and json.loads(body)["code"] == "llm_not_allowed"
+
+    evil = {"Content-Type": "application/json", "Origin": "https://evil.example"}
+    status, _, body = _request(f"{public_url}/api/ask", "POST", evil, {"demo": "demo-mortgage"})
+    assert status == 403 and json.loads(body)["code"] == "forbidden_origin"
+
+    _request(f"{public_url}/api/ask", "POST", json_headers, {"demo": "demo-mortgage"})
+    status, headers, body = _request(
+        f"{public_url}/api/ask", "POST", json_headers, {"demo": "demo-mortgage"}
+    )
+    assert status == 429 and json.loads(body)["code"] == "rate_limited"
+    assert headers["Retry-After"] == "60"
+
+
+def test_public_run_hides_local_paths() -> None:
+    record = public.run_demo(public.parse_public_ask({"demo": "demo-mortgage"}))
+    text = json.dumps(record, ensure_ascii=False)
+    assert record["status"] == "answered" and record["fake_backend"] is False
+    assert str(REPO_ROOT) not in text and "/tmp/" not in text
+    assert record["live"]["elapsed_ms"] >= 0
+
+
+def test_local_server_refuses_host_without_public() -> None:
+    with pytest.raises(SystemExit):
+        server.main(["--host", "0.0.0.0"])

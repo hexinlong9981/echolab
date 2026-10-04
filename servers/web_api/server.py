@@ -225,10 +225,28 @@ def make_server(port: int) -> ThreadingHTTPServer:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="手元だけで動く Web UI の API（127.0.0.1）")
-    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--port", type=int, default=None, help="既定 8765（--public では 7860）")
+    p.add_argument(
+        "--public",
+        action="store_true",
+        help="公開のデモサーバとして動かす（台本の LLM・決まったデモだけ、ADR-0013）",
+    )
+    p.add_argument("--host", default=None, help="--public のときのみ（既定 0.0.0.0）")
     args = p.parse_args(argv)
-    server = make_server(args.port)
-    print(f"http://127.0.0.1:{args.port}/ で開いてください（Ctrl+C で終了）", file=sys.stderr)
+    if args.public:
+        from servers.web_api.public import make_public_server
+
+        host, port = args.host or "0.0.0.0", args.port or 7860
+        server = make_public_server(host, port)
+        print(f"公開のデモサーバ：http://{host}:{port}/（台本の LLM のみ）", file=sys.stderr)
+    else:
+        if args.host is not None:
+            p.error("--host は --public のときだけ使えます（手元の API は 127.0.0.1 だけ）")
+        server = make_server(args.port or 8765)
+        print(
+            f"http://127.0.0.1:{args.port or 8765}/ で開いてください（Ctrl+C で終了）",
+            file=sys.stderr,
+        )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

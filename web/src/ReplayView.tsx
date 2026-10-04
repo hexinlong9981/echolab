@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { DataMissingError, loadRun } from "./data";
 import { DEMOS_GROUP, groupOf, toggleGroup } from "./listGroups";
 import { CaseNotes } from "./CaseNotes";
+import { liveApiBase } from "./liveApi";
+import { LiveServerRun } from "./LiveServerRun";
 import { RunPlayer } from "./RunPlayer";
 import { Title, Tx } from "./Tx";
 import type { DataIndex, RunRecord } from "./types";
@@ -69,6 +71,10 @@ export function ReplayView({
     return null;
   })();
 
+  // 選んだのがデモで、公開のデモサーバが設定されていれば「サーバで実際に実行」を出す
+  const selectedDemo = index.demos.find((d) => d.key === current) ?? null;
+  const liveBase = liveApiBase();
+
   return (
     <main className="replay">
       <aside className="list">
@@ -132,6 +138,9 @@ export function ReplayView({
           <CaseNotes key={selectedCase.noteKey} noteKey={selectedCase.noteKey} summary={selectedCase.summary} />
         )}
         {run && run.key === current && <RunPlayer run={run} services={index.services} initialStep={step} />}
+        {liveBase && selectedDemo && (
+          <LiveServerRun key={selectedDemo.id} base={liveBase} demo={selectedDemo.id} services={index.services} />
+        )}
       </section>
     </main>
   );

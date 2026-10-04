@@ -195,3 +195,8 @@ td.actions button + button { margin-left: 4px; }
   transform: rotate(-45deg); transition: transform 0.15s;
 }
 .notes-toggle.open .caret { transform: rotate(45deg); border-color: var(--accent); }
+
+.live-server { margin-top: 18px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.live-server-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 0.9em; }
+.live-server-head > button { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.live-server-label { font-weight: 600; color: var(--ok); }

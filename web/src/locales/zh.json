@@ -8,7 +8,7 @@
   "foot.main": "这是 CI 用剧本模式（无需 API 密钥）生成的记录的回放。数字都由确定性工具计算，LLM 不写数字。",
   "foot.generated": "数据生成于 {at}",
   "foot.commit": "，提交 {sha}",
-  "foot.legal": "《鸣潮》《无职转生》的非官方同人作品。房贷结果是计算示例，不构成金融建议。无职转生的资料是未确认的草稿。",
+  "foot.legal": "《鸣潮》《无职转生》的非官方同人作品。房贷结果是计算示例，不构成金融建议。无职转生的资料已由作者对照原作核对。",
   "foot.content": "记录中的问题、回答和消息是程序实际的日语输入／输出，按原样显示，并附参考译文。",
   "list.demos": "演示",
   "passed": "通过",
@@ -110,5 +110,16 @@
   "note.r.drafts": "共 {drafts} 稿，退回 {rejected} 次。",
   "note.r.refused": "网关或服务拒绝的工具调用 {n} 次。",
   "note.r.cited": "引用出处 {n} 个。",
-  "note.r.noCite": "没有引用数字。"
+  "note.r.noCite": "没有引用数字。",
+  "server.button": "在服务器上实际运行",
+  "server.running": "运行中…",
+  "server.note": "在公开的演示服务器上，用真实的计算服务（Java・OCR 等）运行这个演示（剧本 LLM，不产生费用）。",
+  "server.waking": "正在唤醒服务器。如果它在休眠，大约需要一分钟…",
+  "server.label": "刚在服务器上运行的记录（真实计算服务・剧本 LLM）",
+  "server.elapsed": "　耗时 {s} 秒",
+  "server.err.rate_limited": "已达到运行次数上限，请稍候再试。",
+  "server.err.busy": "服务器正忙于其他运行，请稍候再试。",
+  "server.err.timeout": "没有在限定时间内完成，请再试一次。",
+  "server.err.offline": "连不上服务器。可能正在从休眠中启动，或已停止。",
+  "server.err.other": "运行失败。"
 }

@@ -38,6 +38,8 @@ export type TraceEvent =
 export type TraceRecord = TraceEvent & { ts: string; run_id: string };
 
 export interface RunRecord {
+  /** 公開のデモサーバで今実行した記録のとき（ADR-0013） */
+  live?: { elapsed_ms: number };
   /** 公開のデータでのキー（runs/<キー>.json）。手元の API の結果には無い */
   key?: string;
   run_id: string;

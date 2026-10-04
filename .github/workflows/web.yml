@@ -46,6 +46,9 @@ jobs:
           npm test
       - name: Build
         working-directory: web
+        env:
+          # 公開のデモサーバ（ADR-0013）の URL。Variable LIVE_API_URL が無ければボタンを出さない
+          VITE_LIVE_API: ${{ vars.LIVE_API_URL }}
         run: npm run build
       - uses: actions/upload-artifact@v4
         with:
