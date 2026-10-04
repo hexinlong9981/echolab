@@ -147,12 +147,20 @@ export function App() {
         )}
         {index && route.tab === "live" && !serverInfo && <Tx k="live.unavailable" as="p" />}
         <footer className="foot">
-          <Tx k="foot.main" />{" "}
-          {index && (
+          {route.tab === "live" ? (
             <>
-              <Tx k="foot.generated" p={{ at: index.generated_at }} />
-              {index.commit && <Tx k="foot.commit" p={{ sha: index.commit.slice(0, 7) }} />}
-              {lang === "ja" ? "。" : ". "}
+              <Tx k="foot.live" />{" "}
+            </>
+          ) : (
+            <>
+              <Tx k="foot.main" />{" "}
+              {index && (
+                <>
+                  <Tx k="foot.generated" p={{ at: index.generated_at }} />
+                  {index.commit && <Tx k="foot.commit" p={{ sha: index.commit.slice(0, 7) }} />}
+                  {lang === "ja" ? "。" : ". "}
+                </>
+              )}
             </>
           )}
           <Tx k="foot.legal" /> {lang !== "ja" && <Tx k="foot.content" />}

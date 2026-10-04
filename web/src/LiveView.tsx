@@ -63,6 +63,23 @@ const SAMPLES: Record<string, SampleItem[]> = {
   ],
 };
 
+function loadLiveHistory(): RunRecord[] {
+  try {
+    const raw = localStorage.getItem("echolab-live-history");
+    return raw ? (JSON.parse(raw) as RunRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLiveHistory(runs: RunRecord[]): void {
+  try {
+    localStorage.setItem("echolab-live-history", JSON.stringify(runs.slice(0, 20)));
+  } catch {
+    // quota exceeded
+  }
+}
+
 /** リアルタイム対話・実行画面（Vertex AI Gemini・実物の計算サービス）。 */
 export function LiveView({
   info,
@@ -120,6 +137,7 @@ export function LiveView({
     }
   };
 
+  const [history, setHistory] = useState<RunRecord[]>(loadLiveHistory);
   const [mode, setMode] = useState<"gemini" | "anthropic">("gemini");
   const [question, setQuestion] = useState("");
   const orderedDomains = [...info.domains].sort((a, b) => {
@@ -133,7 +151,7 @@ export function LiveView({
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [run, setRun] = useState<RunRecord | null>(null);
+  const [run, setRun] = useState<RunRecord | null>(() => history[0] ?? null);
 
   const submit = async () => {
     const req: AskRequest = {
@@ -188,17 +206,22 @@ export function LiveView({
     };
 
     try {
+      let finalRun: RunRecord;
       if (apiBase) {
         setStatusText(t("server.waking") || "Connecting...");
         const awake = await wake(apiBase);
         if (!awake) throw new LiveError("offline", "Server wake timeout");
         setStatusText(t("live.running"));
-        const finalRun = await askOnServer(apiBase, req, fetch, handleEvent);
-        setRun(finalRun);
+        finalRun = await askOnServer(apiBase, req, fetch, handleEvent);
       } else {
-        const finalRun = await ask(req, null, handleEvent);
-        setRun(finalRun);
+        finalRun = await ask(req, null, handleEvent);
       }
+      setRun(finalRun);
+      setHistory((prev) => {
+        const next = [finalRun, ...prev.filter((r) => r.run_id !== finalRun.run_id)].slice(0, 20);
+        saveLiveHistory(next);
+        return next;
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -277,6 +300,42 @@ export function LiveView({
         <Tx k="live.intro" p={{ daily: info.caps_usd.daily, monthly: info.caps_usd.monthly }} />
       </p>
       <div className="form">
+        {history.length > 0 && (
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span style={{ fontSize: "0.88em", color: "var(--muted)", whiteSpace: "nowrap" }}>
+              <Tx k="live.history" />
+            </span>
+            <select
+              style={{ flex: 1, minWidth: 0 }}
+              value={run?.run_id ?? ""}
+              onChange={(e) => {
+                const found = history.find((h) => h.run_id === e.target.value);
+                if (found) setRun(found);
+              }}
+            >
+              {history.map((h, idx) => {
+                const q = h.events.find((ev) => ev.event === "question")?.question ?? h.run_id;
+                const summary = q.length > 28 ? q.slice(0, 28) + "…" : q;
+                return <option key={h.run_id || idx} value={h.run_id}>{`${idx + 1}. ${summary}`}</option>;
+              })}
+            </select>
+            <button
+              type="button"
+              className="sample-chip"
+              onClick={() => {
+                setHistory([]);
+                try {
+                  localStorage.removeItem("echolab-live-history");
+                } catch {
+                  // ignore
+                }
+                setRun(null);
+              }}
+            >
+              <Tx k="live.historyClear" />
+            </button>
+          </div>
+        )}
         {!apiBase && info.has_api_key && (
           <div style={{ display: "flex", gap: "14px", marginBottom: "4px" }}>
             <label>

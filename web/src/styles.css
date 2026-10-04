@@ -100,8 +100,8 @@ code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-
 .form select, .form textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .form > button { align-self: flex-start; border-color: var(--accent); color: var(--accent); }
 .samples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 4px; }
-.samples .sample-chip { font-size: 0.82em; padding: 3px 8px; border-radius: 4px; border: 1px dashed var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
-.samples .sample-chip:hover { border-color: var(--accent); color: var(--accent); }
+.sample-chip, .samples .sample-chip { font-size: 0.82em; padding: 3px 8px; border-radius: 4px; border: 1px dashed var(--line); background: var(--panel); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.sample-chip:hover, .samples .sample-chip:hover { border-color: var(--accent); color: var(--accent); }
 
 @media (max-width: 760px) {
   .replay { grid-template-columns: 1fr; }
