@@ -50,6 +50,13 @@ No Java is used. The pack's MCP server (Python) is started as a real child proce
 
 The real-OCR tests need Tesseract (with Japanese data). They are skipped without it (in CI, `ECHOLAB_OCR_REQUIRED=1` makes them fail instead of skipping).
 
+## Web UI (ADR-0011)
+
+| File | Contents |
+|---|---|
+| `test_web_api.py` | `servers/web_api`: export (traces of every demo and eval, no local paths), request checks (unknown LLM, script, overly long question, domain), the local API (127.0.0.1 only, refusing other sites' `Origin` and wrong `Content-Type`, running a scripted demo) |
+| `web/src/replay.test.ts` | The UI side (Vitest, `cd web && npm test`): trace events → replay steps (target boxes, refusals, rejections, source table), and the arrow end-point calculation |
+
 ## End-to-end tests: `tests/e2e/`
 
 `test_mcp_e2e.py` starts the real calc-engine (the MCP server jar) as configured in `config/services.yaml`.
@@ -69,3 +76,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 In CI, the `python` job in `test.yml` runs `pytest -m "not e2e"`, and the `e2e` job builds the jar and then runs `pytest -m e2e`.
 
 The `pack-isolation` job checks in the git history that domain pack changes do not change the core (ADR-0009).
+
+The `web.yml` workflow exports the web UI data, type-checks, runs Vitest and builds; on main it publishes to Cloudflare Pages (when the secrets exist).

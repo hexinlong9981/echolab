@@ -48,6 +48,13 @@ Java は使いません。パックの MCP サーバ（Python）は実物を子�
 
 実物の OCR の試験は Tesseract（日本語のデータ付き）が要ります。無いときは飛ばします（CI では `ECHOLAB_OCR_REQUIRED=1` で、飛ばさずに失敗させます）。
 
+## Web UI（ADR-0011）
+
+| ファイル | 内容 |
+|---|---|
+| `test_web_api.py` | `servers/web_api`：書き出し（全デモ・全評価のトレース、手元のパスを含めない）・要求の検査（未知の LLM・台本・長すぎる質問・ドメイン）・手元の API（127.0.0.1 だけ・ほかのサイトの `Origin` と `Content-Type` の拒否・台本のデモの実行） |
+| `web/src/replay.test.ts` | 画面側（Vitest、`cd web && npm test`）：トレースの出来事 → 回放のコマ（届く箱・拒否・差し戻し・出典の表）、矢印の端の計算 |
+
 ## 端から端までの試験：`tests/e2e/`
 
 `test_mcp_e2e.py` は実物の calc-engine（MCP サーバの jar）を `config/services.yaml` のとおりに起動します。
@@ -67,3 +74,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 CI では、`test.yml` の `python` ジョブが `pytest -m "not e2e"` を、`e2e` ジョブが jar を作ってから `pytest -m e2e` を実行します。
 
 `pack-isolation` ジョブは、ドメインパックの変更でコアを変えていないことを git の履歴で検査します（ADR-0009）。
+
+`web.yml` ジョブは、Web UI のデータの書き出し・型検査・Vitest・ビルドを行い、main では Cloudflare Pages に公開します（Secrets があるとき）。

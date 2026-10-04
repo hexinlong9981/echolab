@@ -28,16 +28,17 @@ LLMs produce plausible-looking numbers. When AI is used at work, the first quest
 | Fabricated numbers | Only deterministic tools calculate. Differences, ratios and % increases are also computed by compare tools; the AI does not even do arithmetic. The LLM's answer is a template that cites source IDs through placeholders, and a renderer fills in the numbers. Any number without a source sends the draft back (M2, ADR-0005, ADR-0008) |
 | Data reliability | Unverified data may be used in calculations, but the answer always carries a note that it is based on unverified data. `verified: true` requires a source URL, check date and game version, enforced by schema (ADR-0006) |
 | Implementation errors | The same golden cases are checked in three places: Java, a Python reference implementation, and end-to-end tests through MCP |
-| Overreach and injection | Tools go through a default-deny gateway. Strings from outside are treated as data, not instructions Only numbers declared in a template are read from images, so text in an image never reaches the LLM (M4, ADR-0010) |
+| Overreach and injection | Tools go through a default-deny gateway. Strings from outside are treated as data, not instructions. Only numbers declared in a template are read from images, so text in an image never reaches the LLM (M4, ADR-0010) |
 | Quality regressions | Numeric faithfulness is evaluated. Scripted-mode evals run in CI on every PR; evals with the real LLM are run locally and only the aggregated results are committed (M2). The injection eval set also runs in CI in scripted mode (M4) |
 | Cost | The cost of each call is computed from a price table and recorded in a ledger; once the daily or monthly cap is reached, the LLM is not called (M2) |
 
 The design separates a domain-agnostic core from "domain packs". The second pack (example mortgage repayment calculations, M3) was added without changing a single line of `core/`, and CI checks this (ADR-0003, ADR-0009).
 
-## Status: M4 (screenshot reading and injection evals)
+## Status: M5 (web UI)
 
 A question can be taken all the way to a cited answer, end to end, from the CLI (M2). The same core runs two packs: Wuthering Waves and mortgages (M3).
 Screenshots of the echo screen can be read with OCR and scored, and prompt-injection evals run in CI every time (M4).
+A replay of execution traces and an eval dashboard are available on the web (M5; the public site is static files only, at zero cost).
 
 ```mermaid
 flowchart LR
@@ -172,6 +173,17 @@ c2.score             2.579167   echo.score            -
 c2.percent_of_ideal  73.690476  echo.score            -
 ```
 
+### 6. Web UI (replay, eval dashboard, local run screen)
+
+A replay that plays execution traces step by step and an eval dashboard are available on the web (M5, ADR-0011).
+The public site is static files only; no server or LLM runs (zero cost). It is published on Cloudflare Pages (setup in [web/README.en.md](web/README.en.md)).
+Locally, the same screens gain a "Run" tab where you can ask with scripted demos or real Claude (bound to `127.0.0.1` only).
+
+```bash
+.venv/bin/python -m servers.web_api.export && (cd web && npm ci && npm run build)
+.venv/bin/python -m servers.web_api        # → http://127.0.0.1:8765/
+```
+
 ### Evals and tests
 
 ```bash
@@ -201,15 +213,16 @@ config/        Tool service launch config (services.yaml), cost caps and price t
 domains/wuwa/  Domain pack #1: Wuthering Waves (domain.yaml, golden cases, sample data, prompts)
 domains/mortgage/  Domain pack #2: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
 services/      calc-engine (Java 21: calculation library and MCP server)
-servers/       vision_mcp (screenshot OCR, a Python MCP server)
+servers/       vision_mcp (screenshot OCR, a Python MCP server), web_api (data export and local API for the web UI)
+web/           Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen
 evals/         Eval cases (faithfulness/) and aggregated reports (reports/)
 tests/         Cross-repo tests (schema checks, reference implementation, core unit tests, end-to-end tests)
 docs/          Architecture and ADRs
 ```
 
-Only implemented parts are in the repository. Future directories (`web/`, etc.) are created when they are implemented, and the plan is written
+Only implemented parts are in the repository. Future directories are created when they are implemented, and the plan is written
 only in the [roadmap section of docs/architecture.en.md](docs/architecture.en.md#roadmap-and-future-structure) (ADR-0007).
-The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010.
+The M2 components and contracts are described in ADR-0008; the M3 mortgage pack and the "zero core diff" check in ADR-0009; the M4 screenshot reading and injection evals in ADR-0010; the M5 web UI and public demo policy in ADR-0011.
 For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs in [docs/adr/en/](docs/adr/en/).
 
 ## Roadmap
@@ -220,7 +233,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M2 | Vertical slice via CLI: question → gateway (allowlist, schema, cost caps) → calc-engine (MCP) → numeric-trace verifier and compare tools → cited answer. Numeric-faithfulness eval, execution trace | ✅ Done |
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
-| M5 | Web UI, trace replay, eval dashboard, public demo | Planned |
+| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Implemented (publishing to Cloudflare Pages after the secrets are set) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 

@@ -50,6 +50,13 @@
 
 真实 OCR 的测试需要 Tesseract（含日语数据）。没有时跳过（CI 中用 `ECHOLAB_OCR_REQUIRED=1` 让它失败而不是跳过）。
 
+## 网页界面（ADR-0011）
+
+| 文件 | 内容 |
+|---|---|
+| `test_web_api.py` | `servers/web_api`：导出（全部演示与评估的轨迹，不含本机路径）・请求检查（未知的 LLM・剧本・过长的问题・领域）・本机 API（只监听 127.0.0.1・拒绝其他网站的 `Origin` 与错误的 `Content-Type`・运行剧本演示） |
+| `web/src/replay.test.ts` | 界面端（Vitest，`cd web && npm test`）：执行轨迹事件 → 回放步骤（到达的方框・拒绝・退回・出处表）、箭头端点的计算 |
+
 ## 端到端测试：`tests/e2e/`
 
 `test_mcp_e2e.py` 按照 `config/services.yaml` 启动真实的 calc-engine（MCP 服务器的 jar）。
@@ -69,3 +76,5 @@ export JAVA_HOME=/path/to/jdk-21 PATH="$JAVA_HOME/bin:$PATH"
 在 CI 中，`test.yml` 的 `python` 作业运行 `pytest -m "not e2e"`，`e2e` 作业先构建 jar 再运行 `pytest -m e2e`。
 
 `pack-isolation` 作业在 git 历史中检查领域包的变更没有修改核心（ADR-0009）。
+
+`web.yml` 工作流导出网页界面的数据、做类型检查、运行 Vitest 并构建；在 main 上发布到 Cloudflare Pages（有 Secrets 时）。

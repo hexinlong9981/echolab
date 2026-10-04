@@ -8,12 +8,12 @@ EchoLab 是一个“**数值由确定性工具计算，AI 只负责理解与说�
 
 ## 整体概览
 
-实线框为已实现部分（M1〜M4），虚线框为计划部分（括号内为实现该部分的里程碑）。
+全部已实现（M1〜M5，括号内为实现该部分的里程碑）。
 
 ```mermaid
 flowchart TB
   CLI["CLI（M2）<br/>python -m core.agent"]
-  UI["Web UI（M5・React + TypeScript）<br/>对话・追踪回放・评估仪表盘"]
+  UI["Web UI（M5・React + TypeScript）<br/>回放・评估看板・本机运行<br/>经由 servers/web_api"]
   subgraph core["core/（领域无关・Python・M2 起）"]
     AG["Agent<br/>并行调用工具 → 验证 → 退回"]
     GW["策略网关<br/>允许列表・模式・预算"]
@@ -39,8 +39,6 @@ flowchart TB
   domains -. "在 domain.yaml 中声明" .-> GW
   EV -. "以评估用例执行" .-> AG
 
-  classDef planned stroke-dasharray: 5 5
-  class UI planned
 ```
 
 ## 单次提问的流程
@@ -93,19 +91,23 @@ sequenceDiagram
 | 格式 | 省略时最多保留 2 位小数，`N` 为 N 位小数，`%N` 为保留 N 位小数的百分数。舍入方式为 ROUND_HALF_EVEN |
 | 未确认数据 | 将 `unverified_inputs` 传播到出处，对引用了它们的回答由渲染器添加注记（ADR-0006） |
 
-## 当前状态（M2）
+## 当前状态（M5）
 
-M1（计算服务）与 M2（CLI 纵向切片）已实现。仓库中只放置已实现部分的目录（ADR-0007）。
+M1〜M5 已实现。仓库中只放已实现部分的目录（ADR-0007）。
 
 | 位置 | 内容 |
 |---|---|
-| `core/` | 领域无关的核心（Python）。组件见下一节的表格 |
-| `config/` | `services.yaml`（工具服务的启动方式）・`budget.yaml`（费用上限与价格表） |
+| `core/` | 领域无关的核心（Python）。组件见下一节的表 |
+| `config/` | `services.yaml`（工具服务的启动方式：calc-engine・mortgage-calc・vision-mcp）・`budget.yaml`（成本上限与价格表） |
 | `services/calc-engine` | Java 21 的计算库（`dev.echolab.calc`，不依赖框架）与 MCP 服务器（`dev.echolab.app`，ADR-0004） |
-| `domains/wuwa` | `domain.yaml`・黄金用例（带 `derivation`）・未确认的示例数据（`verified: false`）・提示词 |
-| `evals/` | 数值忠实度的评估用例（`faithfulness/cases.yaml`）与汇总后的报告（`reports/`） |
-| `tests/` | 模式检查・与 Python 参考实现的对照・`core` 的单元测试（`tests/core/`）・端到端测试（`tests/e2e/`） |
-| `.github/workflows` | `test.yml`（ruff・pytest・脚本模式的评估、启动 jar 的端到端测试）与 `java.yml`（`./gradlew check`・`bootJar`） |
+| `domains/wuwa` | `domain.yaml`・黄金用例（带 `derivation`）・未确认的示例数据（`verified: false`）・提示词・截图模板（`vision/`） |
+| `domains/mortgage` | 房贷还款计算示例：计算与 Python MCP 服务器（`calc/`）・黄金用例・提示词（ADR-0009） |
+| `servers/vision_mcp` | 截图 OCR（Tesseract）。只返回模板声明的数值（ADR-0010） |
+| `servers/web_api` | 网页界面的数据导出与只在本机的 API（ADR-0011） |
+| `web/` | 网页界面（React + TypeScript + Vite）：回放・评估看板・本机运行界面（ADR-0011） |
+| `evals/` | 评估用例（`faithfulness/`・`redteam/`）与汇总报告（`reports/`） |
+| `tests/` | Schema 检查・与 Python 参考实现的核对・核心单元测试（`tests/core/`）・领域包・OCR・注入・网页的测试・端到端测试（`tests/e2e/`） |
+| `.github/workflows` | `test.yml`（ruff・pytest・脚本模式评估・OCR・`pack-isolation`・启动 jar 的端到端测试）・`java.yml`（`./gradlew check`・`bootJar`）・`web.yml`（网页界面的构建与发布）・`pages.yml`（使用说明） |
 
 每个黄金用例都写明 `derivation`（`hand`：手算／`closed_form`：闭式表达式／`reference`：参考实现的输出），
 并且每个工具至少有 1 个非 `reference` 的用例（以避免与参考实现循环论证）。
@@ -124,7 +126,7 @@ M1（计算服务）与 M2（CLI 纵向切片）已实现。仓库中只放置�
 | M2 | 纵向切片：CLI → 网关 → calc-engine（MCP）→ 数值追踪验证器 → 带出处的回答。数值忠实度评估・执行追踪 | 完成 |
 | M3 | 领域包②：房贷还款计算示例（最小示例）。在 CI 中检查“核心差异为零” | 完成 |
 | M4 | 截图读取（OCR）・注入攻击评估集（将脚本模式加入 CI） | 完成 |
-| M5 | Web UI・追踪回放・评估仪表盘・公开演示 | 计划中 |
+| M5 | 网页界面・执行轨迹回放・评估看板・公开演示（静态、零费用） | 已实现（Cloudflare 设置后发布） |
 
 ### M2：纵向切片（提问 → 带出处的回答）：已实现
 
@@ -197,10 +199,33 @@ LLM 为 Claude（`claude-opus-5-5`），中间隔着一层抽象（`core/agent/l
 - CI 的 `python` 作业安装 Tesseract，并使 OCR 测试成为必需。脚本模式的评估使用 OCR 的记录（`.ocr.txt`），没有 Tesseract 也能运行。
 - 使用真实 LLM 的评估在本地手动执行，只将汇总后的报告提交到 `evals/reports/`（尚未进行）。
 
-### M5：Web UI
+### M5：Web UI：已实现
 
-`web/`（React + TypeScript）。提供对话、执行追踪回放（React Flow）与评估仪表盘。
-用 Vite 构建的静态文件部署在 Cloudflare Pages 上。
+方针见 ADR-0011。**零费用**最优先，公开的只有静态的回放与评估看板。
+
+```mermaid
+flowchart LR
+  subgraph CI["GitHub Actions（web.yml）"]
+    EX["python -m servers.web_api.export<br/>用剧本模式运行全部演示与评估"] --> JSON["data/*.json<br/>（不含本机路径）"]
+    JSON --> B["类型检查・Vitest・Vite 构建"]
+  end
+  B -->|wrangler| CF["Cloudflare Pages<br/>静态回放・评估（公开）"]
+  subgraph LOCAL["本机（127.0.0.1）"]
+    API["python -m servers.web_api<br/>提供 web/dist・/api/ask"] --> AG["Agent（核心）"]
+  end
+  BR["浏览器"] --> CF
+  BR2["浏览器（面试共享屏幕）"] --> API
+```
+
+| 位置 | 作用 |
+|---|---|
+| `web/` | React + TypeScript + Vite。回放（React Flow 流程图・逐步・出处表、`#replay/<执行 ID>/<步>`）、评估看板、仅在有本机 API 时出现的运行界面 |
+| `servers/web_api/export.py` | 用剧本模式（无需 API 密钥、测试用计算服务）运行 3 个演示与全部评估，写出 `index.json` 和 `runs/<执行 ID>.json` |
+| `servers/web_api/server.py` | 只在本机的 API（Python 标准库）。只监听 `127.0.0.1`，检查 `Content-Type: application/json` 与 `Origin`。只能用固定的演示剧本 |
+| `.github/workflows/web.yml` | 导出・类型检查・测试・构建。推送到 main 时，有 Secrets 就发布到 Cloudflare Pages |
+
+- 公开网站没有服务器也没有 LLM，所以没有费用，也不会被第三方用掉 API。
+- 公开的回放是剧本模式的记录，界面上也如此标明。是否公开真实 Claude 的记录，等做了真实评估时再决定。
 
 ## 语言分工
 

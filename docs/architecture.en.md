@@ -8,12 +8,12 @@ EchoLab is an AI assistant in which "**numbers are computed by deterministic too
 
 ## Overview
 
-Solid boxes are implemented (M1–M4); dashed boxes are planned (the milestone that implements them is in parentheses).
+Everything is implemented (M1–M5; the milestone that implemented each part is in parentheses).
 
 ```mermaid
 flowchart TB
   CLI["CLI (M2)<br/>python -m core.agent"]
-  UI["Web UI (M5, React + TypeScript)<br/>chat, trace replay, eval dashboard"]
+  UI["Web UI (M5, React + TypeScript)<br/>replay, eval dashboard, local run<br/>via servers/web_api"]
   subgraph core["core/ (domain-agnostic, Python, M2+)"]
     AG["Agent<br/>parallel tool calls → verification → send back"]
     GW["Policy gateway<br/>allowlist, schema, budget"]
@@ -39,8 +39,6 @@ flowchart TB
   domains -. "declared in domain.yaml" .-> GW
   EV -. "runs eval cases" .-> AG
 
-  classDef planned stroke-dasharray: 5 5
-  class UI planned
 ```
 
 ## Flow of a single question
@@ -93,19 +91,23 @@ The verifier policy is in ADR-0005; the placeholder approach and the contracts b
 | Format | By default up to 2 decimal places; `N` means N decimal places; `%N` means a percentage with N decimal places. Rounding is ROUND_HALF_EVEN |
 | Unverified data | `unverified_inputs` is propagated to the sources, and the renderer adds a note to any answer that cites them (ADR-0006) |
 
-## Current state (M2)
+## Current state (M5)
 
-M1 (calculation service) and M2 (CLI vertical slice) are implemented. The repository contains directories only for implemented parts (ADR-0007).
+M1 through M5 are implemented. The repository holds directories only for implemented parts (ADR-0007).
 
 | Location | Contents |
 |---|---|
-| `core/` | Domain-agnostic core (Python). Components are listed in the table in the next section |
-| `config/` | `services.yaml` (how to launch tool services) and `budget.yaml` (cost caps and pricing table) |
-| `services/calc-engine` | Java 21 calculation library (`dev.echolab.calc`, framework-independent) and MCP server (`dev.echolab.app`, ADR-0004) |
-| `domains/wuwa` | `domain.yaml`, golden cases (with `derivation`), unverified sample data (`verified: false`), prompts |
-| `evals/` | Numeric-faithfulness eval cases (`faithfulness/cases.yaml`) and aggregated reports (`reports/`) |
-| `tests/` | Schema checks, cross-checks against the Python reference implementation, `core` unit tests (`tests/core/`), end-to-end tests (`tests/e2e/`) |
-| `.github/workflows` | `test.yml` (ruff, pytest, scripted-mode evals, end-to-end tests that start the jar) and `java.yml` (`./gradlew check`, `bootJar`) |
+| `core/` | The domain-agnostic core (Python). Components are listed in the next section |
+| `config/` | `services.yaml` (how to start tool services: calc-engine, mortgage-calc, vision-mcp) and `budget.yaml` (cost caps and price table) |
+| `services/calc-engine` | The Java 21 calculation library (`dev.echolab.calc`, framework-free) and MCP server (`dev.echolab.app`, ADR-0004) |
+| `domains/wuwa` | `domain.yaml`, golden cases (with `derivation`), unverified sample data (`verified: false`), prompts, screenshot templates (`vision/`) |
+| `domains/mortgage` | Example mortgage repayment calculations: calculation and Python MCP server (`calc/`), golden cases, prompts (ADR-0009) |
+| `servers/vision_mcp` | Screenshot OCR (Tesseract). Returns only numbers declared in templates (ADR-0010) |
+| `servers/web_api` | Data export for the web UI and the local-only API (ADR-0011) |
+| `web/` | Web UI (React + TypeScript + Vite): replay, eval dashboard, local run screen (ADR-0011) |
+| `evals/` | Eval cases (`faithfulness/`, `redteam/`) and aggregated reports (`reports/`) |
+| `tests/` | Schema checks, checks against the Python reference implementation, core unit tests (`tests/core/`), pack, OCR, injection and web tests, end-to-end tests (`tests/e2e/`) |
+| `.github/workflows` | `test.yml` (ruff, pytest, scripted evals, OCR, `pack-isolation`, end-to-end tests that start the jar), `java.yml` (`./gradlew check`, `bootJar`), `web.yml` (web UI build and publishing), `pages.yml` (user guide) |
 
 Each golden case records a `derivation` (`hand`: hand calculation / `closed_form`: closed-form expression / `reference`: output of the reference implementation),
 and every tool has at least one case that is not `reference` (to avoid circularity with the reference implementation).
@@ -124,7 +126,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 | M2 | Vertical slice: CLI → gateway → calc-engine (MCP) → numeric-trace verifier → answer with sources. Numeric-faithfulness eval, execution trace | Done |
 | M3 | Domain pack ②: example mortgage repayment calculations (minimal example). CI checks that the core diff is zero | Done |
 | M4 | Screenshot reading (OCR), prompt-injection eval set (scripted mode added to CI) | Done |
-| M5 | Web UI, trace replay, eval dashboard, public demo | Planned |
+| M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Implemented (publishing after Cloudflare is set up) |
 
 ### M2: Vertical slice (question → answer with sources): implemented
 
@@ -197,10 +199,33 @@ The policy is ADR-0010. Images are read with OCR (Tesseract).
 - The CI `python` job installs Tesseract and makes the OCR tests mandatory. Scripted evals use the recorded OCR output (`.ocr.txt`), so they work without Tesseract.
 - Evals with the real LLM are run manually on a local machine, and only the aggregated reports are committed to `evals/reports/` (not done yet).
 
-### M5: Web UI
+### M5: Web UI: implemented
 
-`web/` (React + TypeScript). Provides chat, execution trace replay (React Flow) and an eval dashboard.
-Static files built with Vite are hosted on Cloudflare Pages.
+The policy is ADR-0011. **Zero cost** comes first, so only a static replay and eval dashboard are public.
+
+```mermaid
+flowchart LR
+  subgraph CI["GitHub Actions (web.yml)"]
+    EX["python -m servers.web_api.export<br/>all demos and evals in scripted mode"] --> JSON["data/*.json<br/>(no local paths)"]
+    JSON --> B["type check, Vitest, Vite build"]
+  end
+  B -->|wrangler| CF["Cloudflare Pages<br/>static replay and evals (public)"]
+  subgraph LOCAL["Local (127.0.0.1)"]
+    API["python -m servers.web_api<br/>serves web/dist, /api/ask"] --> AG["Agent (core)"]
+  end
+  BR["Browser"] --> CF
+  BR2["Browser (interview screen share)"] --> API
+```
+
+| Location | Role |
+|---|---|
+| `web/` | React + TypeScript + Vite. Replay (React Flow diagram, stepping, source table, `#replay/<run ID>/<step>`), eval dashboard, and a run screen only when the local API is present |
+| `servers/web_api/export.py` | Runs 3 demos and all evals in scripted mode (no API key, test calc services) and writes `index.json` and `runs/<run ID>.json` |
+| `servers/web_api/server.py` | Local-only API (Python standard library). Binds to `127.0.0.1` only and checks `Content-Type: application/json` and `Origin`. Only the fixed demo scripts |
+| `.github/workflows/web.yml` | Export, type checks, tests, build. On push to main, publishes to Cloudflare Pages when the secrets exist |
+
+- The public site has no server and no LLM, so it costs nothing and nobody else can use the API.
+- The public replay contains scripted-mode records, and the screen says so. Publishing real-Claude records will be decided when real evals are run.
 
 ## Language split
 
