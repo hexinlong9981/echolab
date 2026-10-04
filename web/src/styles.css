@@ -57,7 +57,6 @@ code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-
 
 .replay { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; flex: 1; min-height: 0; }
 .list { border-right: 1px solid var(--line); padding: 8px; overflow-y: auto; max-height: calc(100vh - 110px); }
-.list h2 { font-size: 0.8em; color: var(--muted); margin: 14px 6px 4px; }
 .list ul { list-style: none; margin: 0; padding: 0; }
 .list button { width: 100%; text-align: left; border: none; background: none; padding: 5px 6px; font-size: 0.88em; }
 .list button.on { background: var(--active-bg); border-radius: 6px; }
@@ -153,3 +152,22 @@ html:lang(ja) .app:not(.no-furi.no-eng) .flow-node { line-height: 1.9; }
 .translation { margin: 6px 0 0; padding: 6px 10px; border: 1px dashed var(--line); border-radius: 6px; background: var(--bg); }
 .translation > p { margin: 0 0 4px; font-size: 0.8em; color: var(--muted); }
 .translation pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 0.92em; color: var(--text); }
+
+/* 左のリスト：分組は 1 つだけ開く（アコーディオン）。見出しは項目と違う背景色 */
+:root { --group-bg: #e8eef6; --group-open-bg: #d3e2f4; }
+@media (prefers-color-scheme: dark) { :root { --group-bg: #1c2633; --group-open-bg: #213654; } }
+.list .group { margin-bottom: 6px; }
+.list .group-head {
+  display: flex; align-items: flex-start; gap: 6px; width: 100%; text-align: left;
+  background: var(--group-bg); border: none; border-left: 3px solid transparent; border-radius: 6px;
+  padding: 6px 8px; font-size: 0.85em; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.list .group-head:hover { filter: brightness(0.97); }
+.list .group.open > .group-head { background: var(--group-open-bg); border-left-color: var(--accent); }
+.list .group-head .caret {
+  flex: none; width: 7px; height: 7px; margin: 0.55em 4px 0 2px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg); transition: transform 0.15s;
+}
+.list .group.open > .group-head .caret { transform: rotate(45deg); border-color: var(--accent); }
+.list .group > ul { padding: 4px 0 2px 6px; }

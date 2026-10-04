@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DataMissingError, loadRun } from "./data";
+import { DEMOS_GROUP, groupOf } from "./listGroups";
 import { RunPlayer } from "./RunPlayer";
 import { Title, Tx } from "./Tx";
 import type { DataIndex, RunRecord } from "./types";
@@ -22,6 +23,11 @@ export function ReplayView({
   const [run, setRun] = useState<RunRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
+  // 開いている分組は 1 つだけ（アコーディオン）。選んだ実行が変わったら、その分組を開く
+  const [open, setOpen] = useState(() => groupOf(index, current));
+  useEffect(() => {
+    setOpen(groupOf(index, current));
+  }, [index, current]);
 
   useEffect(() => {
     if (!current) return;
@@ -56,35 +62,47 @@ export function ReplayView({
   return (
     <main className="replay">
       <aside className="list">
-        <Tx k="list.demos" as="h2" />
-        <ul>
-          {index.demos.map((d) => (
-            <li key={d.id}>
-              <button className={d.key === current ? "on" : ""} onClick={() => onSelect(d.key)}>
-                <Title k={`demo/${d.id}`} ja={d.title} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        {index.suites.map((s) => (
-          <section key={s.id}>
-            <h2>
-              <Tx k="list.suitePrefix" />
-              <Title k={`suite/${s.id}`} ja={s.title} />
-            </h2>
+        <section className={`group ${open === DEMOS_GROUP ? "open" : ""}`}>
+          <button className="group-head" aria-expanded={open === DEMOS_GROUP} onClick={() => setOpen(DEMOS_GROUP)}>
+            <span className="caret" aria-hidden="true" />
+            <Tx k="list.demos" />
+          </button>
+          {open === DEMOS_GROUP && (
             <ul>
-              {s.cases.map(
-                (c) =>
-                  c.key && (
-                    <li key={c.id}>
-                      <button className={c.key === current ? "on" : ""} onClick={() => onSelect(c.key as string)}>
-                        <span className={c.passed ? "dot ok" : "dot bad"} />
-                        <Title k={`${s.id}/${c.id}`} ja={c.title} />
-                      </button>
-                    </li>
-                  ),
-              )}
+              {index.demos.map((d) => (
+                <li key={d.id}>
+                  <button className={d.key === current ? "on" : ""} onClick={() => onSelect(d.key)}>
+                    <Title k={`demo/${d.id}`} ja={d.title} />
+                  </button>
+                </li>
+              ))}
             </ul>
+          )}
+        </section>
+        {index.suites.map((s) => (
+          <section key={s.id} className={`group ${open === s.id ? "open" : ""}`}>
+            <button className="group-head" aria-expanded={open === s.id} onClick={() => setOpen(s.id)}>
+              <span className="caret" aria-hidden="true" />
+              <span>
+                <Tx k="list.suitePrefix" />
+                <Title k={`suite/${s.id}`} ja={s.title} />
+              </span>
+            </button>
+            {open === s.id && (
+              <ul>
+                {s.cases.map(
+                  (c) =>
+                    c.key && (
+                      <li key={c.id}>
+                        <button className={c.key === current ? "on" : ""} onClick={() => onSelect(c.key as string)}>
+                          <span className={c.passed ? "dot ok" : "dot bad"} />
+                          <Title k={`${s.id}/${c.id}`} ja={c.title} />
+                        </button>
+                      </li>
+                    ),
+                )}
+              </ul>
+            )}
           </section>
         ))}
       </aside>
