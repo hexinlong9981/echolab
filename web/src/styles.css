@@ -171,3 +171,27 @@ html:lang(ja) .app:not(.no-furi.no-eng) .flow-node { line-height: 1.9; }
 }
 .list .group.open > .group-head .caret { transform: rotate(45deg); border-color: var(--accent); }
 .list .group > ul { padding: 4px 0 2px 6px; }
+
+/* 評価ケースの説明（内容・用意・結果・評価） */
+.case-notes { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; }
+.case-notes > summary { cursor: pointer; font-weight: 600; }
+.case-notes-body { margin: 6px 0 0; display: grid; gap: 4px; }
+.case-notes-body > div { display: grid; grid-template-columns: 5.5em 1fr; gap: 8px; align-items: baseline; }
+.case-notes-body dt { color: var(--muted); font-size: 0.88em; font-weight: 600; }
+.case-notes-body dd { margin: 0; overflow-wrap: anywhere; }
+.case-notes-body .res.ok dd { color: var(--ok); }
+.case-notes-body .res.bad dd { color: var(--bad); }
+.notes-row > td { background: var(--bg); }
+.notes-row .case-notes { margin: 4px 0; }
+td.actions { white-space: nowrap; }
+td.actions button + button { margin-left: 4px; }
+@media (max-width: 760px) {
+  .case-notes-body > div { grid-template-columns: 1fr; gap: 0; }
+}
+.notes-toggle { display: inline-flex; align-items: center; gap: 4px; }
+.notes-toggle .caret {
+  display: inline-block; width: 6px; height: 6px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg); transition: transform 0.15s;
+}
+.notes-toggle.open .caret { transform: rotate(45deg); border-color: var(--accent); }

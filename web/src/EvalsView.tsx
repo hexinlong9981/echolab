@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { CaseNotes } from "./CaseNotes";
 import { useI18n } from "./i18n";
 import { Title, Tx } from "./Tx";
 import type { DataIndex } from "./types";
@@ -6,6 +8,15 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
 export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId: string) => void }) {
   const { lang } = useI18n();
+  // 説明を開いているケース（「<評価>/<ケース ID>」）
+  const [openNotes, setOpenNotes] = useState<Set<string>>(() => new Set());
+  const toggleNotes = (key: string) =>
+    setOpenNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   return (
     <main className="evals pad">
       <Tx k="evals.intro" as="p" />
@@ -69,7 +80,10 @@ export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId:
               </tr>
             </thead>
             <tbody>
-              {s.cases.map((c) => (
+              {s.cases.flatMap((c) => {
+                const noteKey = `${s.id}/${c.id}`;
+                const opened = openNotes.has(noteKey);
+                return [
                 <tr key={c.id}>
                   <td>
                     <code>{c.id}</code>
@@ -86,15 +100,27 @@ export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId:
                     {/* 不合格の理由はプログラムの出力（日本語のまま） */}
                     {!c.passed && <span lang="ja">{`${lang === "ja" ? "：" : ": "}${c.failures.join("；")}`}</span>}
                   </td>
-                  <td>
+                  <td className="actions">
+                    <button className={`notes-toggle ${opened ? "open" : ""}`} aria-expanded={opened} onClick={() => toggleNotes(noteKey)}>
+                      <span className="caret" aria-hidden="true" />
+                      <Tx k="note.toggle" />
+                    </button>
                     {c.key && (
                       <button onClick={() => onOpen(c.key as string)}>
                         <Tx k="btn.replay" />
                       </button>
                     )}
                   </td>
-                </tr>
-              ))}
+                </tr>,
+                opened && (
+                  <tr key={`${c.id}-notes`} className="notes-row">
+                    <td colSpan={7}>
+                      <CaseNotes noteKey={noteKey} summary={c} collapsible={false} />
+                    </td>
+                  </tr>
+                ),
+                ];
+              })}
             </tbody>
           </table>
         </section>

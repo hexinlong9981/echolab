@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DataMissingError, loadRun } from "./data";
 import { DEMOS_GROUP, groupOf, toggleGroup } from "./listGroups";
+import { CaseNotes } from "./CaseNotes";
 import { RunPlayer } from "./RunPlayer";
 import { Title, Tx } from "./Tx";
 import type { DataIndex, RunRecord } from "./types";
@@ -58,6 +59,15 @@ export function ReplayView({
     };
     // onStale は App の再描画ごとに作り直されるので、依存に入れない
   }, [current]);
+
+  // 選んだのが評価のケースなら、その説明を図の上に出す
+  const selectedCase = (() => {
+    for (const s of index.suites) {
+      const c = s.cases.find((x) => x.key === current);
+      if (c) return { noteKey: `${s.id}/${c.id}`, summary: c };
+    }
+    return null;
+  })();
 
   return (
     <main className="replay">
@@ -117,6 +127,9 @@ export function ReplayView({
               </button>
             )}
           </div>
+        )}
+        {selectedCase && (
+          <CaseNotes key={selectedCase.noteKey} noteKey={selectedCase.noteKey} summary={selectedCase.summary} />
         )}
         {run && run.key === current && <RunPlayer run={run} services={index.services} initialStep={step} />}
       </section>

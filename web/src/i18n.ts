@@ -10,6 +10,9 @@ import outputsEn from "./locales/outputs.en.json";
 import outputsZh from "./locales/outputs.zh.json";
 import questionsEn from "./locales/questions.en.json";
 import questionsZh from "./locales/questions.zh.json";
+import caseNotesEn from "./locales/caseNotes.en.json";
+import caseNotesJa from "./locales/caseNotes.ja.json";
+import caseNotesZh from "./locales/caseNotes.zh.json";
 import titlesEn from "./locales/titles.en.json";
 import titlesZh from "./locales/titles.zh.json";
 import zh from "./locales/zh.json";
@@ -23,7 +26,7 @@ export const LANGS: { code: Lang; label: string; html: string }[] = [
 
 type Dict = Record<string, string>;
 export const DICTS: Record<Lang, Dict> = { ja, en, zh };
-const RUBY: { ui: Dict; titles: Dict } = jaRuby;
+const RUBY: { ui: Dict; titles: Dict; caseNotes?: Record<string, CaseNote> } = jaRuby;
 const TITLES: Record<"en" | "zh", Dict> = { en: titlesEn, zh: titlesZh };
 
 const isLang = (x: string | null | undefined): x is Lang => x === "ja" || x === "en" || x === "zh";
@@ -108,6 +111,23 @@ export function titleText(lang: Lang, key: string, jaTitle: string): string {
 export function titleHtml(lang: Lang, key: string, jaTitle: string): string {
   if (lang === "ja") return RUBY.titles[jaTitle] ?? escapeHtml(jaTitle);
   return escapeHtml(TITLES[lang][key] ?? jaTitle);
+}
+
+/** 評価ケースの説明（内容・用意・評価）。結果は画面がデータから作る。 */
+export interface CaseNote {
+  content: string;
+  purpose: string;
+  assessment: string;
+}
+
+export const CASE_NOTES: Record<Lang, Record<string, CaseNote>> = { ja: caseNotesJa, en: caseNotesEn, zh: caseNotesZh };
+
+/** ケースの説明（HTML）。日本語はルビ付き。キーは「<評価>/<ケース ID>」。無ければ null。 */
+export function caseNoteHtml(lang: Lang, key: string): CaseNote | null {
+  if (lang === "ja" && RUBY.caseNotes?.[key]) return RUBY.caseNotes[key] as CaseNote;
+  const note = CASE_NOTES[lang][key] ?? CASE_NOTES.ja[key];
+  if (!note) return null;
+  return { content: escapeHtml(note.content), purpose: escapeHtml(note.purpose), assessment: escapeHtml(note.assessment) };
 }
 
 export type T = (key: string, params?: Params) => string;

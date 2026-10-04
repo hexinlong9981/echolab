@@ -97,5 +97,18 @@
   "s.budgetCheck": "确认成本上限（通过）",
   "s.budgetCheck.d": "Agent 每次调用 LLM 之前，都会检查今天和本月的花费是否已达上限（Budget.check；由 Agent 执行，不是网关）。通过时执行轨迹里不留记录，所以这一步是回放补上的",
   "data.missing": "找不到这条记录。数据可能已经更新，或者链接已经过时。",
-  "data.toFirst": "打开第一个演示"
+  "data.toFirst": "打开第一个演示",
+  "note.title": "关于这个用例",
+  "note.content": "内容",
+  "note.purpose": "用意",
+  "note.result": "结果",
+  "note.assessment": "评价",
+  "note.toggle": "说明",
+  "note.r.pass": "通过（符合预期）。",
+  "note.r.fail": "未通过：结果与预期不同。",
+  "note.r.status": "状态为 {status}。",
+  "note.r.drafts": "共 {drafts} 稿，退回 {rejected} 次。",
+  "note.r.refused": "网关或服务拒绝的工具调用 {n} 次。",
+  "note.r.cited": "引用出处 {n} 个。",
+  "note.r.noCite": "没有引用数字。"
 }
