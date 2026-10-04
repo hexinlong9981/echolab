@@ -171,12 +171,17 @@ ruby.furi.eng rt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ar
 html.no-eng ruby.furi.eng rt { display: none; }
 #eng-toggle { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; margin-right: 8px; }
 /* 左のメニューの分組（折りたたみ） */
+nav.side h3 { margin: 10px 0 4px; }
 nav.side h3 button.nav-group {
-  display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 2px 0; margin: 0;
-  background: none; border: 0; cursor: pointer; text-align: left;
-  font: inherit; color: inherit; letter-spacing: inherit;
+  display: flex; align-items: baseline; gap: 6px; width: 100%; padding: 6px 8px; margin: 0;
+  background: var(--nav-group-bg); border: 0; border-left: 3px solid transparent; border-radius: 6px;
+  cursor: pointer; text-align: left; font: inherit; font-weight: 600; color: var(--nav-group-text); letter-spacing: inherit;
 }
-nav.side h3 button.nav-group:hover { color: var(--text, inherit); }
+nav.side h3 button.nav-group:hover { background: var(--nav-group-hover); }
+nav.side h3 button.nav-group[aria-expanded="true"] {
+  background: var(--nav-group-open); border-left-color: var(--accent); color: var(--text);
+}
+nav.side ul { padding-left: 4px; }
 nav.side h3 button.nav-group:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 nav.side h3 .caret {
   display: inline-block; width: 6px; height: 6px; flex: none; margin-right: 4px;
@@ -185,3 +190,10 @@ nav.side h3 .caret {
 }
 nav.side h3 button.nav-group[aria-expanded="true"] .caret { transform: rotate(45deg); }
 nav.side ul[hidden] { display: none; }
+
+/* 分組の見出しの帯の色（明・暗） */
+:root { --nav-group-bg: #efece4; --nav-group-hover: #e6e2d7; --nav-group-open: #e3e0d6; --nav-group-text: #4a525b; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --nav-group-bg: #262a30; --nav-group-hover: #2e333a; --nav-group-open: #323843; --nav-group-text: #c3cad3; }
+}
+:root[data-theme="dark"] { --nav-group-bg: #262a30; --nav-group-hover: #2e333a; --nav-group-open: #323843; --nav-group-text: #c3cad3; }
