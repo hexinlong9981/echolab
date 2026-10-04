@@ -13,6 +13,7 @@ export function RunPlayer({
   services,
   initialStep,
   followLatest = false,
+  isLive = false,
 }: {
   run: RunRecord;
   services: Record<string, string>;
@@ -20,6 +21,8 @@ export function RunPlayer({
   initialStep?: number;
   /** 新しいステップが追加されたとき最新のステップを追従するか */
   followLatest?: boolean;
+  /** リアルタイム対話（多言語直接出力）かどうか。true の場合は静的翻訳注記や lang="ja" を無効化する */
+  isLive?: boolean;
 }) {
   const { h, lang } = useI18n();
   const steps = useMemo(() => buildSteps(run.events, services, h), [run, services, h]);
@@ -83,7 +86,7 @@ export function RunPlayer({
         <div className={`step ${Object.values(step.nodes).includes("bad") ? "bad" : ""}`}>
           <h3 dangerouslySetInnerHTML={{ __html: step.title }} />
           <p dangerouslySetInnerHTML={{ __html: step.detail }} />
-          <OutputTranslation texts={rawTexts(step.event)} />
+          {!isLive && <OutputTranslation texts={rawTexts(step.event)} />}
           <details>
             <summary>
               <Tx k="step.json" />
@@ -122,11 +125,11 @@ export function RunPlayer({
       )}
       {atEnd && answer?.event === "answer" && (
         <>
-          <pre className="answer" lang="ja">
+          <pre className="answer" lang={isLive ? undefined : "ja"}>
             {answer.answer}
           </pre>
-          {lang !== "ja" && <Tx k="answer.note" as="p" />}
-          <OutputTranslation texts={[answer.answer]} />
+          {!isLive && lang !== "ja" && <Tx k="answer.note" as="p" />}
+          {!isLive && <OutputTranslation texts={[answer.answer]} />}
         </>
       )}
     </div>
