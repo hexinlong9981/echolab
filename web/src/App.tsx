@@ -103,7 +103,7 @@ export function App() {
             <button className={route.tab === "evals" ? "on" : ""} onClick={() => go("evals")}>
               <Tx k="tab.evals" />
             </button>
-            {local && (
+            {(local || liveBase) && (
               <button className={route.tab === "live" ? "on" : ""} onClick={() => go("live")}>
                 <Tx k="tab.live" />
               </button>
