@@ -9,6 +9,7 @@ const LAYOUT: Record<NodeId, { x: number; y: number; label: string }> = {
   user: { x: 0, y: 120, label: "node.user" },
   agent: { x: 170, y: 120, label: "node.agent" },
   llm: { x: 170, y: 0, label: "node.llm" },
+  budget: { x: 0, y: 0, label: "node.budget" },
   gateway: { x: 370, y: 120, label: "node.gateway" },
   "calc-engine": { x: 600, y: 0, label: "node.calc" },
   "mortgage-calc": { x: 600, y: 80, label: "node.mortgage" },
@@ -23,6 +24,7 @@ const LAYOUT: Record<NodeId, { x: number; y: number; label: string }> = {
 const LINKS: [NodeId, NodeId][] = [
   ["user", "agent"],
   ["agent", "llm"],
+  ["agent", "budget"],
   ["agent", "gateway"],
   ["gateway", "calc-engine"],
   ["gateway", "mortgage-calc"],

@@ -49,29 +49,42 @@ describe("buildSteps", () => {
   ];
   const steps = buildSteps(events, services);
 
-  it("出来事 1 つが 1 コマになる", () => {
-    expect(steps).toHaveLength(events.length);
-    expect(steps.map((s) => s.index)).toEqual(events.map((_, i) => i));
+  it("出来事 1 つが 1 コマになり、LLM の呼び出しの前にはコストの上限の確認が 1 コマ入る", () => {
+    // LLM の呼び出しは 2 回 → コストの上限の確認が 2 コマ増える
+    expect(steps).toHaveLength(events.length + 2);
+    expect(steps.map((s) => s.index)).toEqual(steps.map((_, i) => i));
+    const checks = steps.filter((s) => s.nodes.budget === "ok");
+    expect(checks.map((s) => s.index)).toEqual([1, 7]);
+    expect(checks.every((s) => s.edges.includes("agent>budget") && s.title.includes("コストの上限"))).toBe(true);
+    expect(steps[2]?.event.event).toBe("llm_call");
+    expect(steps[8]?.event.event).toBe("llm_call");
   });
 
   it("許可されたツールはサービスの箱まで届き、宣言されていないツールはゲートウェイで止まる", () => {
-    expect(steps[2]?.edges).toEqual(["agent>gateway", "gateway>calc-engine"]);
-    expect(steps[3]?.edges).toEqual(["agent>gateway"]);
-    expect(steps[5]?.nodes.gateway).toBe("bad");
-    expect(steps[5]?.detail).toContain("使えません");
+    expect(steps[3]?.edges).toEqual(["agent>gateway", "gateway>calc-engine"]);
+    expect(steps[4]?.edges).toEqual(["agent>gateway"]);
+    expect(steps[6]?.nodes.gateway).toBe("bad");
+    expect(steps[6]?.detail).toContain("使えません");
   });
 
   it("出典は結果が返ったときから表に出る", () => {
-    expect(steps[3]?.sources).toEqual([]);
-    expect(steps[4]?.sources.map((s) => s.source_id)).toEqual(["c1.total"]);
+    expect(steps[4]?.sources).toEqual([]);
+    expect(steps[5]?.sources.map((s) => s.source_id)).toEqual(["c1.total"]);
     expect(steps.at(-1)?.sources).toHaveLength(1);
   });
 
   it("差し戻しは赤、合格と回答は緑になる", () => {
-    expect(steps[7]?.nodes.verifier).toBe("bad");
-    expect(steps[7]?.title).toContain("差し戻し");
-    expect(steps[8]?.nodes.verifier).toBe("ok");
-    expect(steps[9]?.nodes.answer).toBe("ok");
+    expect(steps[9]?.nodes.verifier).toBe("bad");
+    expect(steps[9]?.title).toContain("差し戻し");
+    expect(steps[10]?.nodes.verifier).toBe("ok");
+    expect(steps[11]?.nodes.answer).toBe("ok");
+  });
+
+  it("コストの上限で止まったら、上限の箱が赤になる。LLM の失敗の前には確認（通過）が入る", () => {
+    const [stopped] = buildSteps([ev({ event: "budget_exceeded", reason: "上限" })], services);
+    expect(stopped?.nodes.budget).toBe("bad");
+    const failed = buildSteps([ev({ event: "llm_error", kind: "credentials", error: "x" })], services);
+    expect(failed.map((s) => s.nodes.budget ?? null)).toEqual(["ok", null]);
   });
 
   it("定型の回答（fallback）は赤になる", () => {

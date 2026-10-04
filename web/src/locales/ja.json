@@ -92,5 +92,8 @@
   "out.none": "",
   "node.mushoku": "mushoku-lore\n（無職転生）",
   "badge.progress": "進み具合 {progress}（これより先は出さない）",
-  "live.progress": "進み具合（ネタバレ防止。これより先の情報は出しません）："
+  "live.progress": "進み具合（ネタバレ防止。これより先の情報は出しません）：",
+  "node.budget": "コスト上限\n日次・月次",
+  "s.budgetCheck": "コストの上限を確認（通過）",
+  "s.budgetCheck.d": "Agent が LLM を呼ぶ前に毎回、今日と今月の費用が上限に達していないかを確かめる（Budget.check。ゲートウェイではなく Agent の処理）。通過したときはトレースに記録されないので、このコマはリプレイで補ったもの"
 }

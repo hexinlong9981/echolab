@@ -6,6 +6,7 @@ import type { SourceValue, TraceRecord } from "./types";
 export type NodeId =
   | "user"
   | "agent"
+  | "budget"
   | "llm"
   | "gateway"
   | "calc-engine"
@@ -59,6 +60,19 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
   const push = (s: Omit<Step, "index" | "sources" | "event">, event: TraceRecord) =>
     steps.push({ ...s, index: steps.length, sources: [...sources], event });
 
+  // Agent は LLM を呼ぶ前に毎回コストの上限を確かめる（Budget.check）。通過したときはトレースに
+  // 出来事が残らないので、LLM の呼び出し（またはその失敗）の直前に 1 コマ補う
+  const pushBudgetCheck = (event: TraceRecord) =>
+    push(
+      {
+        title: m("s.budgetCheck"),
+        detail: m("s.budgetCheck.d"),
+        nodes: { agent: "active", budget: "ok" },
+        edges: ["agent>budget", "budget>agent"],
+      },
+      event,
+    );
+
   for (const e of events) {
     switch (e.event) {
       case "question":
@@ -73,6 +87,7 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         );
         break;
       case "llm_call": {
+        pushBudgetCheck(e);
         const calls = e.tool_uses.map((u) => u.name);
         push(
           calls.length > 0
@@ -172,9 +187,18 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         );
         break;
       case "budget_exceeded":
-        push({ title: m("s.budget"), detail: m("raw", { text: e.reason }), nodes: { agent: "bad" }, edges: [] }, e);
+        push(
+          {
+            title: m("s.budget"),
+            detail: m("raw", { text: e.reason }),
+            nodes: { agent: "bad", budget: "bad" },
+            edges: ["agent>budget"],
+          },
+          e,
+        );
         break;
       case "llm_error":
+        pushBudgetCheck(e);
         push({ title: m("s.llmError"), detail: m("raw", { text: e.error }), nodes: { llm: "bad", agent: "bad" }, edges: [] }, e);
         break;
     }
