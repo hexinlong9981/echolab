@@ -1,20 +1,21 @@
 import { Background, type Edge, MarkerType, type Node, ReactFlow } from "@xyflow/react";
 import { useMemo } from "react";
 import { FloatingEdge } from "./FloatingEdge";
+import { useI18n } from "./i18n";
 import type { NodeId, Step } from "./replay";
 
 // 箱の配置は固定（左から右へ：質問 → Agent → ゲートウェイ → サービス、下に検証器 → 回答）。
 const LAYOUT: Record<NodeId, { x: number; y: number; label: string }> = {
-  user: { x: 0, y: 120, label: "質問" },
-  agent: { x: 170, y: 120, label: "Agent" },
-  llm: { x: 170, y: 0, label: "LLM（Claude）" },
-  gateway: { x: 370, y: 120, label: "ゲートウェイ\n許可リスト・形式" },
-  "calc-engine": { x: 600, y: 0, label: "calc-engine\n（Java）" },
-  "mortgage-calc": { x: 600, y: 80, label: "mortgage-calc\n（Python）" },
-  "vision-mcp": { x: 600, y: 160, label: "vision-mcp\n（OCR）" },
-  compare: { x: 600, y: 240, label: "比較ツール\ncompare.*" },
-  verifier: { x: 170, y: 250, label: "検証器・レンダラ" },
-  answer: { x: 0, y: 250, label: "出典付きの回答" },
+  user: { x: 0, y: 120, label: "node.user" },
+  agent: { x: 170, y: 120, label: "node.agent" },
+  llm: { x: 170, y: 0, label: "node.llm" },
+  gateway: { x: 370, y: 120, label: "node.gateway" },
+  "calc-engine": { x: 600, y: 0, label: "node.calc" },
+  "mortgage-calc": { x: 600, y: 80, label: "node.mortgage" },
+  "vision-mcp": { x: 600, y: 160, label: "node.vision" },
+  compare: { x: 600, y: 240, label: "node.compare" },
+  verifier: { x: 170, y: 250, label: "node.verifier" },
+  answer: { x: 0, y: 250, label: "node.answer" },
 };
 
 // 箱の組（向きは問わない）。往復する組も線は 1 本で、そのコマで通った向きに矢印を付ける
@@ -33,17 +34,19 @@ const LINKS: [NodeId, NodeId][] = [
 const EDGE_TYPES = { floating: FloatingEdge };
 
 export function FlowDiagram({ step }: { step: Step | undefined }) {
+  const { h, t } = useI18n();
   const nodes: Node[] = useMemo(
     () =>
       (Object.keys(LAYOUT) as NodeId[]).map((id) => ({
         id,
         position: { x: LAYOUT[id].x, y: LAYOUT[id].y },
-        data: { label: LAYOUT[id].label },
+        // 改行（\n）を <br> にした、ルビ付きの見出し
+        data: { label: <span dangerouslySetInnerHTML={{ __html: h(LAYOUT[id].label).replaceAll("\n", "<br>") }} /> },
         className: `flow-node ${step?.nodes[id] ?? ""}`,
         draggable: false,
         selectable: false,
       })),
-    [step],
+    [step, h],
   );
   const edges: Edge[] = useMemo(() => {
     const lit = new Set(step?.edges ?? []);
@@ -64,7 +67,7 @@ export function FlowDiagram({ step }: { step: Step | undefined }) {
     });
   }, [step]);
   return (
-    <div className="flow" aria-label="処理の流れの図">
+    <div className="flow" aria-label={t("diagram.aria")}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

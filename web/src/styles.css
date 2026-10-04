@@ -46,7 +46,7 @@ code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-
 .brand span { color: var(--muted); font-size: 0.85em; }
 .tabs { display: flex; gap: 6px; }
 .tabs button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.repo { margin-left: auto; color: var(--accent); }
+.repo { color: var(--accent); }
 .pad { padding: 16px; }
 .muted { color: var(--muted); }
 .error { color: var(--bad); background: var(--bad-bg); padding: 8px 12px; border-radius: 6px; margin: 12px 16px; }
@@ -110,3 +110,41 @@ code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-
 .flow .react-flow__edge path { stroke: var(--line); stroke-width: 1.5; }
 .flow .react-flow__edge.lit path { stroke: var(--accent); stroke-width: 2.5; }
 .flow .react-flow__edge.lit .react-flow__arrowhead polyline, .flow marker polyline { stroke: var(--accent); fill: var(--accent); }
+
+/* ===== 言語の切り替えとルビの表示 ===== */
+.prefs { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prefs .repo { margin-left: 4px; }
+.langs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.langs button { border: none; border-radius: 0; padding: 3px 10px; font-size: 0.85em; }
+.langs button + button { border-left: 1px solid var(--line); }
+.langs button.on { background: var(--active-bg); color: var(--accent); font-weight: 600; }
+.ruby-toggles { display: inline-flex; gap: 6px; }
+.ruby-toggles button { font-size: 0.8em; padding: 2px 8px; color: var(--muted); }
+.ruby-toggles button.on { color: var(--text); }
+
+/* 日本語のふりがな（ruby.furi、漢字に赤字）と、カタカナの元の英単語（ruby.furi.eng）。利用ガイドと同じ規則 */
+:root { --furigana: #d32f2f; }
+@media (prefers-color-scheme: dark) { :root { --furigana: #ff7b72; } }
+ruby.furi { position: relative; }
+ruby.furi rt {
+  position: absolute; left: 50%; top: -0.95em; transform: translateX(-50%);
+  color: var(--furigana); font-size: 0.5em; font-weight: normal; line-height: 1;
+  white-space: nowrap; letter-spacing: -0.06em; user-select: none;
+}
+ruby.furi rp { display: none; }
+ruby.furi.eng rt { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; letter-spacing: 0; }
+.no-furi ruby.furi:not(.eng) rt { display: none; }
+.no-eng ruby.furi.eng rt { display: none; }
+/* ルビがあるとき（日本語）は行の間を広げ、ルビが上の行や枠に重ならないようにする */
+html:lang(ja) .app:not(.no-furi.no-eng) { line-height: 2.1; }
+html:lang(ja) .app:not(.no-furi.no-eng) :is(button, .badges span, th, td, .flow-node, .card dt):has(ruby.furi) { padding-top: 0.55em; }
+html:lang(ja) .app:not(.no-furi.no-eng) .list button { line-height: 2; }
+html:lang(ja) .app:not(.no-furi.no-eng) .flow-node { line-height: 1.9; }
+
+@media (max-width: 760px) {
+  .top { gap: 8px; }
+  .prefs { margin-left: 0; width: 100%; }
+  /* 幅の広い表は、ページ全体ではなく表だけを横にスクロールさせる */
+  table.cases, table.sources { display: block; overflow-x: auto; }
+  .app { overflow-x: hidden; }
+}

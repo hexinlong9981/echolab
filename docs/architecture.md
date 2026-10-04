@@ -11,7 +11,7 @@ EchoLab は「**数値は決定的なツールで計算し、AI は理解と説�
 ```mermaid
 flowchart TB
   CLI["CLI（M2）<br/>python -m core.agent"]
-  UI["Web UI（M5・React + TypeScript）<br/>回放・評価ダッシュボード・手元の実行<br/>servers/web_api 経由"]
+  UI["Web UI（M5・React + TypeScript）<br/>リプレイ・評価ダッシュボード・手元の実行<br/>servers/web_api 経由"]
   subgraph core["core/（ドメイン非依存・Python・M2〜）"]
     AG["Agent<br/>ツールの並列呼び出し → 検証 → 差し戻し"]
     GW["ポリシーゲートウェイ<br/>許可リスト・スキーマ・予算"]
@@ -102,7 +102,7 @@ M1〜M5 が実装済みです。リポジトリには実装済みの部分のデ
 | `domains/mortgage` | 住宅ローンの返済の計算例：計算と Python の MCP サーバ（`calc/`）・ゴールデンケース・プロンプト（ADR-0009） |
 | `servers/vision_mcp` | スクリーンショットの OCR（Tesseract）。テンプレートで宣言した数値だけを返す（ADR-0010） |
 | `servers/web_api` | Web UI のデータの書き出しと、手元だけの API（ADR-0011） |
-| `web/` | Web UI（React + TypeScript + Vite）：回放・評価のダッシュボード・手元の実行画面（ADR-0011） |
+| `web/` | Web UI（React + TypeScript + Vite）：リプレイ・評価のダッシュボード・手元の実行画面（ADR-0011） |
 | `evals/` | 評価ケース（`faithfulness/`・`redteam/`）と集計済みのレポート（`reports/`） |
 | `tests/` | スキーマ検査・Python 参照実装による照合・`core` の単体テスト（`tests/core/`）・パック・OCR・注入・Web の試験・端から端までの試験（`tests/e2e/`） |
 | `.github/workflows` | `test.yml`（ruff・pytest・台本モードの評価・OCR、`pack-isolation`、jar を起動する端から端までの試験）・`java.yml`（`./gradlew check`・`bootJar`）・`web.yml`（Web UI のビルドと公開）・`pages.yml`（利用ガイド） |
@@ -124,7 +124,7 @@ M1〜M5 が実装済みです。リポジトリには実装済みの部分のデ
 | M2 | 縦の切片：CLI → ゲートウェイ → calc-engine（MCP）→ 数値トレース検証器 → 出典付きの回答。数値の忠実度の評価・実行トレース | 完了 |
 | M3 | ドメインパック②：住宅ローンの返済の計算例（最小例）。「コアの差分ゼロ」を CI で検査 | 完了 |
 | M4 | スクリーンショット読み取り（OCR）・注入の評価セット（台本モードを CI に追加） | 完了 |
-| M5 | Web UI・トレースの回放・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 完了（<https://echolab-web.echolab-web.workers.dev/>） |
+| M5 | Web UI・トレースのリプレイ・評価ダッシュボード・デモ公開（静的・費用ゼロ） | 完了（<https://echolab-web.echolab-web.workers.dev/>） |
 
 ### M2：縦の切片（質問 → 出典付きの回答）：実装済み
 
@@ -199,7 +199,7 @@ LLM は Claude（`claude-opus-5-5`）で、抽象層（`core/agent/llm/`）を�
 
 ### M5：Web UI：実装済み
 
-方針は ADR-0011 です。**費用ゼロ**を最優先にし、公開するのは静的な回放と評価のダッシュボードだけにしました。
+方針は ADR-0011 です。**費用ゼロ**を最優先にし、公開するのは静的なリプレイと評価のダッシュボードだけにしました。
 
 ```mermaid
 flowchart LR
@@ -207,7 +207,7 @@ flowchart LR
     EX["python -m servers.web_api.export<br/>台本モードで全デモ・全評価"] --> JSON["data/*.json<br/>（手元のパスを除く）"]
     JSON --> B["型検査・Vitest・Vite のビルド"]
   end
-  B -->|wrangler| CF["Cloudflare<br/>Workers の静的アセット<br/>静的な回放・評価（公開）"]
+  B -->|wrangler| CF["Cloudflare<br/>Workers の静的アセット<br/>静的なリプレイ・評価（公開）"]
   subgraph LOCAL["手元（127.0.0.1）"]
     API["python -m servers.web_api<br/>web/dist を配る・/api/ask"] --> AG["Agent（コア）"]
   end
@@ -217,13 +217,13 @@ flowchart LR
 
 | 場所 | 役割 |
 |---|---|
-| `web/` | React + TypeScript + Vite。回放（React Flow の図・コマ送り・出典の表、`#replay/<実行 ID>/<コマ>`）、評価のダッシュボード、手元の API があるときだけの実行画面 |
+| `web/` | React + TypeScript + Vite。リプレイ（React Flow の図・コマ送り・出典の表、`#replay/<実行 ID>/<コマ>`）、評価のダッシュボード、手元の API があるときだけの実行画面 |
 | `servers/web_api/export.py` | 台本モード（API キー不要・試験用の計算サービス）でデモ 3 件と全評価を実行し、`index.json` と `runs/<実行 ID>.json` に書き出す |
 | `servers/web_api/server.py` | 手元だけの API（Python の標準ライブラリ）。`127.0.0.1` だけにつなぎ、`Content-Type: application/json` と `Origin` を確かめる。台本は決まったデモのものだけ |
 | `.github/workflows/web.yml` | 書き出し・型検査・試験・ビルド。main への push で、Secrets があれば Cloudflare（Workers の静的アセット） に公開 |
 
 - 公開サイトにはサーバも LLM も無いので、費用がかからず、第三者に API を使われることもありません。
-- 公開の回放は台本モードの記録で、画面にもそう表示します。実物の Claude の記録の公開は、実物の評価を行ったときに改めて決めます。
+- 公開のリプレイは台本モードの記録で、画面にもそう表示します。実物の Claude の記録の公開は、実物の評価を行ったときに改めて決めます。
 
 ## 言語の分担
 

@@ -1,28 +1,38 @@
+import { useI18n } from "./i18n";
+import { Title, Tx } from "./Tx";
 import type { DataIndex } from "./types";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
 export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId: string) => void }) {
+  const { lang } = useI18n();
   return (
     <main className="evals pad">
-      <p className="muted">
-        評価は台本モード（API キー不要）で CI が毎回実行します。台本には「LLM が数値を書いてしまった」「指示に従ってしまった」場合の応答もわざと入れてあり、
-        それでも検証器・ゲートウェイが止めることを確かめます。実物の Claude での評価は手元で手動で行います（まだ実施していません）。
-      </p>
+      <Tx k="evals.intro" as="p" />
       <div className="cards">
         {index.suites.map((s) => (
           <section key={s.id} className={`card ${s.ok ? "" : "bad"}`}>
-            <h2>{s.title}</h2>
+            <h2>
+              <Title k={`suite/${s.id}`} ja={s.title} />
+            </h2>
             <dl>
-              <dt>数値の忠実度</dt>
+              <dt>
+                <Tx k="metric.faithfulness" />
+              </dt>
               <dd className={s.faithfulness === 1 ? "ok" : "bad"}>{s.faithfulness.toFixed(3)}</dd>
-              <dt>合格したケース</dt>
+              <dt>
+                <Tx k="metric.passed" />
+              </dt>
               <dd>
                 {s.passed} / {s.total}
               </dd>
-              <dt>差し戻し率</dt>
+              <dt>
+                <Tx k="metric.rejection" />
+              </dt>
               <dd>{pct(s.draft_rejection_rate)}</dd>
-              <dt>拒んだツール呼び出し</dt>
+              <dt>
+                <Tx k="metric.toolErrors" />
+              </dt>
               <dd>{s.tool_errors}</dd>
             </dl>
           </section>
@@ -31,17 +41,30 @@ export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId:
       {index.suites.map((s) => (
         <section key={s.id}>
           <h2>
-            {s.title}（ドメイン {s.domain}）
+            <Title k={`suite/${s.id}`} ja={s.title} />
+            <Tx k="evals.domain" p={{ domain: s.domain }} />
           </h2>
           <table className="cases">
             <thead>
               <tr>
-                <th>ケース</th>
-                <th>状態</th>
-                <th>下書き</th>
-                <th>差し戻し</th>
-                <th>拒否</th>
-                <th>合否</th>
+                <th>
+                  <Tx k="col.case" />
+                </th>
+                <th>
+                  <Tx k="col.status" />
+                </th>
+                <th>
+                  <Tx k="col.drafts" />
+                </th>
+                <th>
+                  <Tx k="col.rejected" />
+                </th>
+                <th>
+                  <Tx k="col.refused" />
+                </th>
+                <th>
+                  <Tx k="col.result" />
+                </th>
                 <th />
               </tr>
             </thead>
@@ -50,14 +73,26 @@ export function EvalsView({ index, onOpen }: { index: DataIndex; onOpen: (runId:
                 <tr key={c.id}>
                   <td>
                     <code>{c.id}</code>
-                    <div className="muted">{c.title}</div>
+                    <div className="muted">
+                      <Title k={`${s.id}/${c.id}`} ja={c.title} />
+                    </div>
                   </td>
                   <td>{c.status}</td>
                   <td className="num">{c.drafts}</td>
                   <td className="num">{c.drafts_rejected}</td>
                   <td className="num">{c.tool_errors}</td>
-                  <td className={c.passed ? "ok" : "bad"}>{c.passed ? "合格" : `不合格：${c.failures.join("；")}`}</td>
-                  <td>{c.run_id && <button onClick={() => onOpen(c.run_id as string)}>回放 ▶</button>}</td>
+                  <td className={c.passed ? "ok" : "bad"}>
+                    <Tx k={c.passed ? "passed" : "failed"} />
+                    {/* 不合格の理由はプログラムの出力（日本語のまま） */}
+                    {!c.passed && <span lang="ja">{`${lang === "ja" ? "：" : ": "}${c.failures.join("；")}`}</span>}
+                  </td>
+                  <td>
+                    {c.run_id && (
+                      <button onClick={() => onOpen(c.run_id as string)}>
+                        <Tx k="btn.replay" />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

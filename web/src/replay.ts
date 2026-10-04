@@ -1,4 +1,5 @@
 // 実行トレースの出来事を、回放の 1 コマずつに変える（React に依存しない純粋な関数。replay.test.ts で試験する）。
+import { type T, translate } from "./i18n";
 import type { SourceValue, TraceRecord } from "./types";
 
 /** 図の箱。 */
@@ -18,9 +19,9 @@ export type Tone = "active" | "ok" | "bad";
 
 export interface Step {
   index: number;
-  /** 見出し（日本語） */
+  /** 見出し（m が返す形。画面では HTML、試験ではプレーンテキスト） */
   title: string;
-  /** 補足（日本語） */
+  /** 補足 */
   detail: string;
   /** 光らせる箱と色 */
   nodes: Partial<Record<NodeId, Tone>>;
@@ -46,7 +47,10 @@ export function serviceNode(tool: string, services: Record<string, string>): Nod
   return service ? (SERVICE_NODES[service] ?? null) : null;
 }
 
-export function buildSteps(events: TraceRecord[], services: Record<string, string>): Step[] {
+/** 既定の文言：日本語のプレーンテキスト。 */
+const plainJa: T = (key, params) => translate("ja", key, params);
+
+export function buildSteps(events: TraceRecord[], services: Record<string, string>, m: T = plainJa): Step[] {
   const steps: Step[] = [];
   const sources: SourceValue[] = [];
   const callTarget = new Map<string, NodeId | null>();
@@ -58,8 +62,8 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
       case "question":
         push(
           {
-            title: "質問",
-            detail: `${e.question}（ドメイン ${e.domain}、使えるツール ${e.tools.length} 個）`,
+            title: m("s.question"),
+            detail: m("s.question.d", { question: e.question, domain: e.domain, n: e.tools.length }),
             nodes: { user: "active", agent: "active" },
             edges: ["user>agent"],
           },
@@ -71,14 +75,14 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         push(
           calls.length > 0
             ? {
-                title: "LLM がツールの呼び出しを求める",
-                detail: `${calls.join("・")}（LLM は計算しない。数値はツールが出す）`,
+                title: m("s.toolUse"),
+                detail: m("s.toolUse.d", { tools: calls.join("・") }),
                 nodes: { agent: "active", llm: "active" },
                 edges: ["agent>llm", "llm>agent"],
               }
             : {
-                title: "LLM が回答のテンプレートを書く",
-                detail: "数値はプレースホルダ [[出典ID]] で引用する。次に検証器が確かめる",
+                title: m("s.template"),
+                detail: m("s.template.d"),
                 nodes: { agent: "active", llm: "active" },
                 edges: ["agent>llm", "llm>agent"],
               },
@@ -91,10 +95,8 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         callTarget.set(e.tool_use_id, target);
         push(
           {
-            title: `ツールの呼び出し：${e.name}`,
-            detail: target
-              ? "ゲートウェイが許可リストと入力の形を確かめ、サービスに渡す"
-              : "ゲートウェイが許可リストを確かめる（このドメインで宣言されていない）",
+            title: m("s.call", { tool: e.name }),
+            detail: target ? m("s.call.ok") : m("s.call.denied"),
             nodes: target ? { agent: "active", gateway: "active", [target]: "active" } : { agent: "active", gateway: "active" },
             edges: target ? ["agent>gateway", `gateway>${target}`] : ["agent>gateway"],
           },
@@ -107,8 +109,8 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         if (e.outcome.error) {
           push(
             {
-              title: `拒否・誤り：${e.outcome.tool}`,
-              detail: e.outcome.error,
+              title: m("s.error", { tool: e.outcome.tool }),
+              detail: m("raw", { text: e.outcome.error }),
               nodes: target ? { gateway: "bad", [target]: "bad", agent: "active" } : { gateway: "bad", agent: "active" },
               edges: ["gateway>agent"],
             },
@@ -118,11 +120,15 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
           sources.push(...e.outcome.sources);
           push(
             {
-              title: `結果：${e.outcome.tool}（呼び出し ${e.outcome.call_id}）`,
-              detail: `出典 ID を ${e.outcome.sources.length} 個発行した（${e.outcome.sources
-                .slice(0, 4)
-                .map((s) => s.source_id)
-                .join("・")}${e.outcome.sources.length > 4 ? " ほか" : ""}）`,
+              title: m("s.result", { tool: e.outcome.tool, call: e.outcome.call_id }),
+              detail: m("s.result.d", {
+                n: e.outcome.sources.length,
+                ids:
+                  e.outcome.sources
+                    .slice(0, 4)
+                    .map((s) => s.source_id)
+                    .join("・") + (e.outcome.sources.length > 4 ? m("s.more") : ""),
+              }),
               nodes: target ? { [target]: "ok", gateway: "ok", agent: "active" } : { gateway: "ok", agent: "active" },
               edges: target ? [`${target}>gateway`, "gateway>agent"] : ["gateway>agent"],
             },
@@ -135,14 +141,14 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         push(
           e.ok
             ? {
-                title: `検証：下書き ${e.draft} は合格`,
-                detail: `出典の無い数字は無い。引用 ${e.cited.length} 個をレンダラが数値に置き換える`,
+                title: m("s.pass", { draft: e.draft }),
+                detail: m("s.pass.d", { n: e.cited.length }),
                 nodes: { verifier: "ok" },
                 edges: ["agent>verifier"],
               }
             : {
-                title: `検証：下書き ${e.draft} を差し戻し`,
-                detail: e.problems.join(" / "),
+                title: m("s.reject", { draft: e.draft }),
+                detail: m("raw", { text: e.problems.join(" / ") }),
                 nodes: { verifier: "bad", agent: "active" },
                 edges: ["agent>verifier", "verifier>agent"],
               },
@@ -152,11 +158,11 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
       case "answer":
         push(
           {
-            title: e.status === "answered" ? "出典付きの回答" : `回答（${e.status}）`,
+            title: e.status === "answered" ? m("s.answer") : m("s.answerOther", { status: e.status }),
             detail:
               e.status === "answered"
-                ? `引用した出典 ${e.cited.length} 個・差し戻し ${e.drafts_rejected} 回`
-                : "数値を含まない定型の回答で終えた",
+                ? m("s.answer.d", { n: e.cited.length, rejected: e.drafts_rejected })
+                : m("s.fallback.d"),
             nodes: { answer: e.status === "answered" ? "ok" : "bad", verifier: e.status === "answered" ? "ok" : "bad" },
             edges: ["verifier>answer"],
           },
@@ -164,10 +170,10 @@ export function buildSteps(events: TraceRecord[], services: Record<string, strin
         );
         break;
       case "budget_exceeded":
-        push({ title: "コストの上限", detail: e.reason, nodes: { agent: "bad" }, edges: [] }, e);
+        push({ title: m("s.budget"), detail: m("raw", { text: e.reason }), nodes: { agent: "bad" }, edges: [] }, e);
         break;
       case "llm_error":
-        push({ title: "LLM の呼び出しに失敗", detail: e.error, nodes: { llm: "bad", agent: "bad" }, edges: [] }, e);
+        push({ title: m("s.llmError"), detail: m("raw", { text: e.error }), nodes: { llm: "bad", agent: "bad" }, edges: [] }, e);
         break;
     }
   }

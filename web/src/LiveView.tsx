@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { type AskRequest, ask } from "./data";
+import { titleText, useI18n } from "./i18n";
 import { RunPlayer } from "./RunPlayer";
+import { Tx } from "./Tx";
 import type { LocalInfo, RunRecord } from "./types";
 
 /** 手元の API（python -m servers.web_api）につないだときだけ出る「実行」画面。公開のサイトには出ない。 */
 export function LiveView({ info, services }: { info: LocalInfo; services: Record<string, string> }) {
+  const { lang, t } = useI18n();
   const [mode, setMode] = useState<"scripted" | "anthropic">("scripted");
   const [demo, setDemo] = useState(info.demos[0]?.id ?? "");
   const [question, setQuestion] = useState("");
@@ -33,28 +36,29 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
   return (
     <main className="live pad">
       <p className="muted">
-        この画面は手元の API（127.0.0.1）だけで動きます。実物の Claude はコストの上限（日次 {info.caps_usd.daily} USD・月次{" "}
-        {info.caps_usd.monthly} USD）に従います。
+        <Tx k="live.intro" p={{ daily: info.caps_usd.daily, monthly: info.caps_usd.monthly }} />
       </p>
       <div className="form">
         <label>
-          <input type="radio" checked={mode === "scripted"} onChange={() => setMode("scripted")} /> 台本のデモ（API キー不要）
+          <input type="radio" checked={mode === "scripted"} onChange={() => setMode("scripted")} /> <Tx k="live.scripted" />
         </label>
         <label>
           <input type="radio" checked={mode === "anthropic"} onChange={() => setMode("anthropic")} disabled={!info.has_api_key} />{" "}
-          実物の Claude{info.has_api_key ? "" : "（ANTHROPIC_API_KEY が未設定）"}
+          <Tx k="live.anthropic" />
+          {!info.has_api_key && <Tx k="live.noKey" />}
         </label>
         {mode === "scripted" ? (
           <>
             <select value={demo} onChange={(e) => setDemo(e.target.value)}>
               {info.demos.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.title}
+                  {/* option の中は HTML にできないので、ルビの無い表示名 */}
+                  {titleText(lang, `demo/${d.id}`, d.title)}
                 </option>
               ))}
             </select>
             {selected && <p className="question">Q. {selected.question}</p>}
-            <p className="muted">台本モードは質問の中身を読まず、台本を順に再生します（再現のための仕組みです）。</p>
+            <Tx k="live.scriptedNote" as="p" />
           </>
         ) : (
           <>
@@ -63,16 +67,15 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
                 <option key={d}>{d}</option>
               ))}
             </select>
-            <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={4} placeholder="質問（日本語）" maxLength={2000} />
+            <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={4} placeholder={t("live.placeholder")} maxLength={2000} />
           </>
         )}
         <label>
-          <input type="checkbox" checked={fake} onChange={(e) => setFake(e.target.checked)} /> 試験用の計算サービスを使う（Java・Tesseract
-          不要）
+          <input type="checkbox" checked={fake} onChange={(e) => setFake(e.target.checked)} /> <Tx k="live.fake" />
         </label>
-        {!info.ocr && <p className="muted">Tesseract が見つからないため、実物の OCR は使えません。</p>}
+        {!info.ocr && <Tx k="live.noOcr" as="p" />}
         <button onClick={submit} disabled={busy || (mode === "anthropic" && !question.trim())}>
-          {busy ? "実行中…" : "実行する"}
+          <Tx k={busy ? "live.running" : "live.run"} />
         </button>
       </div>
       {error && <p className="error">{error}</p>}

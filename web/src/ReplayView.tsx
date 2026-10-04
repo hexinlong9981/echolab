@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadRun } from "./data";
 import { RunPlayer } from "./RunPlayer";
+import { Title, Tx } from "./Tx";
 import type { DataIndex, RunRecord } from "./types";
 
 export function ReplayView({
@@ -27,27 +28,30 @@ export function ReplayView({
   return (
     <main className="replay">
       <aside className="list">
-        <h2>デモ</h2>
+        <Tx k="list.demos" as="h2" />
         <ul>
           {index.demos.map((d) => (
             <li key={d.id}>
               <button className={d.run_id === current ? "on" : ""} onClick={() => onSelect(d.run_id)}>
-                {d.title}
+                <Title k={`demo/${d.id}`} ja={d.title} />
               </button>
             </li>
           ))}
         </ul>
         {index.suites.map((s) => (
           <section key={s.id}>
-            <h2>評価：{s.title}</h2>
+            <h2>
+              <Tx k="list.suitePrefix" />
+              <Title k={`suite/${s.id}`} ja={s.title} />
+            </h2>
             <ul>
               {s.cases.map(
                 (c) =>
                   c.run_id && (
                     <li key={c.id}>
                       <button className={c.run_id === current ? "on" : ""} onClick={() => onSelect(c.run_id as string)}>
-                        <span className={c.passed ? "dot ok" : "dot bad"} aria-label={c.passed ? "合格" : "不合格"} />
-                        {c.title}
+                        <span className={c.passed ? "dot ok" : "dot bad"} />
+                        <Title k={`${s.id}/${c.id}`} ja={c.title} />
                       </button>
                     </li>
                   ),

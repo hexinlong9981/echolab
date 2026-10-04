@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { FlowDiagram } from "./FlowDiagram";
+import { useI18n } from "./i18n";
 import { buildSteps } from "./replay";
+import { Tx } from "./Tx";
 import type { RunRecord } from "./types";
 
 /** 1 回の実行を、図・コマ送り・出典の表で見せる。公開の回放と手元の実行で共用する。 */
@@ -14,7 +16,8 @@ export function RunPlayer({
   /** 最初に見せるコマ（0 から。URL の #replay/<実行 ID>/<コマ> で指定できる） */
   initialStep?: number;
 }) {
-  const steps = useMemo(() => buildSteps(run.events, services), [run, services]);
+  const { h } = useI18n();
+  const steps = useMemo(() => buildSteps(run.events, services, h), [run, services, h]);
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
 
@@ -42,24 +45,24 @@ export function RunPlayer({
     <div className="player">
       {question?.event === "question" && <p className="question">Q. {question.question}</p>}
       <div className="badges">
-        <span>ドメイン {run.domain}</span>
-        <span>{run.llm === "ScriptedLLM" ? "台本の LLM（API キー不要）" : run.llm}</span>
-        <span>{run.fake_backend ? "試験用の計算サービス" : "実物の計算サービス"}</span>
-        <span className={run.status === "answered" ? "ok" : "bad"}>状態 {run.status}</span>
+        <Tx k="badge.domain" p={{ domain: run.domain ?? "" }} />
+        {run.llm === "ScriptedLLM" ? <Tx k="badge.scripted" /> : <span>{run.llm}</span>}
+        <Tx k={run.fake_backend ? "badge.fake" : "badge.real"} />
+        <Tx k="badge.status" p={{ status: run.status ?? "" }} className={run.status === "answered" ? "ok" : "bad"} />
       </div>
       <FlowDiagram step={step} />
       <div className="controls">
         <button onClick={() => setI(0)} disabled={i === 0}>
-          最初へ
+          <Tx k="btn.first" />
         </button>
         <button onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
-          ◀ 前へ
+          <Tx k="btn.prev" />
         </button>
         <button onClick={() => setPlaying((p) => !p)} disabled={atEnd && !playing}>
-          {playing ? "⏸ 止める" : "▶ 自動再生"}
+          <Tx k={playing ? "btn.pause" : "btn.play"} />
         </button>
         <button onClick={() => setI((n) => Math.min(steps.length - 1, n + 1))} disabled={atEnd}>
-          次へ ▶
+          <Tx k="btn.next" />
         </button>
         <span className="muted">
           {i + 1} / {steps.length}
@@ -67,10 +70,12 @@ export function RunPlayer({
       </div>
       {step && (
         <div className={`step ${Object.values(step.nodes).includes("bad") ? "bad" : ""}`}>
-          <h3>{step.title}</h3>
-          <p>{step.detail}</p>
+          <h3 dangerouslySetInnerHTML={{ __html: step.title }} />
+          <p dangerouslySetInnerHTML={{ __html: step.detail }} />
           <details>
-            <summary>トレースの出来事（JSON）</summary>
+            <summary>
+              <Tx k="step.json" />
+            </summary>
             <pre>{JSON.stringify(step.event, null, 1)}</pre>
           </details>
         </div>
@@ -79,9 +84,15 @@ export function RunPlayer({
         <table className="sources">
           <thead>
             <tr>
-              <th>出典 ID</th>
-              <th>値</th>
-              <th>ツール</th>
+              <th>
+                <Tx k="col.source" />
+              </th>
+              <th>
+                <Tx k="col.value" />
+              </th>
+              <th>
+                <Tx k="col.tool" />
+              </th>
             </tr>
           </thead>
           <tbody>

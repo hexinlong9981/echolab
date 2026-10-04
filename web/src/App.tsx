@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { loadIndex, loadLocalInfo } from "./data";
 import { EvalsView } from "./EvalsView";
+import { detectLang, LANGS, type Lang, LangContext, loadRubyPrefs, makeI18n, store } from "./i18n";
 import { LiveView } from "./LiveView";
 import { ReplayView } from "./ReplayView";
+import { Tx } from "./Tx";
 import type { DataIndex, LocalInfo } from "./types";
 
 type Tab = "replay" | "evals" | "live";
@@ -24,6 +26,9 @@ export function App() {
   const [index, setIndex] = useState<DataIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState<LocalInfo | null>(null);
+  const [lang, setLang] = useState<Lang>(detectLang);
+  const [ruby, setRuby] = useState(loadRubyPrefs);
+  const i18n = useMemo(() => makeI18n(lang), [lang]);
 
   useEffect(() => {
     const onHash = () => setRoute(readHash());
@@ -33,47 +38,90 @@ export function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.lang = LANGS.find((l) => l.code === lang)?.html ?? "ja";
+    document.title = i18n.t("doc.title");
+  }, [lang, i18n]);
+
   const go = (hash: string) => {
     window.location.hash = hash;
   };
+  const chooseLang = (l: Lang) => {
+    setLang(l);
+    store("echolab-lang", l);
+  };
+  const toggle = (kind: "furi" | "eng") => {
+    const next = { ...ruby, [kind]: !ruby[kind] };
+    setRuby(next);
+    store(`echolab-${kind}`, next[kind] ? "on" : "off");
+  };
+
+  const rootClass = ["app", ruby.furi ? "" : "no-furi", ruby.eng ? "" : "no-eng"].join(" ").trim();
 
   return (
-    <div className="app">
-      <header className="top">
-        <div className="brand">
-          <strong>EchoLab</strong>
-          <span>AI に計算させない AI アシスタント</span>
-        </div>
-        <nav className="tabs">
-          <button className={route.tab === "replay" ? "on" : ""} onClick={() => go("replay")}>
-            回放
-          </button>
-          <button className={route.tab === "evals" ? "on" : ""} onClick={() => go("evals")}>
-            評価
-          </button>
-          {local && (
-            <button className={route.tab === "live" ? "on" : ""} onClick={() => go("live")}>
-              実行（手元）
+    <LangContext.Provider value={i18n}>
+      <div className={rootClass}>
+        <header className="top">
+          <div className="brand">
+            <strong>EchoLab</strong>
+            <Tx k="tagline" />
+          </div>
+          <nav className="tabs">
+            <button className={route.tab === "replay" ? "on" : ""} onClick={() => go("replay")}>
+              <Tx k="tab.replay" />
             </button>
+            <button className={route.tab === "evals" ? "on" : ""} onClick={() => go("evals")}>
+              <Tx k="tab.evals" />
+            </button>
+            {local && (
+              <button className={route.tab === "live" ? "on" : ""} onClick={() => go("live")}>
+                <Tx k="tab.live" />
+              </button>
+            )}
+          </nav>
+          <div className="prefs">
+            <span className="langs" role="group" aria-label="Language / 言語 / 语言">
+              {LANGS.map((l) => (
+                <button key={l.code} className={l.code === lang ? "on" : ""} onClick={() => chooseLang(l.code)} lang={l.html}>
+                  {l.label}
+                </button>
+              ))}
+            </span>
+            {lang === "ja" && (
+              <span className="ruby-toggles">
+                <button className={ruby.furi ? "on" : ""} onClick={() => toggle("furi")} aria-pressed={ruby.furi}>
+                  ふりがな：{ruby.furi ? "あり" : "なし"}
+                </button>
+                <button className={ruby.eng ? "on" : ""} onClick={() => toggle("eng")} aria-pressed={ruby.eng}>
+                  英語：{ruby.eng ? "あり" : "なし"}
+                </button>
+              </span>
+            )}
+            <a className="repo" href="https://github.com/hexinlong9981/echolab" target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+          </div>
+        </header>
+        {error && <p className="error">{error}</p>}
+        {!index && !error && <Tx k="loading" as="p" />}
+        {index && route.tab === "replay" && (
+          <ReplayView index={index} runId={route.runId} step={route.step} onSelect={(id) => go(`replay/${id}`)} />
+        )}
+        {index && route.tab === "evals" && <EvalsView index={index} onOpen={(id) => go(`replay/${id}`)} />}
+        {index && route.tab === "live" && local && <LiveView info={local} services={index.services} />}
+        {index && route.tab === "live" && !local && <Tx k="live.unavailable" as="p" />}
+        <footer className="foot">
+          <Tx k="foot.main" />{" "}
+          {index && (
+            <>
+              <Tx k="foot.generated" p={{ at: index.generated_at }} />
+              {index.commit && <Tx k="foot.commit" p={{ sha: index.commit.slice(0, 7) }} />}
+              {lang === "ja" ? "。" : ". "}
+            </>
           )}
-        </nav>
-        <a className="repo" href="https://github.com/hexinlong9981/echolab" target="_blank" rel="noreferrer">
-          GitHub
-        </a>
-      </header>
-      {error && <p className="error">{error}</p>}
-      {!index && !error && <p className="muted pad">読み込み中…</p>}
-      {index && route.tab === "replay" && <ReplayView index={index} runId={route.runId} step={route.step} onSelect={(id) => go(`replay/${id}`)} />}
-      {index && route.tab === "evals" && <EvalsView index={index} onOpen={(id) => go(`replay/${id}`)} />}
-      {index && route.tab === "live" && local && <LiveView info={local} services={index.services} />}
-      {index && route.tab === "live" && !local && (
-        <p className="muted pad">「実行」は手元の API（python -m servers.web_api）から開いたときだけ使えます。</p>
-      )}
-      <footer className="foot">
-        台本モード（API キー不要）で CI が生成した記録の回放です。数値は決定的なツールが計算し、LLM は書きません。
-        {index && <> データ生成 {index.generated_at}{index.commit ? `・コミット ${index.commit.slice(0, 7)}` : ""}。</>}
-        『鳴潮』の非公式ファン作品。住宅ローンは計算例で、金融上の助言ではありません。
-      </footer>
-    </div>
+          <Tx k="foot.legal" /> {lang !== "ja" && <Tx k="foot.content" />}
+        </footer>
+      </div>
+    </LangContext.Provider>
   );
 }
