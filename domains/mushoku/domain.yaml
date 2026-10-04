@@ -10,7 +10,7 @@ golden_dir: golden
 prompts_dir: prompts
 filter_policy: progress
 user_context: [progress]
-answer_note: ※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+answer_note: ※ 設定は非公式のファン作品の資料（作者が原作で確認した短い要約）に基づきます。地図の日数は自作の目安です。
 tools:
   - name: lore.search
     service: mushoku-lore

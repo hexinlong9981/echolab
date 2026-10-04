@@ -58,3 +58,11 @@ data covers all light-novel volumes and the anime, drafted from memory and marke
 - New locations: `domains/mushoku/`, `evals/faithfulness/mushoku.yaml`, `evals/redteam/spoilers.yaml`; `mushoku-lore` in `config/services.yaml`.
 - Known limit: a spoiler sentence without digits that the LLM writes from its own knowledge cannot be stopped structurally (the prompt forbids it). Ones with digits are stopped by the verifier.
 - Tests: `tests/test_mushoku_pack.py`, `tests/core/test_user_context.py`, `tests/test_golden_reference.py` (reference implementation `tests/reference/mushoku_reference.py`).
+
+## Addendum (2026-10-04): data review
+
+The author checked the 79 items drafted by Claude (40 facts, 18 people, 3 events, 8 places, 7 roads and others) one by one against the original works.
+35 items were confirmed as-is and 44 were corrected; all are now `verified: true` (sources such as "novel vol. X" and "anime season X episode X").
+Most corrections were anime episode numbers, including spoiler-gating boundaries (for example, the episode where Fitz's identity is revealed).
+The unverified note is now added only to answers that use unverified data. Data added later stays `verified: false` until checked.
+The known limit that spoiler sentences without digits cannot be stopped structurally is unchanged.

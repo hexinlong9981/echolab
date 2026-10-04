@@ -23,7 +23,7 @@
     <h1>今后的功能（路线图）</h1>
     <p class="lead">EchoLab 按阶段（M1～M6）开发。本页根据项目的设计文档（<code>docs/architecture.md</code>、README 的路线图和设计决策记录 ADR）整理各阶段做了什么，并说明：无论加了什么新功能，“数字可信”这件事对你来说不会变。</p>
 
-    <div class="callout"><strong>现状：M1～M6 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）、网页界面（M5）和《无职转生》设定考证领域包（M6，<code>--domain mushoku</code>）都已可用。还没做的有：<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥），以及<strong>核对《无职转生》的资料</strong>（目前全部是凭记忆写的未确认草稿）。公开网站：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（推送到 main 后自动重新发布）。</div>
+    <div class="callout"><strong>现状：M1～M6 都已实现</strong>命令行（<code>python -m core.agent "问题"</code>、<code>python -m core.evals</code>）、住宅贷款领域包（<code>--domain mortgage</code>）、截图读取（OCR）、网页界面（M5）和《无职转生》设定考证领域包（M6，<code>--domain mushoku</code>）都已可用。还没做的有：<strong>用真实 Claude 跑系统评估</strong>（需要 API 密钥）。《无职转生》的资料已由作者对照原作核对过。公开网站：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（推送到 main 后自动重新发布）。</div>
 
     <h2>阶段一览</h2>
     <table>
@@ -79,7 +79,7 @@ flowchart LR
         {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "已完成"},
          "text": "<b>M5：网页界面。</b>用流程图逐步回放执行轨迹、查看评估看板。公开的是静态网站（不运行服务器和 LLM，零费用）；在自己电脑上还能打开“运行”界面现场提问。本说明书第 5、7 页动画展示的内容，现在可以在界面里直接看到。"},
         {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "已完成 · 现在"},
-         "text": "<b>M6：《无职转生》设定考证。</b>第三个领域包：防剧透的设定查询、时间线计算（年龄・年数）、自制地图上的最短行程。你读到第几卷、看到第几集，由你在提问时指定，AI 看不到也改不了；过滤在检索这一层完成。资料是凭记忆写的未确认草稿。"}
+         "text": "<b>M6：《无职转生》设定考证。</b>第三个领域包：防剧透的设定查询、时间线计算（年龄・年数）、自制地图上的最短行程。你读到第几卷、看到第几集，由你在提问时指定，AI 看不到也改不了；过滤在检索这一层完成。资料由 Claude 起草，作者对照原作逐条核对过。"}
       ]</script>
     </div>
 
@@ -150,9 +150,7 @@ flowchart LR
 <pre><code>転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
 資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
 
-※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
-
-※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。</code></pre>
+※ 設定は非公式のファン作品の資料（作者が原作で確認した短い要約）に基づきます。地図の日数は自作の目安です。</code></pre>
     <h3>防剧透是怎么保证的</h3>
     <ul>
       <li><strong>进度只有你能定</strong>：进度不会出现在 AI 能看到的工具说明里；AI 若在调用工具时自己填进度（例如被诱导去“看看后面的卷”），网关一律拒绝，再把你指定的值加进去。</li>
@@ -164,7 +162,7 @@ flowchart LR
     <p>这些都写成了评估题（7 个“诱导剧透”的用例，在 CI 中每次运行，全部拦住）。</p>
     <div class="callout warn"><strong>请注意</strong>
       <ul>
-        <li><strong>资料都是未确认的草稿</strong>：事实、人物、年份、卷数・集数、地图天数都是凭记忆写的，可能有错。回答里会自动加上这一提醒。拿不准第几卷时，资料会标成较后的一卷（宁可晚出现，也不提前剧透）。</li>
+        <li><strong>资料经过作者核对</strong>：事实、人物、年份、卷数・集数由 Claude 起草，作者在 2026-10-04 对照原作（小说卷数・动画集数）逐条核对，79 项中 44 项做了改正。地图天数是自定的估计。今后新增的资料在核对前按未确认处理，回答会自动加注记。</li>
         <li><strong>已知的限制</strong>：AI 凭自己的记忆写出的“不含数字的剧透句子”，结构上拦不住（只能靠提示词禁止）；含数字的会被验证器拦下。</li>
         <li>不收录原作正文、台词、插图和动画画面，只有自己写的简短要点与卷・集编号。</li>
       </ul>

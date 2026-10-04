@@ -156,7 +156,7 @@ c2.percent_of_ideal  73.690476  echo.score            -
 
 Answers questions on the setting, timeline (ages, years) and routes on a self-made map (M6, ADR-0012). **The user sets the progress with `--context progress=…`**
 (`novel:<volume>` or `anime:<season>-<episode>`), and facts, people, events and roads beyond it are never returned by the retrieval layer. The LLM cannot change the progress.
-**This is an unofficial fan project, and all data is an unverified draft written from memory** ([domains/mushoku/README.en.md](domains/mushoku/README.en.md)).
+**This is an unofficial fan project. Claude drafted the data, and the author checked every item against the original works (novel volumes, anime episodes)** ([domains/mushoku/README.en.md](domains/mushoku/README.en.md)).
 
 ```bash
 .venv/bin/python -m core.agent "転移事件のとき、ルーデウスは何歳だった？" --domain mushoku \
@@ -167,9 +167,7 @@ Answers questions on the setting, timeline (ages, years) and routes on a self-ma
 転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
 資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
 
-※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
-
-※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。
+※ 設定は非公式のファン作品の資料（作者が原作で確認した短い要約）に基づきます。地図の日数は自作の目安です。
 ```
 
 ### 6. The mortgage pack (`--domain mortgage`)
@@ -235,7 +233,7 @@ docker run --rm -u "$(id -u):$(id -g)" -e GRADLE_USER_HOME=/cache \
 core/          Domain-agnostic core (Python): contracts, gateway, compare tools, verifier, agent and CLI, trace, evals
 config/        Tool service launch config (services.yaml), cost caps and price table (budget.yaml)
 domains/wuwa/      Domain pack: Wuthering Waves (domain.yaml, golden cases, sample data, prompts, screenshot templates)
-domains/mushoku/   Domain pack: Mushoku Tensei lore (spoiler-protected search, timeline, routes; unverified draft data)
+domains/mushoku/   Domain pack: Mushoku Tensei lore (spoiler-protected search, timeline, routes; data checked by the author)
 domains/mortgage/  Domain pack: example mortgage repayment calculations (domain.yaml, calculation and MCP server, golden cases, prompts)
 services/      calc-engine (Java 21: calculation library and MCP server)
 servers/       vision_mcp (screenshot OCR, a Python MCP server), web_api (data export and local API for the web UI)
@@ -259,7 +257,7 @@ For details, see [docs/architecture.en.md](docs/architecture.en.md) and the ADRs
 | M3 | Domain pack #2: example mortgage repayment calculations (minimal example, Python MCP server). CI check that the core diff is zero | ✅ Done |
 | M4 | Screenshot reading (OCR), injection eval set (scripted mode added to CI; real LLM run locally) | ✅ Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | ✅ Done ([live](https://echolab-web.echolab-web.workers.dev/)) |
-| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes). Data is an unverified draft | ✅ Implemented (data to be checked by the user) |
+| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | ✅ Done (data checked by the author) |
 
 For the reasoning behind this order, see ADR-0007 (get one path working end to end before widening features).
 
@@ -270,8 +268,8 @@ Whenever a number calculated from unverified data is used in an answer, this is 
 Golden cases are built so that the expected values are determined only by explicitly stated inputs; they do not depend on official game values.
 The formulas (defense and resistance multipliers, etc.) are also generic models and have not been checked against the game's actual formulas.
 
-The Mushoku Tensei pack's data (facts, characters, timeline, map) is an **unverified draft** written from memory (`verified: false`),
-and answers that use it carry a note. It contains no original text, dialogue, illustrations or footage.
+The Mushoku Tensei pack's data (facts, characters, timeline, map) was drafted by Claude and **checked item by item** by the author against the original works on 2026-10-04
+(`verified: true`; sources such as "novel vol. X" and "anime season X episode X"). Map travel days are self-made estimates. Data added later is treated as unverified, with a note in answers, until it is checked. It contains no original text, dialogue, illustrations or footage.
 
 The mortgage pack has no data; the user gives every input. It is a simple model (fixed rate, monthly payments) that returns unrounded theoretical values.
 **These are example calculations, not financial advice** (every answer says so as well).

@@ -103,7 +103,7 @@ M1 through M6 are implemented. The repository holds directories only for impleme
 | `config/` | `services.yaml` (how to start tool services: calc-engine, vision-mcp, mushoku-lore, mortgage-calc) and `budget.yaml` (cost caps and price table) |
 | `services/calc-engine` | The Java 21 calculation library (`dev.echolab.calc`, framework-free) and MCP server (`dev.echolab.app`, ADR-0004) |
 | `domains/wuwa` | `domain.yaml`, golden cases (with `derivation`), unverified sample data (`verified: false`), prompts, screenshot templates (`vision/`) |
-| `domains/mushoku` | Mushoku Tensei lore: search, timeline, routes and a Python MCP server (`service/`), unverified draft data, golden cases, prompts (ADR-0012) |
+| `domains/mushoku` | Mushoku Tensei lore: search, timeline, routes and a Python MCP server (`service/`), data checked by the author, golden cases, prompts (ADR-0012) |
 | `domains/mortgage` | Example mortgage repayment calculations: calculation and Python MCP server (`calc/`), golden cases, prompts (ADR-0009) |
 | `servers/vision_mcp` | Screenshot OCR (Tesseract). Returns only numbers declared in templates (ADR-0010) |
 | `servers/web_api` | Data export for the web UI and the local-only API (ADR-0011) |
@@ -130,7 +130,7 @@ Directories for unimplemented parts are not created; plans are written only in t
 | M3 | Domain pack ②: example mortgage repayment calculations (minimal example). CI checks that the core diff is zero | Done |
 | M4 | Screenshot reading (OCR), prompt-injection eval set (scripted mode added to CI) | Done |
 | M5 | Web UI, trace replay, eval dashboard, public demo (static, zero cost) | Done (<https://echolab-web.echolab-web.workers.dev/>) |
-| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | Implemented (data is an unverified draft) |
+| M6 | Domain pack #3: Mushoku Tensei lore (spoiler-protected search, timeline, routes) | Done (data checked by the author) |
 
 ### M2: Vertical slice (question → answer with sources): implemented
 
@@ -237,7 +237,7 @@ The policy is ADR-0012. The highlight is **spoiler protection**, which has the s
 
 | Location | Role |
 |---|---|
-| `domains/mushoku/` | Setting search (`lore.search`), ages and years (`timeline.*`), routes on a self-made map (`map.route`) and the MCP server. The data is an unverified draft written from memory |
+| `domains/mushoku/` | Setting search (`lore.search`), ages and years (`timeline.*`), routes on a self-made map (`map.route`) and the MCP server. The data was drafted by Claude and checked against the original works by the author |
 | `core/gateway/` | Generic `user_context`: items the user sets (`progress`) are hidden from the LLM, refused if the LLM sends them, and added to the input with the user's value |
 | `core/contracts.py` | Generic `texts`: non-numeric sentences (fact sentences). They do not become source IDs |
 | `evals/redteam/spoilers.yaml` | 7 spoiler-leak eval cases (the LLM tries to widen the progress, asks about later events, searches by an identity alias, etc.) |
@@ -269,7 +269,7 @@ Limitations as of M2 and the extent of their impact.
 | The cost ledger is a local JSONL file | The ledger (`.echolab/costs.jsonl`) is a file intended for one machine and one user, with no cross-process locking. If multiple processes run at the same time, the cap check may miss each other's usage |
 | Range of digits the verifier sees | The verifier detects Arabic numerals (including full-width) as numbers. It does not detect kanji numerals (such as 「三」). Also, a digit equal to a number in the question is accepted as a quotation regardless of context |
 | Sample data is unverified | The values in `domains/wuwa/data` are unverified samples (`verified: false`). Answers that use them carry a note (ADR-0006) |
-| Spoiler sentences without digits | In the Mushoku Tensei pack, a spoiler sentence without digits that the LLM writes from its own knowledge cannot be stopped structurally (the prompt forbids it). Ones with digits are stopped by the verifier. The data is an unverified draft (ADR-0012) |
+| Spoiler sentences without digits | In the Mushoku Tensei pack, a spoiler sentence without digits that the LLM writes from its own knowledge cannot be stopped structurally (the prompt forbids it). Ones with digits are stopped by the verifier (ADR-0012) |
 | The mortgage model is simple | Fixed rate and monthly payments; no rounding to whole yen, daily interest, fees or rate changes. These are example calculations, and answers carry a note that they are not financial advice (ADR-0009) |
 | The LLM passes read values to other tools | The LLM copies values read from a screenshot into the `echo_score` input; there is no way to pass source IDs directly, and the verifier cannot catch a miscopy. Answers show the values read so the user can check them (ADR-0010) |
 | OCR misreads | Out-of-range values are errors, but a misread within the range (for example 8.0% read as 3.0%) is not caught. Tests use synthetic images only; accuracy on real game screens has not been measured |

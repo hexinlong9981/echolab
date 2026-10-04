@@ -23,7 +23,7 @@
     <h1>Roadmap</h1>
     <p class="lead">EchoLab is developed in milestones (M1–M6). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout"><strong>Status: M1–M6 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) and the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) are all available. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key) and <strong>checking the Mushoku Tensei data</strong> (currently an unverified draft written from memory). The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
+    <div class="callout"><strong>Status: M1–M6 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) and the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) are all available. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key). The Mushoku Tensei data has been checked by the author against the original works. The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -79,7 +79,7 @@ flowchart LR
         {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done"},
          "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."},
         {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "Done · now"},
-         "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. The data is an unverified draft written from memory."}
+         "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. Claude drafted the data and the author checked every item against the original works."}
       ]</script>
     </div>
 
@@ -150,9 +150,7 @@ flowchart LR
 <pre><code>転移事件のとき、ルーデウスは 10 歳でした（甲龍歴 417 年、生まれは 407 年）。
 資料によると、フィットア領で大規模な転移事件が起き、住民が世界各地に飛ばされました（小説 3 巻）。
 
-※ この回答の数値の一部は、未確認のサンプルデータに基づいています。
-
-※ 設定は記憶をもとに書いた非公式の下書き資料に基づき、誤りを含むことがあります。地図の日数は自作の目安です。</code></pre>
+※ 設定は非公式のファン作品の資料（作者が原作で確認した短い要約）に基づきます。地図の日数は自作の目安です。</code></pre>
     <h3>How spoilers are prevented</h3>
     <ul>
       <li><strong>Only you set the progress</strong>: it never appears in the tool descriptions the AI sees. If the AI fills in a progress value itself (for example when lured into "checking later volumes"), the gateway always refuses and adds the value you set.</li>
@@ -164,7 +162,7 @@ flowchart LR
     <p>All of this is written as evals (7 spoiler-luring cases that run in CI every time; all are stopped).</p>
     <div class="callout warn"><strong>Please note</strong>
       <ul>
-        <li><strong>The data is an unverified draft</strong>: facts, characters, years, volume and episode numbers, and map days were written from memory and may be wrong. Answers carry a note saying so automatically. When unsure of a volume, the data uses the later one (better late than an early spoiler).</li>
+        <li><strong>The data has been checked by the author</strong>: Claude drafted the facts, characters, years and volume/episode numbers, and on 2026-10-04 the author checked every item against the original works (novel volumes, anime episodes), correcting 44 of 79. Map travel days are self-made estimates. Data added later is treated as unverified until checked, and answers then carry a note automatically.</li>
         <li><strong>Known limitation</strong>: a spoiler sentence without numbers that the AI writes from its own memory cannot be stopped structurally (only the prompt forbids it); sentences with numbers are stopped by the verifier.</li>
         <li>No source text, dialogue, illustrations or anime images are included; only short self-written points and volume/episode numbers.</li>
       </ul>
