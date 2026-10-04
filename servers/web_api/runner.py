@@ -74,6 +74,7 @@ async def ask(
     repo_root: Path = REPO_ROOT,
     context: Mapping[str, Any] | None = None,
     on_event: Callable[[dict[str, Any]], None] | None = None,
+    lang: str = "ja",
 ) -> dict[str, Any]:
     """質問を 1 回実行し、結果とトレースの出来事を返す（JSON にできる形）。
 
@@ -94,11 +95,12 @@ async def ask(
             agent = Agent(
                 gateway=gw,
                 llm=llm,
-                system_prompt=load_system_prompt(repo_root, domain),
+                system_prompt=load_system_prompt(repo_root, domain, lang=lang),
                 trace_dir=trace_dir,
                 domain=domain,
-                answer_note=load_answer_note(repo_root, domain),
+                answer_note=load_answer_note(repo_root, domain, lang=lang),
                 on_event=handle_event if on_event else None,
+                lang=lang,
             )
             result = await agent.ask(question)
         finally:

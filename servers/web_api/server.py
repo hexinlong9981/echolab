@@ -78,6 +78,9 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
     fake = body.get("fake_backend", False)
     if not isinstance(fake, bool):
         raise ApiError(HTTPStatus.BAD_REQUEST, "fake_backend は真偽値です")
+    lang = str(body.get("lang") or "ja").strip()
+    if lang not in ("zh", "zh-CN", "en", "ja"):
+        lang = "ja"
     if llm == "scripted":
         demo = next((d for d in DEMOS if d["id"] == body.get("demo")), None)
         if demo is None:
@@ -91,6 +94,7 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
             "script": REPO_ROOT / demo["script"],
             "fake_backend": fake,
             "stream": bool(body.get("stream")),
+            "lang": lang,
             "context": {"progress": demo["progress"]} if "progress" in demo else None,
         }
     question = body.get("question")
@@ -111,6 +115,7 @@ def parse_ask(body: dict[str, Any]) -> dict[str, Any]:
         "script": None,
         "fake_backend": fake,
         "stream": bool(body.get("stream")),
+        "lang": lang,
         # 進み具合は利用者が指定する（ドメインが受け付けなければ ContextError で 400）
         "context": {"progress": progress} if progress else None,
     }

@@ -175,6 +175,10 @@ def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
             "（Vertex AI Gemini または台本をお使いください）"
         )
         raise PublicError(HTTPStatus.FORBIDDEN, "llm_not_allowed", msg)
+    lang = str(body.get("lang") or "ja").strip()
+    if lang not in ("zh", "zh-CN", "en", "ja"):
+        lang = "ja"
+
     if "demo" in body:
         demo = next((d for d in DEMOS if d["id"] == body.get("demo")), None)
         if demo is None:
@@ -187,6 +191,7 @@ def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
             "fake_backend": False,
             "context": {"progress": demo["progress"]} if "progress" in demo else None,
             "stream": stream,
+            "lang": lang,
         }
     question = body.get("question")
     if question is None:
@@ -219,6 +224,7 @@ def parse_public_ask(body: dict[str, Any]) -> dict[str, Any]:
         "fake_backend": False,
         "context": {"progress": progress} if progress else None,
         "stream": stream,
+        "lang": lang,
     }
 
 

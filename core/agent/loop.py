@@ -148,21 +148,29 @@ def budget_answer(e: BudgetExceeded) -> str:
     )
 
 
-def load_system_prompt(repo_root: Path, domain: str) -> str:
+def load_system_prompt(repo_root: Path, domain: str, lang: str = "ja") -> str:
     """システムプロンプト = コアの規則 + ドメインのプロンプト（``prompts_dir/system.md``）。"""
     import yaml
 
-    core = (PROMPTS_DIR / "core.md").read_text(encoding="utf-8").strip()
+    suffix = ".zh-CN.md" if lang in ("zh", "zh-CN") else ".en.md" if lang == "en" else ".md"
+    core_file = PROMPTS_DIR / f"core{suffix}"
+    if not core_file.is_file():
+        core_file = PROMPTS_DIR / "core.md"
+    core = core_file.read_text(encoding="utf-8").strip()
+
     domain_dir = repo_root / "domains" / domain
     manifest = yaml.safe_load((domain_dir / "domain.yaml").read_text(encoding="utf-8"))
-    domain_prompt = domain_dir / manifest.get("prompts_dir", "prompts") / "system.md"
+    prompts_dir = domain_dir / manifest.get("prompts_dir", "prompts")
+    domain_prompt = prompts_dir / f"system{suffix}"
+    if not domain_prompt.is_file():
+        domain_prompt = prompts_dir / "system.md"
     parts = [core]
     if domain_prompt.is_file():
         parts.append(domain_prompt.read_text(encoding="utf-8").strip())
     return "\n\n".join(parts) + "\n"
 
 
-def load_answer_note(repo_root: Path, domain: str) -> str | None:
+def load_answer_note(repo_root: Path, domain: str, lang: str = "ja") -> str | None:
     """ドメインが回答に必ず添える注記（``domain.yaml`` の ``answer_note``）。無ければ None。
 
     例：住宅ローンのパックの「計算例であり、金融上の助言ではありません」。プロンプトでの
@@ -174,12 +182,52 @@ def load_answer_note(repo_root: Path, domain: str) -> str | None:
     manifest_path = repo_root / "domains" / domain / "domain.yaml"
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     note = str(manifest.get("answer_note") or "").strip()
-    return note or None
+    if not note:
+        return None
+    if lang in ("zh", "zh-CN"):
+        if domain == "mortgage":
+            return "※ 此回答仅为基于简单模型的计算示例，不构成金融建议。实际还款额请咨询金融机构。"
+        if domain == "mushoku":
+            return (
+                "※ 设定基于非官方同人作品资料（由作者对照原作确认的简短概要）。地图天数仅供参考。"
+            )
+    elif lang == "en":
+        if domain == "mortgage":
+            return (
+                "※ This answer is a calculation example based on a simple model "
+                "and is not financial advice. "
+                "Please verify actual repayment amounts with a financial institution."
+            )
+        if domain == "mushoku":
+            return (
+                "※ Settings are based on unofficial fan project materials "
+                "(short summaries verified against the original by the author). "
+                "Map travel days are estimates."
+            )
+    return note
 
 
-def rejection_feedback(problems: Sequence[str]) -> str:
+def rejection_feedback(problems: Sequence[str], lang: str = "ja") -> str:
     """差し戻しの指摘（LLM への利用者メッセージ）。"""
     lines = "\n".join(f"- {p}" for p in problems)
+    if lang in ("zh", "zh-CN"):
+        return (
+            "验证器退回了回答模板。请修正以下问题并重新提交模板：\n"
+            f"{lines}\n"
+            "数值只能通过工具结果的来源 ID 占位符（[[来源ID]] 或 [[来源ID|格式]]）进行引用，"
+            "严禁直接书写数字（在提问中直接出现的数字除外）。"
+            "如果缺少所需数值，请先调用工具计算后再引用。"
+        )
+    if lang == "en":
+        return (
+            "The verifier rejected the answer template. "
+            "Please submit a revised template fixing the following issues:\n"
+            f"{lines}\n"
+            "Numbers must strictly be cited via source ID placeholders "
+            "([[source ID]] or [[source ID|format]]). "
+            "Never write raw digits directly (except numbers explicitly quoted from the question). "
+            "If a required number is missing, calculate it using a tool first."
+        )
     return (
         "検証器が回答テンプレートを差し戻しました。次の点を直したテンプレートを出し直してください。\n"
         f"{lines}\n"
@@ -205,6 +253,7 @@ class Agent:
         domain: str | None = None,
         answer_note: str | None = None,
         on_event: Callable[[dict[str, Any]], None] | None = None,
+        lang: str = "ja",
     ) -> None:
         """
         :param answer_note: 検証に通った回答の末尾に必ず付ける注記（:func:`load_answer_note`）。
@@ -223,6 +272,7 @@ class Agent:
         self.domain = domain
         self.answer_note = answer_note
         self.on_event = on_event
+        self.lang = lang
         self.trace: TraceWriter | None = None
 
     async def ask(self, question: str, *, run_id: str | None = None) -> AgentResult:
@@ -358,7 +408,9 @@ class _Run:
         self.rejected += 1
         if self.rejected > self.agent.max_retries:
             return self._finish("fallback", FALLBACK_ANSWER)
-        self.messages.append({"role": "user", "content": rejection_feedback(verdict.problems)})
+        self.messages.append(
+            {"role": "user", "content": rejection_feedback(verdict.problems, lang=self.agent.lang)}
+        )
         return None
 
     def _finish(self, status: str, answer: str) -> AgentResult:
