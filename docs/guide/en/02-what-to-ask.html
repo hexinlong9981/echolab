@@ -31,7 +31,7 @@
     <p class="lead">EchoLab never gives numbers "by feel": every number comes from a calculation tool. So "what can I ask?" really means "which calculation tools exist, and what inputs do they need?" This page explains the 6 tools in player terms and tells you what information to include in a question.</p>
 
     <div class="callout warn"><strong>Current state, first</strong>
-      Today EchoLab only has a command line (CLI): <code>python -m core.agent "your question"</code>. A web interface is planned for roadmap milestone M5 and <b>does not exist yet</b>.<br>
+      You ask questions through the command line (CLI): <code>python -m core.agent "your question"</code>. On the web you can view replays and the eval dashboard (<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>); a web screen for live questions runs only on your own machine (<code>python -m servers.web_api</code>).<br>
       Understanding natural-language questions is Claude's job, which requires the default <code>--llm anthropic</code> mode and an <code>ANTHROPIC_API_KEY</code>. The terminal examples on this page were produced in <code>--llm scripted</code> (scripted) mode: <b>"which tool to pick, which arguments to fill in, and how to word the answer" are written in a script that imitates Claude</b>, but the tool results, the verifier's verdicts and the terminal output are from real runs. The scripts used in the examples, such as <code>gacha_banner.yaml</code>, <code>out_of_scope.yaml</code> and <code>tool_error.yaml</code>, were written separately for this guide and are not in the repository; the example script that ships with the repository is <code>core/agent/examples/compare_builds.yaml</code>.
     </div>
 

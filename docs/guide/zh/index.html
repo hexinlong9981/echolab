@@ -27,7 +27,7 @@
       <li>让工具算出结果，再用这些结果写成一段说明；</li>
       <li>在回答下方附上<strong>出典表</strong>：每个数字来自哪次计算、原始值是多少、是否用到了未确认的数据。</li>
     </ul>
-    <div class="callout warn"><strong>目前只有命令行（CLI）</strong>EchoLab 现在只能在终端里用 <code>python -m core.agent "问题"</code> 提问，没有图形界面。Web 界面是路线图 M5 的计划，尚未实现（见 <a href="09-roadmap.html">今后的功能（路线图）</a>）。</div>
+    <div class="callout"><strong>命令行与网页</strong>提问用终端里的 <code>python -m core.agent "问题"</code>。网页上可以看执行记录的回放和评估看板：<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（公开的是剧本模式的记录，不运行 LLM）。能现场提问的网页界面只在本机运行（<code>python -m servers.web_api</code>，见 <a href="04-cli-reference.html">命令参考</a>）。</div>
     <div class="callout"><strong>关于界面语言</strong>CLI 的提示与输出（如 <code>状態</code>、<code>出典</code>、<code>差し戻し</code>）是日语。本说明原样展示真实输出，并用中文解释每一部分。示例问题也沿用项目自带的日语示例。</div>
 
     <h2>为什么它的数字可信</h2>
@@ -136,7 +136,7 @@ flowchart LR
       <a class="card" href="06-cost-and-safety.html" style="text-decoration:none"><h4>成本上限与数据可信度</h4><p>费用怎么算、上限怎么调、示例数据为什么是「未確認」。</p></a>
       <a class="card" href="07-traces-evals.html" style="text-decoration:none"><h4>执行轨迹与评估</h4><p>查看每次运行的记录，运行忠实度评估。</p></a>
       <a class="card" href="08-troubleshooting.html" style="text-decoration:none"><h4>故障排除与 FAQ</h4><p>找不到 java、没有密钥、超出预算等真实报错的处理。</p></a>
-      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>今后的功能（路线图）</h4><p>Web 界面等尚在计划中的功能。</p></a>
+      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>今后的功能（路线图）</h4><p>各阶段的内容与现状（M1〜M6 都已完成）。</p></a>
     </div>
 
     <div class="related"><strong>下一步</strong>

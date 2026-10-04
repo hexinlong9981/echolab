@@ -223,7 +223,7 @@ cd ../..</code></pre>
       <p>台本模式的工具调用和草稿都由台本文件决定，问题只用于记录和校验（问题里写过的数字允许在回答中引用）。实测把问题换成「こんにちは」，同一台本仍给出同样的比较结果。要让系统理解你的问题，请用真实 Claude 模式。</p>
     </details>
     <details><summary>有图形界面（Web 版）吗？</summary>
-      <p>没有。目前只能通过命令行使用。Web 界面、轨迹回放、评估仪表盘属于路线图 M5，尚未实现。见 <a href="09-roadmap.html">今后的功能（路线图）</a>。</p>
+      <p>有，但只能看不能问：执行记录的回放和评估看板在 <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>（剧本模式的记录）。能现场提问的网页界面只在本机运行：先导出数据并构建（见 <a href="04-cli-reference.html">命令参考</a>），再执行 <code>python -m servers.web_api</code>，打开 http://127.0.0.1:8765/。</p>
     </details>
     <details><summary>不装 JDK 能用吗？</summary>
       <p>能。加 <code>--fake-backend</code> 就用 Python 参考实现代替 Java 计算服务（它与 Java 实现用同一批黄金用例核对过）。只是假服务不提供蒙特卡洛模拟工具 <code>gacha_simulate</code>。出典表的原始值与 Java 版一样按小数 6 位返回。</p>

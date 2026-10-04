@@ -227,7 +227,7 @@ cd ../..</code></pre>
       <p>In scripted mode, the tool calls and drafts are determined by the script file; the question is used only for recording and verification (numbers written in the question may be quoted in the answer). In testing, changing the question to “こんにちは” (“hello”) still produced the same comparison result with the same script. To have the system actually understand your question, use real Claude mode.</p>
     </details>
     <details><summary>Is there a graphical interface (web version)?</summary>
-      <p>No. Currently it can only be used from the command line. A web UI, trace replay and an eval dashboard are part of roadmap milestone M5 and are not implemented yet. See <a href="09-roadmap.html">Roadmap</a>.</p>
+      <p>Yes, for viewing: replays of execution traces and the eval dashboard are at <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (scripted-mode records). A web screen for asking live questions runs only on your own machine: export the data and build first (see <a href="04-cli-reference.html">CLI reference</a>), then run <code>python -m servers.web_api</code> and open http://127.0.0.1:8765/.</p>
     </details>
     <details><summary>Can I use it without installing a JDK?</summary>
       <p>Yes. Add <code>--fake-backend</code> to use the Python reference implementation instead of the Java calculation service (it has been checked against the same golden cases as the Java implementation). The only difference is that the fake service does not provide the Monte Carlo simulation tool <code>gacha_simulate</code>. Raw values in the sources table are returned with 6 decimal places, the same as with the Java version.</p>

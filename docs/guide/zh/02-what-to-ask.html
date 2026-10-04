@@ -31,7 +31,7 @@
     <p class="lead">EchoLab 不会“凭感觉”给数字：每个数字都来自一个计算工具。所以“能问什么”就等于“有哪些计算工具、它们需要哪些输入”。这一页把 6 个工具翻译成玩家的语言，并告诉你提问时要带上哪些信息。</p>
 
     <div class="callout warn"><strong>先说清楚现状</strong>
-      目前 EchoLab 只有命令行（CLI）：<code>python -m core.agent "你的问题"</code>。Web 界面是路线图 M5 的计划，<b>现在还不存在</b>。<br>
+      提问用命令行（CLI）：<code>python -m core.agent "你的问题"</code>。网页上可以看回放和评估看板（<a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a>）；能现场提问的网页界面只在本机运行（<code>python -m servers.web_api</code>）。<br>
       真正理解自然语言问题的是 Claude，需要用默认的 <code>--llm anthropic</code> 模式并配置 <code>ANTHROPIC_API_KEY</code>。本页的终端示例都是用 <code>--llm scripted</code>（台本模式）跑出来的：<b>“选哪个工具、填什么参数、怎么措辞”是事先写好的台本，模拟 Claude 的行为</b>；但工具的计算结果、验证器的判定和终端输出都是真实运行得到的。示例里的 <code>gacha_banner.yaml</code>、<code>out_of_scope.yaml</code>、<code>tool_error.yaml</code> 等台本是为本说明另外编写的，不在仓库里；仓库自带的台本示例是 <code>core/agent/examples/compare_builds.yaml</code>。
     </div>
 

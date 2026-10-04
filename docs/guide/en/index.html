@@ -27,7 +27,7 @@
       <li>has the tools compute the results, then writes an explanation from those results;</li>
       <li>attaches a <strong>source table</strong> below the answer: which calculation each number came from, its raw value, and whether unverified data was used.</li>
     </ul>
-    <div class="callout warn"><strong>Command line (CLI) only for now</strong>Today EchoLab can only be used from a terminal, with <code>python -m core.agent "question"</code>. There is no graphical interface. A web interface is planned for roadmap milestone M5 but is not implemented yet (see <a href="09-roadmap.html">Roadmap</a>).</div>
+    <div class="callout"><strong>Command line and web</strong>You ask questions in a terminal with <code>python -m core.agent "question"</code>. On the web you can view replays of execution traces and the eval dashboard: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (scripted-mode records; no LLM runs there). A web screen for asking live questions runs only on your own machine (<code>python -m servers.web_api</code>; see <a href="04-cli-reference.html">CLI reference</a>).</div>
     <div class="callout"><strong>About the interface language</strong>The CLI's labels and fixed messages (such as <code>状態</code> "status", <code>出典</code> "source" and <code>差し戻し</code> "rejected drafts") are in Japanese. This guide shows the real output unchanged and explains each part in English. Some examples also use the Japanese sample questions that ship with the project; you can ask your own questions in English.</div>
 
     <h2>Why you can trust its numbers</h2>
@@ -144,7 +144,7 @@ flowchart LR
       <a class="card" href="06-cost-and-safety.html" style="text-decoration:none"><h4>Cost caps &amp; data trust</h4><p>How cost is computed, how to adjust the caps, and why the sample data is marked unverified.</p></a>
       <a class="card" href="07-traces-evals.html" style="text-decoration:none"><h4>Traces &amp; evals</h4><p>Inspect the record of each run and run the faithfulness evals.</p></a>
       <a class="card" href="08-troubleshooting.html" style="text-decoration:none"><h4>Troubleshooting &amp; FAQ</h4><p>Handling real errors such as java not found, no API key, or budget exceeded.</p></a>
-      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>Roadmap</h4><p>Planned features such as the web interface.</p></a>
+      <a class="card" href="09-roadmap.html" style="text-decoration:none"><h4>Roadmap</h4><p>What each milestone delivered and where things stand (M1–M6 are all done).</p></a>
     </div>
 
     <div class="related"><strong>Next steps</strong>
