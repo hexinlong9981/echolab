@@ -34,7 +34,7 @@ export function App() {
 
   const serverInfo = useMemo<LocalInfo | null>(() => {
     if (local) return local;
-    if (liveBase && index) {
+    if (index) {
       return {
         domains: ["wuwa", "mushoku", "mortgage"],
         demos: index.demos.map((d) => ({
@@ -50,7 +50,7 @@ export function App() {
       };
     }
     return null;
-  }, [local, liveBase, index]);
+  }, [local, index]);
 
   useEffect(() => {
     const onHash = () => setRoute(readHash());
@@ -103,11 +103,9 @@ export function App() {
             <button className={route.tab === "evals" ? "on" : ""} onClick={() => go("evals")}>
               <Tx k="tab.evals" />
             </button>
-            {(local || liveBase) && (
-              <button className={route.tab === "live" ? "on" : ""} onClick={() => go("live")}>
-                <Tx k="tab.live" />
-              </button>
-            )}
+            <button className={route.tab === "live" ? "on" : ""} onClick={() => go("live")}>
+              <Tx k="tab.live" />
+            </button>
           </nav>
           <div className="prefs">
             <span className="langs" role="group" aria-label="Language / 言語 / 语言">
