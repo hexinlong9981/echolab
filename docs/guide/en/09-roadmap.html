@@ -21,9 +21,9 @@
   <main>
     <header class="top"><span class="tags"><span>Advanced</span><span>Roadmap</span><span>Status</span></span><button id="theme-toggle">Toggle theme</button></header>
     <h1>Roadmap</h1>
-    <p class="lead">EchoLab is developed in milestones (M1–M6). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
+    <p class="lead">EchoLab is developed in milestones (M1–M7). Based on the project's design documents (<code>docs/architecture.md</code>, the roadmap in the README and the architecture decision records, ADRs), this page summarizes what each milestone delivered, and explains why trustworthy numbers will stay the same for you no matter what new features are added.</p>
 
-    <div class="callout"><strong>Status: M1–M6 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) and the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) are all available. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key). The Mushoku Tensei data has been checked by the author against the original works. The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
+    <div class="callout"><strong>Status: M1–M7 are all implemented</strong>The command line (<code>python -m core.agent "question"</code>, <code>python -m core.evals</code>), the mortgage pack (<code>--domain mortgage</code>), screenshot reading (OCR), the web UI (M5) the <i>Mushoku Tensei</i> lore pack (M6, <code>--domain mushoku</code>) and the public demo server (M7, public once Hugging Face is set up) are all implemented. Not done yet: <strong>a systematic eval with real Claude</strong> (it needs an API key). The Mushoku Tensei data has been checked by the author against the original works. The public site: <a href="https://echolab-web.echolab-web.workers.dev/">https://echolab-web.echolab-web.workers.dev/</a> (republished automatically on every push to main).</div>
 
     <h2>Milestones at a glance</h2>
     <table>
@@ -33,7 +33,8 @@
       <tr><td>M3</td><td>A second domain pack: example mortgage repayment calculations (minimal example), with CI proving zero core changes</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M4</td><td>Screenshot reading (OCR), prompt-injection eval set, evals in CI</td><td><span class="badge done">Done</span></td></tr>
       <tr><td>M5</td><td>Web UI: execution trace replay, eval dashboard (the public site is static, at zero cost), and a live screen that runs only on your own machine</td><td><span class="badge done">Done (live)</span></td></tr>
-      <tr><td>M6</td><td>A third domain pack: <i>Mushoku Tensei</i> lore — spoiler-filtered lookups, timeline calculations, routes on a home-made map</td><td><span class="badge done">Done (data to be checked)</span></td></tr>
+      <tr><td>M6</td><td>A third domain pack: <i>Mushoku Tensei</i> lore — spoiler-filtered lookups, timeline calculations, routes on a home-made map</td><td><span class="badge done">Done (data checked by the author)</span></td></tr>
+<tr><td>M7</td><td>Public demo server (Hugging Face Spaces, zero cost): runs the fixed demos live with the real calc services and the scripted LLM</td><td><span class="badge done">Implemented (published after Hugging Face is set up)</span></td></tr>
     </table>
 
     <div class="diagram">
@@ -44,16 +45,17 @@ flowchart LR
   M3 --> M4["M4 Screenshot reading<br/>injection evals, evals in CI"]
   M4 --> M5["M5 Web UI<br/>trace replay, eval dashboard"]
   M5 --> M6["M6 Mushoku Tensei pack<br/>spoiler-filtered retrieval"]
-  NOW(["You are here"]) -.-> M6
+  M6 --> M7["M7 Public demo server<br/>real services, scripted LLM"]
+  NOW(["You are here"]) -.-> M7
   classDef done fill:#e6f4ea,stroke:#1a7f37,color:#1f2328
   classDef plan fill:#fff4d6,stroke:#9a6700,color:#1f2328,stroke-dasharray: 5 5
-  class M1,M2,M3,M4,M5,M6 done
+  class M1,M2,M3,M4,M5,M6,M7 done
       </pre>
       <div class="caption">Figure 1: Development milestones (solid green = done, dashed yellow = planned; first get one complete flow working, then expand sideways)</div>
     </div>
 
     <h3>Animation: one milestone at a time</h3>
-    <div class="flow-anim" id="ms" data-cols="11">
+    <div class="flow-anim" id="ms" data-cols="13">
       <div class="stage">
         <div class="node" data-id="m1">M1<small>Calc engine</small></div>
         <div class="arrow" data-id="a1">→</div>
@@ -66,21 +68,18 @@ flowchart LR
         <div class="node" data-id="m5">M5<small>Web UI</small></div>
         <div class="arrow" data-id="a5">→</div>
         <div class="node" data-id="m6">M6<small>Mushoku</small></div>
+<div class="arrow" data-id="a6">→</div>
+<div class="node" data-id="m7">M7<small>Server demo</small></div>
       </div>
       <script type="application/json">[
-        {"on": ["m1"], "packet": {"at": "m1", "text": "Done"},
-         "text": "<b>M1: Calculation engine.</b>A deterministic calculation library written in Java 21 (expected damage, Echo score, gacha probability). Every tool is checked against golden test cases calculated by hand or derived from the formulas."},
-        {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done"},
-         "text": "<b>M2: End-to-end CLI.</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
-        {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done"},
-         "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
-        {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done"},
-         "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
-        {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done"},
-         "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."},
-        {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "Done · now"},
-         "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. Claude drafted the data and the author checked every item against the original works."}
-      ]</script>
+      {"on": ["m1"], "packet": {"at": "m1", "text": "Done"}, "text": "<b>M1: Calculation engine.</b>A deterministic calculation library written in Java 21 (expected damage, Echo score, gacha probability). Every tool is checked against golden test cases calculated by hand or derived from the formulas."},
+      {"on": ["m2", "a1"], "done": ["m1"], "packet": {"at": "m2", "text": "Done"}, "text": "<b>M2: End-to-end CLI.</b>The calculation engine is connected as an MCP service; the gateway, source IDs, verifier, compare tools, cost caps, execution traces and the faithfulness eval are all available."},
+      {"on": ["m3", "a2"], "done": ["m1", "m2"], "packet": {"at": "m3", "text": "Done"}, "text": "<b>M3: Mortgage domain pack.</b>A second domain pack that compares equal-payment and equal-principal repayment and shows the effect of early repayment. It was added without changing a single line of core code, and CI checks this every time. <strong>It is only a calculation example, not financial advice.</strong>"},
+      {"on": ["m4", "a3"], "done": ["m1", "m2", "m3"], "packet": {"at": "m4", "text": "Done"}, "text": "<b>M4: Screenshot reading and injection evals.</b>OCR (Tesseract) reads Echo screenshots and returns only the numbers declared in a template, so text in images never reaches Claude; 7 prompt-injection eval cases (using synthetic screenshots, not original game images) run in CI every time, and no attack succeeds."},
+      {"on": ["m5", "a4"], "done": ["m1", "m2", "m3", "m4"], "packet": {"at": "m5", "text": "Done"}, "text": "<b>M5: Web UI.</b>Replay execution traces step by step as a flow diagram and view the eval dashboard. The public site is static (no server and no LLM run, so it costs nothing); on your own machine you can also open a Run screen and ask live. What the animations on pages 5 and 7 of this guide show is now visible directly in the interface."},
+      {"on": ["m6", "a5"], "done": ["m1", "m2", "m3", "m4", "m5"], "packet": {"at": "m6", "text": "Done"}, "text": "<b>M6: Mushoku Tensei lore.</b>A third domain pack: spoiler-filtered lookups, timeline calculations (ages, years) and the shortest route on a home-made map. You set how far you have read or watched when you ask; the AI cannot see or change it, and filtering happens in the retrieval layer. Claude drafted the data and the author checked every item against the original works."},
+      {"on": ["m7", "a6"], "done": ["m1", "m2", "m3", "m4", "m5", "m6"], "packet": {"at": "m7", "text": "Implemented · now"}, "text": "<b>M7: Public demo server.</b> Below a demo's replay on the web there is a “Run on the server” button. A free Hugging Face Spaces server runs the demo live with the real Java calc service, OCR, Mushoku Tensei and mortgage services. The AI is still scripted and real Claude is not used, so it costs nothing; free questions are not possible."}
+    ]</script>
     </div>
 
     <h2>M3 (Done): a second domain pack, example mortgage repayment calculations</h2>
@@ -168,7 +167,17 @@ flowchart LR
       </ul>
     </div>
 
-    <h2>What will not change</h2>
+        <h2>M7 (Implemented): public demo server</h2>
+    <p>The M5 public site replays records made with the <strong>test calc services</strong>. M7 adds a server so that, with one click on the web, you can watch <strong>the real calc services run on demand</strong> (ADR-0013).</p>
+    <ul>
+      <li>Open the replay of a <strong>demo</strong> on the web and press "Run on the server" below it. The server calculates with the real Java calc-engine, OCR (Tesseract), Mushoku Tensei and mortgage services, and the result appears in the same flow diagram, labeled as a record just run on the server.</li>
+      <li>The AI is still <strong>scripted</strong>: no real Claude and no API key on the server, so no cost. That also means no free questions; only the fixed demos run.</li>
+      <li>The server runs on Hugging Face Spaces' free CPU. It sleeps when unused, so the first click may take about a minute to wake it.</li>
+      <li>To keep it available: one run at a time, 6 runs per minute and 60 per day per client.</li>
+    </ul>
+    <div class="callout warn"><strong>Note</strong>The server goes public after the author sets up the Hugging Face account; until then the button does not appear on the web.</div>
+
+<h2>What will not change</h2>
     <p>New domains, screenshot input and the web interface would all go through the same core flow. So for you, the following guarantees stay in place:</p>
     <div class="cards">
       <div class="card"><h4>Numbers come only from calculation tools</h4><p>The AI only writes templates with <code>[[sourceID]]</code>, and the program fills in the numbers.</p></div>
