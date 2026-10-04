@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FlowDiagram } from "./FlowDiagram";
 import { useI18n } from "./i18n";
 import { buildSteps } from "./replay";
@@ -7,6 +7,8 @@ import { Question } from "./Question";
 import { Tx } from "./Tx";
 import type { RunRecord, TraceRecord } from "./types";
 
+const STEP_PACE_MS = 1200;
+
 /** 1 回の実行を、図・コマ送り・出典の表で見せる。公開の回放と手元の実行で共用する。 */
 export function RunPlayer({
   run,
@@ -14,6 +16,8 @@ export function RunPlayer({
   initialStep,
   followLatest = false,
   isLive = false,
+  livePacing = false,
+  onPacingComplete,
 }: {
   run: RunRecord;
   services: Record<string, string>;
@@ -23,13 +27,29 @@ export function RunPlayer({
   followLatest?: boolean;
   /** リアルタイム対話（多言語直接出力）かどうか。true の場合は静的翻訳注記や lang="ja" を無効化する */
   isLive?: boolean;
+  /** 即時対話のステップを1コマずつ一定時間（1.2秒以上）とどまって滑らかに歩進させるか */
+  livePacing?: boolean;
+  /** ペーシング完了時のコールバック */
+  onPacingComplete?: () => void;
 }) {
   const { h, lang } = useI18n();
   const steps = useMemo(() => buildSteps(run.events, services, h), [run, services, h]);
-  const [i, setI] = useState(() => (initialStep !== undefined ? initialStep : Math.max(0, steps.length - 1)));
+  const [i, setI] = useState(() => (livePacing ? 0 : initialStep !== undefined ? initialStep : Math.max(0, steps.length - 1)));
   const [playing, setPlaying] = useState(false);
 
+  const stepStartTimeRef = useRef(Date.now());
+  const currentStepRef = useRef(i);
+  const onPacingCompleteRef = useRef(onPacingComplete);
+  onPacingCompleteRef.current = onPacingComplete;
+
+  if (currentStepRef.current !== i) {
+    currentStepRef.current = i;
+    stepStartTimeRef.current = Date.now();
+  }
+
+  // 非 livePacing モード（リプレイ閲覧・履歴切り替えなど）
   useEffect(() => {
+    if (livePacing) return;
     if (followLatest || initialStep === undefined) {
       setI(Math.max(0, steps.length - 1));
       setPlaying(false);
@@ -37,17 +57,54 @@ export function RunPlayer({
       setI(Math.min(initialStep, Math.max(0, steps.length - 1)));
       setPlaying(false);
     }
-  }, [run.run_id, initialStep, steps.length, followLatest]);
+  }, [run.run_id, initialStep, steps.length, followLatest, livePacing]);
 
+  // livePacing が false -> true に切り替わった場合（新実行開始）、0 コマ目からリセット
+  const prevLivePacingRef = useRef(livePacing);
   useEffect(() => {
-    if (!playing) return;
+    if (!prevLivePacingRef.current && livePacing) {
+      setI(0);
+      currentStepRef.current = 0;
+      stepStartTimeRef.current = Date.now();
+      setPlaying(false);
+    }
+    prevLivePacingRef.current = livePacing;
+  }, [livePacing]);
+
+  // livePacing モード：各ステップ最低 1200ms 画面にとどまってから次へ進む
+  useEffect(() => {
+    if (!livePacing) return;
+
+    if (i < steps.length - 1) {
+      const elapsed = Date.now() - stepStartTimeRef.current;
+      const delay = Math.max(0, STEP_PACE_MS - elapsed);
+      const timer = window.setTimeout(() => {
+        setI((prev) => {
+          if (prev < steps.length - 1) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, delay);
+      return () => window.clearTimeout(timer);
+    } else {
+      // 最後のステップに到達し、かつバックエンドの実行が完了（status !== null）しているなら完了通知
+      if (run.status !== null) {
+        onPacingCompleteRef.current?.();
+      }
+    }
+  }, [livePacing, i, steps.length, run.status]);
+
+  // 通常の再生機能（手動の「再生 / 一時停止」ボタン）
+  useEffect(() => {
+    if (!playing || livePacing) return;
     if (i >= steps.length - 1) {
       setPlaying(false);
       return;
     }
     const t = window.setTimeout(() => setI((n) => n + 1), 1400);
     return () => window.clearTimeout(t);
-  }, [playing, i, steps.length]);
+  }, [playing, livePacing, i, steps.length]);
 
   const step = steps[i];
   const question = run.events.find((e) => e.event === "question");
@@ -66,16 +123,16 @@ export function RunPlayer({
       </div>
       <FlowDiagram step={step} />
       <div className="controls">
-        <button onClick={() => setI(0)} disabled={i === 0}>
+        <button onClick={() => setI(0)} disabled={livePacing || i === 0}>
           <Tx k="btn.first" />
         </button>
-        <button onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0}>
+        <button onClick={() => setI((n) => Math.max(0, n - 1))} disabled={livePacing || i === 0}>
           <Tx k="btn.prev" />
         </button>
-        <button onClick={() => setPlaying((p) => !p)} disabled={atEnd && !playing}>
+        <button onClick={() => setPlaying((p) => !p)} disabled={livePacing || (atEnd && !playing)}>
           <Tx k={playing ? "btn.pause" : "btn.play"} />
         </button>
-        <button onClick={() => setI((n) => Math.min(steps.length - 1, n + 1))} disabled={atEnd}>
+        <button onClick={() => setI((n) => Math.min(steps.length - 1, n + 1))} disabled={livePacing || atEnd}>
           <Tx k="btn.next" />
         </button>
         <span className="muted">

@@ -149,9 +149,13 @@ export function LiveView({
   const [progress, setProgress] = useState("novel:1");
   const [fake, setFake] = useState(!apiBase);
   const [busy, setBusy] = useState(false);
+  const [pacing, setPacing] = useState(false);
+  const [liveSessionKey, setLiveSessionKey] = useState(0);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<RunRecord | null>(() => history[0] ?? null);
+
+  const isRunning = busy || pacing;
 
   const submit = async () => {
     const req: AskRequest = {
@@ -163,6 +167,8 @@ export function LiveView({
       stream: true,
     };
     setBusy(true);
+    setPacing(true);
+    setLiveSessionKey((k) => k + 1);
     setError(null);
     setStatusText(null);
 
@@ -224,6 +230,7 @@ export function LiveView({
       });
     } catch (e) {
       setError((e as Error).message);
+      setPacing(false);
     } finally {
       setBusy(false);
       setStatusText(null);
@@ -308,9 +315,14 @@ export function LiveView({
             <select
               style={{ flex: 1, minWidth: 0 }}
               value={run?.run_id ?? ""}
+              disabled={isRunning}
               onChange={(e) => {
                 const found = history.find((h) => h.run_id === e.target.value);
-                if (found) setRun(found);
+                if (found) {
+                  setRun(found);
+                  setPacing(false);
+                  setLiveSessionKey((k) => k + 1);
+                }
               }}
             >
               {history.map((h, idx) => {
@@ -322,6 +334,7 @@ export function LiveView({
             <button
               type="button"
               className="sample-chip"
+              disabled={isRunning}
               onClick={() => {
                 setHistory([]);
                 try {
@@ -330,6 +343,7 @@ export function LiveView({
                   // ignore
                 }
                 setRun(null);
+                setPacing(false);
               }}
             >
               <Tx k="live.historyClear" />
@@ -339,14 +353,14 @@ export function LiveView({
         {!apiBase && info.has_api_key && (
           <div style={{ display: "flex", gap: "14px", marginBottom: "4px" }}>
             <label>
-              <input type="radio" checked={mode === "gemini"} onChange={() => setMode("gemini")} /> <Tx k="live.gemini" />
+              <input type="radio" checked={mode === "gemini"} onChange={() => setMode("gemini")} disabled={isRunning} /> <Tx k="live.gemini" />
             </label>
             <label>
-              <input type="radio" checked={mode === "anthropic"} onChange={() => setMode("anthropic")} /> <Tx k="live.anthropic" />
+              <input type="radio" checked={mode === "anthropic"} onChange={() => setMode("anthropic")} disabled={isRunning} /> <Tx k="live.anthropic" />
             </label>
           </div>
         )}
-        <select value={domain} onChange={(e) => setDomain(e.target.value)}>
+        <select value={domain} onChange={(e) => setDomain(e.target.value)} disabled={isRunning}>
           {orderedDomains.map((d) => (
             <option key={d} value={d}>
               {domainTitle(lang, d)}
@@ -360,6 +374,7 @@ export function LiveView({
                 key={idx}
                 type="button"
                 className="sample-chip"
+                disabled={isRunning}
                 onClick={() => {
                   setQuestion(s.text[lang] ?? s.text.zh);
                   if (s.progress) setProgress(s.progress);
@@ -378,6 +393,7 @@ export function LiveView({
               onChange={(e) => setProgress(e.target.value)}
               maxLength={40}
               placeholder="novel:5 / anime:2-12"
+              disabled={isRunning}
             />
           </label>
         )}
@@ -387,19 +403,30 @@ export function LiveView({
           rows={4}
           placeholder={t("live.placeholder")}
           maxLength={2000}
+          disabled={isRunning}
         />
         {!apiBase && (
           <label>
-            <input type="checkbox" checked={fake} onChange={(e) => setFake(e.target.checked)} /> <Tx k="live.fake" />
+            <input type="checkbox" checked={fake} onChange={(e) => setFake(e.target.checked)} disabled={isRunning} /> <Tx k="live.fake" />
           </label>
         )}
         {!info.ocr && <Tx k="live.noOcr" as="p" />}
-        <button onClick={submit} disabled={busy || !question.trim()}>
-          {statusText ? statusText : <Tx k={busy ? "live.running" : "live.run"} />}
+        <button onClick={submit} disabled={isRunning || !question.trim()}>
+          {statusText ? statusText : <Tx k={isRunning ? "live.running" : "live.run"} />}
         </button>
       </div>
       {error && <p className="error">{error}</p>}
-      {run && <RunPlayer run={run} services={services} followLatest={busy} isLive={true} />}
+      {run && (
+        <RunPlayer
+          key={liveSessionKey}
+          run={run}
+          services={services}
+          followLatest={isRunning}
+          isLive={true}
+          livePacing={isRunning}
+          onPacingComplete={() => setPacing(false)}
+        />
+      )}
     </main>
   );
 }
