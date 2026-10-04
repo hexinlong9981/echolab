@@ -6,6 +6,8 @@ import { createContext, useContext } from "react";
 import en from "./locales/en.json";
 import ja from "./locales/ja.json";
 import jaRuby from "./locales/ja.ruby.json";
+import questionsEn from "./locales/questions.en.json";
+import questionsZh from "./locales/questions.zh.json";
 import titlesEn from "./locales/titles.en.json";
 import titlesZh from "./locales/titles.zh.json";
 import zh from "./locales/zh.json";
@@ -79,6 +81,13 @@ export function translate(lang: Lang, key: string, params: Params = {}): string 
 export function translateHtml(lang: Lang, key: string, params: Params = {}): string {
   if (lang === "ja" && RUBY.ui[key]) return fill(RUBY.ui[key], params, true);
   return fill(escapeHtml(DICTS[lang][key] ?? ja[key as keyof typeof ja] ?? key), params, true);
+}
+
+const QUESTIONS: Record<"en" | "zh", Dict> = { en: questionsEn, zh: questionsZh };
+
+/** 質問の訳（英中）。質問は日本語の原文をキーにする。日本語のとき・訳が無いときは null。 */
+export function questionText(lang: Lang, jaQuestion: string): string | null {
+  return lang === "ja" ? null : (QUESTIONS[lang][jaQuestion] ?? null);
 }
 
 /** データの表示名（プレーンテキスト。select の選択肢など）。 */

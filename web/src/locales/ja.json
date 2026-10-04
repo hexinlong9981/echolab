@@ -85,5 +85,7 @@
   "raw": "{text}",
   "doc.title": "EchoLab リプレイ・評価",
   "list.suitePrefix": "評価：",
-  "evals.domain": "（ドメイン {domain}）"
+  "evals.domain": "（ドメイン {domain}）",
+  "q.original": "原文",
+  "answer.note": ""
 }

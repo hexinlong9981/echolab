@@ -138,3 +138,19 @@ def test_requests_from_other_sites_are_refused(base_url: str) -> None:
     # フォームの送信（CORS の事前確認が無い形）は Content-Type で拒む
     status, _ = _post(f"{base_url}/api/ask", body, {"Content-Type": "text/plain"})
     assert status == 415
+
+
+def test_question_list_for_translations_is_up_to_date() -> None:
+    """web/src/locales/questions.ja.json（英中の訳のキー）が、デモと評価ケースの質問と一致すること。"""
+    import yaml
+
+    questions = [d["question"] for d in DEMOS]
+    for cases in ("faithfulness/cases.yaml", "faithfulness/mortgage.yaml", "redteam/cases.yaml"):
+        doc = yaml.safe_load((REPO_ROOT / "evals" / cases).read_text(encoding="utf-8"))
+        questions += [c["question"] for c in doc["cases"]]
+    listed = json.loads(
+        (REPO_ROOT / "web/src/locales/questions.ja.json").read_text(encoding="utf-8")
+    )
+    assert sorted(set(questions)) == sorted(listed), (
+        "質問を変えたら、訳（web/src/locales/questions.*.json）も直す"
+    )

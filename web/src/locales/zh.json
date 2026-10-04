@@ -85,5 +85,7 @@
   "raw": "{text}",
   "doc.title": "EchoLab 回放・评估",
   "list.suitePrefix": "评估：",
-  "evals.domain": "（领域 {domain}）"
+  "evals.domain": "（领域 {domain}）",
+  "q.original": "原文（日语）",
+  "answer.note": "上面的回答是程序的实际输出，保持日语原样（不翻译，显示的数字就是系统实际渲染的结果）。"
 }

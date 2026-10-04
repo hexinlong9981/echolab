@@ -148,3 +148,5 @@ html:lang(ja) .app:not(.no-furi.no-eng) .flow-node { line-height: 1.9; }
   table.cases, table.sources { display: block; overflow-x: auto; }
   .app { overflow-x: hidden; }
 }
+.question p { margin: 0; }
+.question .original { margin-top: 4px; font-size: 0.82em; color: var(--muted); }

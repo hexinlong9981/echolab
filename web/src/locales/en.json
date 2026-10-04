@@ -85,5 +85,7 @@
   "raw": "{text}",
   "doc.title": "EchoLab replay & evals",
   "list.suitePrefix": "Evals: ",
-  "evals.domain": " (domain {domain})"
+  "evals.domain": " (domain {domain})",
+  "q.original": "Original (Japanese)",
+  "answer.note": "The answer above is the program's actual output and stays in Japanese (it is not translated, so the numbers shown are exactly what the system rendered)."
 }

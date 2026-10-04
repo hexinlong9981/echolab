@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FlowDiagram } from "./FlowDiagram";
 import { useI18n } from "./i18n";
 import { buildSteps } from "./replay";
+import { Question } from "./Question";
 import { Tx } from "./Tx";
 import type { RunRecord } from "./types";
 
@@ -16,7 +17,7 @@ export function RunPlayer({
   /** 最初に見せるコマ（0 から。URL の #replay/<実行 ID>/<コマ> で指定できる） */
   initialStep?: number;
 }) {
-  const { h } = useI18n();
+  const { h, lang } = useI18n();
   const steps = useMemo(() => buildSteps(run.events, services, h), [run, services, h]);
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -43,7 +44,7 @@ export function RunPlayer({
 
   return (
     <div className="player">
-      {question?.event === "question" && <p className="question">Q. {question.question}</p>}
+      {question?.event === "question" && <Question text={question.question} />}
       <div className="badges">
         <Tx k="badge.domain" p={{ domain: run.domain ?? "" }} />
         {run.llm === "ScriptedLLM" ? <Tx k="badge.scripted" /> : <span>{run.llm}</span>}
@@ -108,7 +109,14 @@ export function RunPlayer({
           </tbody>
         </table>
       )}
-      {atEnd && answer?.event === "answer" && <pre className="answer">{answer.answer}</pre>}
+      {atEnd && answer?.event === "answer" && (
+        <>
+          <pre className="answer" lang="ja">
+            {answer.answer}
+          </pre>
+          {lang !== "ja" && <Tx k="answer.note" as="p" />}
+        </>
+      )}
     </div>
   );
 }

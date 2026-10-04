@@ -85,7 +85,8 @@
   "raw": "{text}",
   "doc.title": "EchoLab <ruby class=\"furi eng\">リプレイ<rp>(</rp><rt lang=\"en\">replay</rt><rp>)</rp></ruby>・<ruby class=\"furi\">評<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class=\"furi\">価<rp>(</rp><rt>か</rt><rp>)</rp></ruby>",
   "list.suitePrefix": "<ruby class=\"furi\">評<rp>(</rp><rt>ひょう</rt><rp>)</rp></ruby><ruby class=\"furi\">価<rp>(</rp><rt>か</rt><rp>)</rp></ruby>：",
-  "evals.domain": "（<ruby class=\"furi eng\">ドメイン<rp>(</rp><rt lang=\"en\">domain</rt><rp>)</rp></ruby> {domain}）"
+  "evals.domain": "（<ruby class=\"furi eng\">ドメイン<rp>(</rp><rt lang=\"en\">domain</rt><rp>)</rp></ruby> {domain}）",
+  "q.original": "<ruby class=\"furi\">原<rp>(</rp><rt>げん</rt><rp>)</rp></ruby><ruby class=\"furi\">文<rp>(</rp><rt>ぶん</rt><rp>)</rp></ruby>"
  },
  "titles": {
   "2 つのビルドの期待ダメージを比べる（差し戻し 1 回）": "2 つの<ruby class=\"furi eng\">ビルド<rp>(</rp><rt lang=\"en\">build</rt><rp>)</rp></ruby>の<ruby class=\"furi\">期<rp>(</rp><rt>き</rt><rp>)</rp></ruby><ruby class=\"furi\">待<rp>(</rp><rt>たい</rt><rp>)</rp></ruby><ruby class=\"furi eng\">ダメージ<rp>(</rp><rt lang=\"en\">damage</rt><rp>)</rp></ruby>を<ruby class=\"furi\">比<rp>(</rp><rt>くら</rt><rp>)</rp></ruby>べる（<ruby class=\"furi\">差<rp>(</rp><rt>さ</rt><rp>)</rp></ruby>し<ruby class=\"furi\">戻<rp>(</rp><rt>もど</rt><rp>)</rp></ruby>し 1 <ruby class=\"furi\">回<rp>(</rp><rt>かい</rt><rp>)</rp></ruby>）",

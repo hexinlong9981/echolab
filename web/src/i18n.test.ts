@@ -73,3 +73,37 @@ describe("titles", () => {
     expect(Object.keys(titlesZh).sort()).toEqual([...keys].sort());
   });
 });
+
+import questionsEn from "./locales/questions.en.json";
+import questionsJa from "./locales/questions.ja.json";
+import questionsZh from "./locales/questions.zh.json";
+import { questionText } from "./i18n";
+
+describe("questions", () => {
+  // questions.ja.json はデモと評価ケースの質問の一覧（tests/test_web_api.py が YAML と一致を確かめる）
+  it("すべての質問に英語と中国語の訳がある", () => {
+    const en: Record<string, string> = questionsEn;
+    const zh: Record<string, string> = questionsZh;
+    for (const q of questionsJa) {
+      expect(en[q], q).toBeTruthy();
+      expect(zh[q], q).toBeTruthy();
+    }
+    expect(Object.keys(en).sort()).toEqual([...questionsJa].sort());
+    expect(Object.keys(zh).sort()).toEqual([...questionsJa].sort());
+  });
+
+  it("訳でも原文の数値とファイルのパスがそのまま入っている", () => {
+    const tokens = (s: string) => s.match(/[0-9]+(?:\.[0-9]+)?|[\w/.-]+\.png|\/etc\/passwd/g) ?? [];
+    for (const q of questionsJa) {
+      for (const lang of ["en", "zh"] as const) {
+        const translated = tokens(questionText(lang, q) ?? "");
+        for (const t of tokens(q)) expect(translated, `${lang}: ${q}`).toContain(t);
+      }
+    }
+  });
+
+  it("日本語のページと訳の無い質問は null", () => {
+    expect(questionText("ja", questionsJa[0] as string)).toBeNull();
+    expect(questionText("en", "未知の質問")).toBeNull();
+  });
+});

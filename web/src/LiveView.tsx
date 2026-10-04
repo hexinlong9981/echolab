@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { type AskRequest, ask } from "./data";
 import { titleText, useI18n } from "./i18n";
+import { Question } from "./Question";
 import { RunPlayer } from "./RunPlayer";
 import { Tx } from "./Tx";
 import type { LocalInfo, RunRecord } from "./types";
@@ -57,7 +58,7 @@ export function LiveView({ info, services }: { info: LocalInfo; services: Record
                 </option>
               ))}
             </select>
-            {selected && <p className="question">Q. {selected.question}</p>}
+            {selected && <Question text={selected.question} />}
             <Tx k="live.scriptedNote" as="p" />
           </>
         ) : (
