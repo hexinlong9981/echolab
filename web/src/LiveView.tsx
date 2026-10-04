@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type AskRequest, ask } from "./data";
 import { type Lang, PACK_ORDER, domainTitle, useI18n } from "./i18n";
 import { LiveError, askOnServer, wake } from "./liveApi";
@@ -74,6 +74,52 @@ export function LiveView({
   apiBase?: string | null;
 }) {
   const { lang, t } = useI18n();
+
+  // 认证状态控制（仅针对公网服务器访问，本地直接免密）
+  const [authed, setAuthed] = useState(!apiBase);
+  const [authChecking, setAuthChecking] = useState(Boolean(apiBase));
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+
+  useEffect(() => {
+    if (!apiBase) return;
+    fetch("/__auth", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { authenticated?: boolean; configured?: boolean }) => {
+        setAuthed(Boolean(data.authenticated || data.configured === false));
+      })
+      .catch(() => {
+        setAuthed(false);
+      })
+      .finally(() => {
+        setAuthChecking(false);
+      });
+  }, [apiBase]);
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const res = await fetch("/__login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: authPassword }),
+      });
+      const data = (await res.json()) as { ok?: boolean };
+      if (res.ok && data.ok) {
+        setAuthed(true);
+      } else {
+        setAuthError(t("live.authWrong"));
+      }
+    } catch {
+      setAuthError(t("live.authWrong"));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   const [mode, setMode] = useState<"gemini" | "anthropic">("gemini");
   const [question, setQuestion] = useState("");
   const orderedDomains = [...info.domains].sort((a, b) => {
@@ -117,6 +163,70 @@ export function LiveView({
       setStatusText(null);
     }
   };
+
+  if (authChecking) {
+    return (
+      <main className="live pad">
+        <p className="muted">
+          <Tx k="loading" />
+        </p>
+      </main>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <main className="live pad">
+        <div className="card" style={{ maxWidth: 360, margin: "40px auto", textAlign: "center" }}>
+          <h2>
+            <Tx k="live.authTitle" />
+          </h2>
+          <p className="muted" style={{ fontSize: "0.86em", lineHeight: 1.5, margin: "8px 0 16px" }}>
+            <Tx k="live.authDesc" />
+          </p>
+          {authError && (
+            <p className="error" style={{ marginBottom: 12 }}>
+              {authError}
+            </p>
+          )}
+          <form onSubmit={handleUnlock} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              placeholder={t("live.authPlaceholder")}
+              autoFocus
+              required
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--line)",
+                background: "var(--bg)",
+                color: "var(--text)",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={authBusy}
+              style={{
+                padding: "8px 12px",
+                border: "1px solid var(--accent)",
+                color: "var(--accent)",
+                borderRadius: 6,
+                background: "transparent",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {authBusy ? t("live.running") : <Tx k="live.authUnlock" />}
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="live pad">
