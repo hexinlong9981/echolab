@@ -59,10 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--llm",
-        choices=["anthropic", "scripted"],
+        choices=["anthropic", "gemini", "scripted"],
         default="anthropic",
-        help="anthropic（実物の Claude。既定）か scripted（台本。API キー不要）",
+        help=(
+            "anthropic（実物の Claude。既定）、gemini（Vertex AI）、"
+            "または scripted（台本。API キー不要）"
+        ),
     )
+    p.add_argument("--model", help="LLM のモデル ID（既定は各プロバイダの既定値）")
     p.add_argument("--script", type=Path, help="--llm scripted の台本（YAML）")
     p.add_argument(
         "--fake-backend",
@@ -94,7 +98,7 @@ async def run(args: argparse.Namespace) -> AgentResult:
     if args.llm == "scripted" and args.script is None:
         raise CliError("--llm scripted には --script（台本の YAML）が必要です")
     load_domain(args.repo_root, args.domain)  # ドメインの有無はここで確かめる（偽物でも同じ）
-    llm = make_llm(args.llm, script=args.script)
+    llm = make_llm(args.llm, model=args.model, script=args.script)
     trace_dir = args.trace_dir if args.trace_dir.is_absolute() else args.repo_root / args.trace_dir
     with tempfile.TemporaryDirectory(prefix="echolab-") as scratch:
         budget = make_budget(args.llm, args.repo_root, Path(scratch))

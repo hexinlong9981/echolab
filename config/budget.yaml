@@ -28,3 +28,23 @@ pricing_usd_per_mtok:
     output: "25.00"
     cache_read: "0.50"
     cache_write: "6.25"
+  gemini-2.5-flash:
+    input: "0.075"
+    output: "0.30"
+    cache_read: "0.01875"
+    cache_write: "0.00"
+  gemini-2.5-pro:
+    input: "1.25"
+    output: "5.00"
+    cache_read: "0.3125"
+    cache_write: "0.00"
+  gemini-1.5-flash:
+    input: "0.075"
+    output: "0.30"
+    cache_read: "0.01875"
+    cache_write: "0.00"
+  gemini-1.5-pro:
+    input: "1.25"
+    output: "5.00"
+    cache_read: "0.3125"
+    cache_write: "0.00"

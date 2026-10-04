@@ -31,7 +31,7 @@ from typing import Any
 import yaml
 
 from core.agent.llm import ScriptedLLM
-from core.agent.loop import Agent, AgentResult, load_answer_note, load_system_prompt
+from core.agent.loop import Agent, AgentResult, Budget, load_answer_note, load_system_prompt
 from core.agent.runtime import REPO_ROOT, make_budget, make_llm, open_gateway
 from core.contracts import UNVERIFIED_NOTE
 
@@ -144,14 +144,15 @@ async def run_case(
     case: Mapping[str, Any],
     *,
     llm_kind: str,
+    model: str | None = None,
     repo_root: Path,
     trace_dir: Path,
-    budget: Any,
+    budget: Budget,
     domain: str = DEFAULT_DOMAIN,
 ) -> CaseResult:
     """1 ケースを実行して、期待と照合する。"""
     scripted = llm_kind == "scripted"
-    llm = ScriptedLLM(case["turns"]) if scripted else make_llm(llm_kind)
+    llm = ScriptedLLM(case["turns"]) if scripted else make_llm(llm_kind, model=model)
     gw = await open_gateway(
         repo_root,
         domain,
@@ -236,6 +237,7 @@ async def run_case(
 async def run_evals(
     *,
     llm_kind: str = "scripted",
+    model: str | None = None,
     cases_path: Path = DEFAULT_CASES,
     repo_root: Path = REPO_ROOT,
     raw_dir: Path = DEFAULT_RAW_DIR,
@@ -264,6 +266,7 @@ async def run_evals(
                 await run_case(
                     case,
                     llm_kind=llm_kind,
+                    model=model,
                     repo_root=repo_root,
                     trace_dir=trace_dir,
                     budget=budget,

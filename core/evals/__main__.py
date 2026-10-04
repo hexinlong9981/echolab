@@ -22,7 +22,8 @@ from core.evals.runner import (
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m core.evals", description="数値の忠実度を評価する")
-    p.add_argument("--llm", choices=["scripted", "anthropic"], default="scripted")
+    p.add_argument("--llm", choices=["scripted", "anthropic", "gemini"], default="scripted")
+    p.add_argument("--model", help="LLM のモデル ID（実物の LLM を使うとき）")
     p.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     p.add_argument("--out", type=Path, help="集計レポート（Markdown）の出力先")
     p.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR, help="生の記録の保存先")
@@ -37,7 +38,13 @@ def main(argv: list[str] | None = None) -> int:
         if not cases.is_file():
             raise CliError(f"ケースのファイルが見つかりません: {cases}")
         report = asyncio.run(
-            run_evals(llm_kind=args.llm, cases_path=cases, raw_dir=args.raw_dir, only=args.only)
+            run_evals(
+                llm_kind=args.llm,
+                model=args.model,
+                cases_path=cases,
+                raw_dir=args.raw_dir,
+                only=args.only,
+            )
         )
     except UnknownCaseError as e:
         print(f"エラー: {e}", file=sys.stderr)
@@ -47,11 +54,16 @@ def main(argv: list[str] | None = None) -> int:
         if code is None:
             raise
         return code
-    model = None
-    if args.llm == "anthropic":
-        from core.agent.llm.claude import DEFAULT_MODEL
+    model = args.model
+    if not model:
+        if args.llm == "anthropic":
+            from core.agent.llm.claude import DEFAULT_MODEL
 
-        model = DEFAULT_MODEL
+            model = DEFAULT_MODEL
+        elif args.llm == "gemini":
+            from core.agent.llm.gemini import DEFAULT_MODEL
+
+            model = DEFAULT_MODEL
     text = render_markdown(report, model=model)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)

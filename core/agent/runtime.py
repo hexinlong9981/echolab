@@ -117,12 +117,21 @@ def make_budget(llm_kind: str, repo_root: Path, scratch_dir: Path) -> Any:
     )
 
 
-def make_llm(kind: str, *, script: Path | Sequence[Mapping[str, Any]] | None = None) -> LLM:
-    """``anthropic``（実物の Claude）か ``scripted``（台本）の LLM を作る。"""
-    from core.agent.llm import AnthropicLLM, ScriptedLLM
+def make_llm(
+    kind: str,
+    *,
+    model: str | None = None,
+    script: Path | Sequence[Mapping[str, Any]] | None = None,
+) -> LLM:
+    """``anthropic``（実物の Claude）、``gemini``（Vertex AI）、
+    または ``scripted``（台本）の LLM を作る。
+    """
+    from core.agent.llm import AnthropicLLM, GeminiLLM, ScriptedLLM
 
     if kind == "anthropic":
-        return AnthropicLLM()
+        return AnthropicLLM(model=model) if model else AnthropicLLM()
+    if kind in ("gemini", "vertex"):
+        return GeminiLLM(model=model) if model else GeminiLLM()
     if kind == "scripted":
         if script is None:
             raise ValueError("--llm scripted には台本（--script）が必要です")
