@@ -167,6 +167,48 @@ function buildHeader(current) {
   }
 }
 
+function spaceRuby(root = document) {
+  const rubies = [...root.querySelectorAll("ruby.furi")];
+  rubies.forEach((r) => (r.style.marginLeft = ""));
+  for (let pass = 0; pass < 2; pass++) {
+    const rt = rubies.map((r) => r.querySelector("rt")?.getBoundingClientRect());
+    const base = rubies.map((r) => r.getBoundingClientRect());
+    const add = new Array(rubies.length).fill(0);
+    let line = null, shift = 0, prevRight = null;
+    rubies.forEach((r, i) => {
+      const q = rt[i];
+      if (!q || !q.width) return; // 非表示のルビ
+      if (line === null || Math.abs(base[i].top - line) > 4) { line = base[i].top; shift = 0; prevRight = null; }
+      const left = q.left + shift;
+      if (prevRight !== null && left < prevRight + 1) {
+        add[i] = prevRight + 1 - left;
+        shift += add[i];
+      }
+      prevRight = q.right + shift;
+    });
+    let changed = false;
+    rubies.forEach((r, i) => {
+      if (add[i] > 0) { changed = true; r.style.marginLeft = `${(parseFloat(r.style.marginLeft) || 0) + add[i]}px`; }
+    });
+    if (!changed) break;
+  }
+  // ルビ（特に英語）がセル・カードなどの幅より広くはみ出すときは、内側へずらして枠に収める
+  const boxes = "td, th, .card, .callout, .node, .badge, .tags span, details, .caption-box";
+  const rts = [...root.querySelectorAll("ruby.furi rt")];
+  rts.forEach((rt) => (rt.style.transform = ""));
+  const moves = rts.map((rt) => {
+    const box = rt.closest(boxes);
+    const q = rt.getBoundingClientRect();
+    if (!box || !q.width) return null;
+    const b = box.getBoundingClientRect();
+    const pad = 2;
+    if (q.left < b.left + pad) return [rt, b.left + pad - q.left];
+    if (q.right > b.right - pad) return [rt, b.right - pad - q.right];
+    return null;
+  });
+  moves.forEach((m) => m && (m[0].style.transform = `translateX(calc(-50% + ${m[1]}px))`));
+}
+
 // 日本語版：ふりがなとカタカナ英語の表示切り替え（既定は表示。選択は保存し、モバイルではナビバーに配置）
 function setupRubyToggles() {
   if (LANG !== "ja") return;
